@@ -1,12 +1,16 @@
 #include "scs_bridge.h"
 #include "esphome/core/log.h"
+#include "esphome/core/application.h"
+#include "esphome/components/api/api_server.h"
 #include <Arduino.h>
-#include <vector>
 #include <queue>
+
+#include "scs_cover.h"
 
 namespace esphome {
 namespace scs_bridge {
 
+#define LOOP_LOWFREQUENCY_PERIOD 2000000 //update timed covers every so micros
 /*
 
   Note about timings:
@@ -55,14 +59,6 @@ namespace scs_bridge {
 /*
   Internal buffers and interrupt state machine state
 */
-//static volatile uint8_t rx_buf[RX_BUFFER_SIZE];
-//static volatile uint8_t rx_buf_read = 0;
-//static volatile uint8_t rx_buf_write = 0;
-static volatile unsigned long rx_last_micros = 0;//last received transition
-static volatile unsigned long rx_next_micros = 0;//estimated start of next byte
-static volatile int8_t rx_bit = -1;
-static volatile bool rx_busy = false;
-
 /*
   received data are 'framed out' based on rx timings i.e.
   every frame will end after a character timeout (RX_BYTE_TIMEOUT)
@@ -71,8 +67,8 @@ static volatile bool rx_busy = false;
 */
 #define RX_FRAME_COUNT 4
 struct RXFrame {
-  unsigned long micros_begin;
-  unsigned long micros_end;
+  uint32_t micros_begin;
+  uint32_t micros_end;
   uint8_t data[RX_BUFFER_SIZE];
   uint8_t length;
 };
@@ -80,26 +76,25 @@ static RXFrame rx_frame[RX_FRAME_COUNT];
 static volatile RXFrame* rx_frame_read = rx_frame;
 static volatile RXFrame* rx_frame_write = rx_frame;
 static volatile RXFrame* rx_frame_end = rx_frame + RX_FRAME_COUNT;
-
-static volatile uint8_t tx_buf[16];
-static volatile uint8_t* tx_buf_read = tx_buf;
-static volatile uint8_t* tx_buf_write = tx_buf;
-static volatile uint8_t* tx_buf_end = tx_buf + sizeof(tx_buf) - 2;
-static volatile bool tx_busy = false;
-static volatile int tx_bitmask = 0;
-static volatile bool tx_waitnrz = false;
-static volatile int tx_repeat_count;// number of consecutive frame repeats
-static volatile int tx_repeat_delay;// delay between each frame repeat
-
+static volatile unsigned long rx_last_micros = 0;//last received transition
+static volatile unsigned long rx_next_micros = 0;//estimated start of next byte
+static volatile int8_t rx_bit = -1;
+static volatile bool rx_busy = false;
 
 struct TXFrame {
-  std::string payload;
-  int         repeat_count;
+  std::vector<uint8_t>  data;
+  int                   repeat;
 };
 static std::queue<struct TXFrame *> tx_queue;
+static std::queue<struct TXFrame *> tx_cache;//keep references to TXFrames to avoid de/realloc
+static TXFrame* tx_frame = NULL;//actual frame in transmission
+static uint8_t* tx_ptr = NULL;//actual byte to send: starts from tx_frame->data.begin()
+static uint8_t* tx_end = NULL;//set to actual tx_frame->data.end()
+static int tx_bitmask = 0;
+static bool tx_waitnrz = false;
 
 /*
-  Config'd pins: static because there's no way we can manage instanced
+  Config'd pins: static because there's no way (or I'm lazy) we can manage instanced
   state machines which run on 'hw constrained' interrupts ;)
 */
 static uint8_t RX_PIN = 3;
@@ -107,8 +102,8 @@ static uint8_t TX_PIN = 1;
 
 void ICACHE_RAM_ATTR rx_isr() {
 
-  unsigned long t = micros();
-  long dt = t - rx_last_micros;
+  uint32_t t = micros();
+  uint32_t dt = t - rx_last_micros;
 
   if (dt > RX_BYTE_TIMEOUT) {
     rx_next_micros = t + RX_BYTE_TIMEOUT;
@@ -152,21 +147,22 @@ void ICACHE_RAM_ATTR tx_isr() {
 
   if (tx_bitmask == 0) {
     //state machine is idle
-    if (tx_buf_read != tx_buf_write) {
+    if (tx_ptr != tx_end) {
       //new byte to send: start bit first
       timer1_write(TX_0_TICKS);
       digitalWrite(TX_PIN, 1);
       tx_waitnrz = true;
       tx_bitmask = 1;
     } else {
-      tx_busy = false;
+      tx_cache.push(tx_frame);
+      tx_frame = NULL;
     }
     return;
   }
 
   if (tx_bitmask < 256) {
     //shifting out the bits
-    if (*tx_buf_read & tx_bitmask) {
+    if (*tx_ptr & tx_bitmask) {
       //'1' bit to send: transmit 'low' on the bus for 104 microsec
       timer1_write(TX_1_TICKS);
       digitalWrite(TX_PIN, 0);
@@ -183,14 +179,14 @@ void ICACHE_RAM_ATTR tx_isr() {
   //set the bus to idle and (eventually) reschedule
   digitalWrite(TX_PIN, 0);
   tx_bitmask = 0;
-  if (++tx_buf_read != tx_buf_write) {
+  if (++tx_ptr != tx_end) {
     //another char in frame: STOP bit and then continue
     timer1_write(TX_STOP_TICKS);
   }
-  else if (--tx_repeat_count > 0) {
+  else if (--tx_frame->repeat > 0) {
     //retransmit the same frame after waiting some
-    tx_buf_read = tx_buf;
-    timer1_write(tx_repeat_delay);
+    tx_ptr = &(*tx_frame->data.begin());
+    timer1_write(TX_FRAME_REPEAT_DELAY);
   }
   else {
     //finished: let the bus idle for long enough to allow other transmissions
@@ -199,9 +195,9 @@ void ICACHE_RAM_ATTR tx_isr() {
 };
 
 
-static const char *const TAG = "scs_bridge";
+//static const char *const TAG = "scs_bridge";
 static const char *const HEX_TABLE = "0123456789ABCDEF";
-static char hex_buffer[RX_BUFFER_SIZE * 2 + 1];
+
 
 uint8_t getnibble(const char c) {
   if (c < ' ')
@@ -221,23 +217,19 @@ uint8_t getnibble(const char c) {
   return 0xFE; //skip
 };
 
-SCSBridgeComponent::SCSBridgeComponent() {
+const char *const SCSBridge::TAG = "scs_bridge";
+
+SCSBridge::SCSBridge() {
 
 }
 
-SCSBridgeComponent::SCSBridgeComponent(GPIOPin* rx_pin, GPIOPin* tx_pin) {
-  RX_PIN = rx_pin->get_pin();
-  TX_PIN = tx_pin->get_pin();
-}
-
-SCSBridgeComponent::SCSBridgeComponent(uint8_t rx_pin, uint8_t tx_pin) {
+SCSBridge::SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string cover_name_template)
+  : cover_name_template(cover_name_template) {
   RX_PIN = rx_pin;
   TX_PIN = tx_pin;
 }
 
-void SCSBridgeComponent::setup() {
-
-  //register_service(&SCSBridgeComponent::send, "scs_send", { "payload", "repeat_count" });
+void SCSBridge::setup() {
 
   pinMode(RX_PIN, INPUT);
   attachInterrupt(RX_PIN, rx_isr, RISING);
@@ -247,13 +239,17 @@ void SCSBridgeComponent::setup() {
   timer1_isr_init();
   timer1_attachInterrupt(tx_isr);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+
+  //query all physical devices
+  SCSBridge::send(SCS_ADR_BROADCAST_QUERY, SCS_ADR_SCSBRIDGE, SCS_CMD_GET, 0x00);
 }
 
-void SCSBridgeComponent::loop() {
+void SCSBridge::loop() {
   /*
     flush receive buffer
   */
-  if (rx_busy && (micros() > rx_next_micros)) {
+  uint32_t current_micros = micros();
+  if (rx_busy && (current_micros > rx_next_micros)) {
     ETS_INTR_LOCK();
     rx_busy = false;
     if (rx_bit != -1) {
@@ -267,78 +263,156 @@ void SCSBridgeComponent::loop() {
     ETS_INTR_UNLOCK();
   }
 
-  std::string payload;
+  std::string frame;
   while (rx_frame_read != rx_frame_write) {
-    payload.clear();
+    frame.clear();
     for (int i = 0; i < rx_frame_read->length; ++i) {
       uint8_t b = rx_frame_read->data[i];
-      payload += HEX_TABLE[(b >> 4) & 0x0F];
-      payload += HEX_TABLE[b & 0x0F];
+      frame += HEX_TABLE[(b >> 4) & 0x0F];
+      frame += HEX_TABLE[b & 0x0F];
     }
-    ESP_LOGD(TAG, "frame received { payload: %s , micros: %lu} ", payload.c_str(), rx_frame_read->micros_begin);
-    this->frame_callback_.call(payload);
+    ESP_LOGD(TAG, "frame received { frame: %s , micros: %lu} ", frame.c_str(), rx_frame_read->micros_begin);
+
+    if ((rx_frame_read->length >= 7) &&
+      (rx_frame_read->data[0] == 0xA8) &&
+      (rx_frame_read->data[6] == 0xA3)) {
+      uint8_t dst_address = rx_frame_read->data[1];
+      uint8_t src_address = rx_frame_read->data[2];
+      uint8_t command = rx_frame_read->data[3];
+      uint8_t value = rx_frame_read->data[4];
+      if ((dst_address ^ src_address ^ command ^ value) == rx_frame_read->data[5]) {
+        switch (dst_address) {
+          case SCS_ADR_BROADCAST_STATUS://broadcast address -> src_address publishing status
+            switch (command) {
+              case SCS_CMD_SET:
+                switch (value) {
+                  case SCS_VAL_COVER_UP:
+                    getcover_(src_address)->command_up(rx_frame_read->micros_begin);
+                    break;
+                  case SCS_VAL_COVER_DOWN:
+                    getcover_(src_address)->command_down(rx_frame_read->micros_begin);
+                    break;
+                  case SCS_VAL_COVER_STOP:
+                    getcover_(src_address)->command_stop(rx_frame_read->micros_begin);
+                    break;
+                }
+            }
+            break;// case SCS_ADR_BROADCAST
+        }
+      }
+    }
+
     if (++rx_frame_read == rx_frame_end)
       rx_frame_read = rx_frame;
+
+    this->frame_callback_.call(frame);
   }
 
   /*
     flush send_queue
   */
 
-  if (!(tx_busy | rx_busy | tx_queue.empty())) {
-    struct TXFrame *frame = tx_queue.front();
-    const char *_p = frame->payload.c_str();
-    ESP_LOGD(TAG, "start transmission of %s", _p);
-    tx_buf_read = tx_buf_write = tx_buf;
-    *tx_buf_write = 0xA8;
-    uint8_t checksum = 0;
-    for (;;) {
-      uint8_t _hinibble, _lonibble;
-      __hinibble:
-        _hinibble = getnibble(*_p++);
-        if (_hinibble == 0xFE)
-          goto __hinibble;
-        if (_hinibble == 0xFF)
-          break;
-
-      __lonibble:
-        _lonibble = getnibble(*_p++);
-        if (_lonibble == 0xFE)
-          goto __lonibble;
-        if (_lonibble == 0xFF)
-          break;
-
-      checksum ^= *++tx_buf_write = (_hinibble << 4) + _lonibble;
-      if (tx_buf_write == tx_buf_end) {
-        ESP_LOGD(TAG, "Warning: tx payload length too long");
-        break;
-      }
-    }
-    *++tx_buf_write = checksum;
-    *++tx_buf_write = 0xA3;
-    ++tx_buf_write;
-    tx_repeat_count = frame->repeat_count;
-    tx_repeat_delay = TX_FRAME_REPEAT_DELAY;
+  if (!((tx_frame != NULL) | rx_busy | tx_queue.empty())) {
+    tx_frame = tx_queue.front();
     tx_queue.pop();
-    delete frame;
-    tx_busy = true;
-    timer1_write(TX_1_TICKS);//schedule the tx isr
+    tx_ptr = &(*tx_frame->data.begin());
+    tx_end = &(*tx_frame->data.end());
+    timer1_write(TX_1_TICKS);  // schedule the tx isr
+  }
+
+  if (current_micros > this->next_polling_micros_) {
+    this->next_polling_micros_ = current_micros + LOOP_LOWFREQUENCY_PERIOD;
+    for (auto cover : this->covers_)
+      cover->loop_refresh(current_micros);
   }
 }
 
-void SCSBridgeComponent::dump_config() {
+void SCSBridge::dump_config() {
   ESP_LOGCONFIG(TAG, "RX pin: %d", RX_PIN);
   ESP_LOGCONFIG(TAG, "TX pin: %d", TX_PIN);
 }
 
-void SCSBridgeComponent::send(std::string payload, uint32_t repeat_count) {
-  struct TXFrame* frame = new TXFrame();
-  frame->payload = payload;
-  frame->repeat_count = repeat_count;
+void SCSBridge::send(std::vector<uint8_t> payload, uint32_t repeat) {
+  struct TXFrame *frame;
+  if (tx_cache.empty()) {
+    frame = new TXFrame();
+  } else {
+    frame = tx_cache.front();
+    tx_cache.pop();
+  }
+  frame->data.clear();
+  frame->data.push_back(0xA8);
+  uint8_t checksum = 0;
+  for (std::vector<uint8_t>::iterator p = payload.begin(); p < payload.end(); ++p) {
+    checksum ^= *p;
+    frame->data.push_back(*p);
+  }
+  frame->data.push_back(checksum);
+  frame->data.push_back(0xA3);
+  frame->repeat = repeat;
   tx_queue.push(frame);
-  ESP_LOGD(TAG, "scs_send : enqueuing %s", payload.c_str());
+  //ESP_LOGD(TAG, "scs_send : enqueuing %s", payload.c_str());
 }
 
+void SCSBridge::send(std::string payload, uint32_t repeat) {
+
+  std::vector<uint8_t> _data;
+  for (const char* p = payload.c_str();;) {
+    uint8_t _hinibble, _lonibble;
+    __hinibble:
+      _hinibble = getnibble(*p++);
+      if (_hinibble == 0xFE)
+        goto __hinibble;
+      if (_hinibble == 0xFF)
+        break;
+
+    __lonibble:
+      _lonibble = getnibble(*p++);
+      if (_lonibble == 0xFE)
+        goto __lonibble;
+      if (_lonibble == 0xFF)
+        break;
+
+    _data.push_back((_hinibble << 4) + _lonibble);
+  }
+  SCSBridge::send(_data, repeat);
+}
+
+void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value) {
+  struct TXFrame *frame;
+  if (tx_cache.empty()) {
+    frame = new TXFrame();
+  } else {
+    frame = tx_cache.front();
+    tx_cache.pop();
+  }
+  frame->data.clear();
+  frame->data.push_back(0xA8);
+  frame->data.push_back(dst_address);
+  frame->data.push_back(src_address);
+  frame->data.push_back(command);
+  frame->data.push_back(value);
+  frame->data.push_back(dst_address^src_address^command^value);
+  frame->data.push_back(0xA3);
+  frame->repeat = 1;
+  tx_queue.push(frame);
+}
+
+SCSCover *SCSBridge::getcover_(uint8_t address) {
+  for (auto cover : this->covers_) {
+    if (cover->address == address)
+      return cover;
+  }
+
+  SCSCover *cover = new SCSCover(address,
+    this->cover_name_template + HEX_TABLE[(address >> 4) & 0x0F] + HEX_TABLE[address & 0x0F]);
+  this->covers_.push_back(cover);
+  App.register_cover(cover);
+  if (api::global_api_server)
+    cover->add_on_state_callback([cover](){ api::global_api_server->on_cover_update(cover); });
+
+  return cover;
+}
 
 }  // namespace scs_bridge
 }  // namespace esphome
