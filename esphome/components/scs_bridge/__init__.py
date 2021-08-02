@@ -14,20 +14,22 @@ from esphome.const import (
 CODEOWNERS = ["@krahabb"]
 
 scs_bridge_ns = cg.esphome_ns.namespace("scs_bridge")
-SCSBridgeComponent = scs_bridge_ns.class_("SCSBridgeComponent", cg.Component)
+SCSBridge = scs_bridge_ns.class_("SCSBridge", cg.Component)
 SCSBridgeFrameTrigger = scs_bridge_ns.class_(
     "SCSBridgeFrameTrigger", automation.Trigger.template(cg.std_string)
 )
 SCSBridgeSendAction = scs_bridge_ns.class_("SCSBridgeSendAction", automation.Action)
 
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
+CONF_SCS_COVER_NAME = "scs_cover_name"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(SCSBridgeComponent),
-            cv.Required(CONF_RX_PIN): pins.input_pin,
-            cv.Required(CONF_TX_PIN): pins.output_pin,
+            cv.GenerateID(): cv.declare_id(SCSBridge),
+            cv.Optional(CONF_RX_PIN, default=3): pins.input_pin,
+            cv.Optional(CONF_TX_PIN, default=1): pins.output_pin,
+            cv.Optional(CONF_SCS_COVER_NAME, default="scs_"): cv.string,
             cv.Optional(CONF_ON_FRAME_RECEIVED): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -45,7 +47,12 @@ async def to_code(config):
     # tx_pin = await cg.gpio_pin_expression(config[CONF_TX_PIN])
     # var = cg.new_Pvariable(config[CONF_ID], rx_pin, tx_pin)
     # var = cg.new_Pvariable(config[CONF_ID])
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_RX_PIN], config[CONF_TX_PIN])
+    var = cg.new_Pvariable(
+        config[CONF_ID],
+        config[CONF_RX_PIN],
+        config[CONF_TX_PIN],
+        config[CONF_SCS_COVER_NAME],
+    )
     await cg.register_component(var, config)
 
     for conf in config.get(CONF_ON_FRAME_RECEIVED, []):
@@ -70,5 +77,5 @@ async def scs_bridge_send_to_code(config, action_id, template_args, args):
     template_ = await cg.templatable(config[CONF_PAYLOAD], args, cg.std_string)
     cg.add(var.set_payload(template_))
     template_ = await cg.templatable(config[CONF_REPEAT], args, cg.uint32)
-    cg.add(var.set_repeat_count(template_))
+    cg.add(var.set_repeat(template_))
     return var

@@ -5,17 +5,31 @@
 #include "esphome/core/esphal.h"
 #include "esphome/core/automation.h"
 #include <string>
+#include <vector>
+#include "scs_device.h"
 
 namespace esphome {
 namespace scs_bridge {
 
+#define SCS_ADR_SCSBRIDGE 0x00 //fix this right now..used as our src addr
+#define SCS_ADR_BROADCAST_STATUS 0xB8
+#define SCS_ADR_BROADCAST_QUERY 0xB1
+#define SCS_CMD_SET 0x12
+#define SCS_CMD_GET 0x15
+#define SCS_VAL_COVER_UP 0x08
+#define SCS_VAL_COVER_DOWN 0x09
+#define SCS_VAL_COVER_STOP 0x0A
 
-class SCSBridgeComponent : public Component {
+class SCSCover;
+
+class SCSBridge : public Component {
  public:
-  SCSBridgeComponent();
-  SCSBridgeComponent(uint8_t rx_pin, uint8_t tx_pin);
-  SCSBridgeComponent(GPIOPin* rx_pin, GPIOPin* tx_pin);
+  static const char *const TAG;
 
+  std::string cover_name_template;
+
+  SCSBridge();
+  SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string cover_name_template);
 
   void setup() override;
   void loop() override;
@@ -25,15 +39,24 @@ class SCSBridgeComponent : public Component {
     this->frame_callback_.add(std::move(callback));
   }
 
-  static void send(std::string payload, uint32_t repeat_count);
+
+  static void send(std::vector<uint8_t> payload, uint32_t repeat);
+  static void send(std::string payload, uint32_t repeat);
+  static void send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value);
 
  protected:
+  //use this to establish a low frequency 'poll' for time based covers
+  uint32_t next_polling_micros_;
+
+  std::vector<SCSCover *> covers_;
+  SCSCover *getcover_(uint8_t address);
+
   CallbackManager<void(std::string)> frame_callback_;
 };
 
 class SCSBridgeFrameTrigger : public Trigger<std::string> {
  public:
-  explicit SCSBridgeFrameTrigger(SCSBridgeComponent *parent) {
+  explicit SCSBridgeFrameTrigger(SCSBridge *parent) {
     parent->add_on_frame_callback([this](std::string payload) { this->trigger(payload); });
   }
 };
@@ -43,10 +66,10 @@ template<typename... Ts> class SCSBridgeSendAction : public Action<Ts...> {
  public:
   SCSBridgeSendAction() {}
   TEMPLATABLE_VALUE(std::string, payload)
-  TEMPLATABLE_VALUE(uint32_t, repeat_count)
+  TEMPLATABLE_VALUE(uint32_t, repeat)
 
   void play(Ts... x) {
-    SCSBridgeComponent::send(this->payload_.value(x...), this->repeat_count_.value(x...));
+    SCSBridge::send(this->payload_.value(x...), this->repeat_.value(x...));
   }
 
  protected:
