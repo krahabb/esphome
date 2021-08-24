@@ -1,9 +1,12 @@
 # ESPHome [![Discord Chat](https://img.shields.io/discord/429907082951524364.svg)](https://discord.gg/KhAMKrd) [![GitHub release](https://img.shields.io/github/release/esphome/esphome.svg)](https://GitHub.com/esphome/esphome/releases/)
 
-[![ESPHome Logo](https://esphome.io/_images/logo-text.png)](https://esphome.io/)
 
-**Documentation:** https://esphome.io/
+This is a (personal) fork of the awesome [EspHome](https://github.com/esphome) project. It contains a bunch of additional nodes I've developed for my own use and I'm too lazy to push to upstream repo.
 
-For issues, please go to [the issue tracker](https://github.com/esphome/issues/issues).
+In details I've added/refactored this components:
+- dallas: the original Dallas component in EspHome needs you to hard-code sensor IDs in configuration so you need to identify (by log or other means) and recompile your node when adding or changing physical sensors. My implementation allows to automatically 'discover' any new physical device attached to the relevant ESP interface line and register it in HA without knowing it in advance.
+- scs_bridge: this component talks to SCS bus (by BTicino/Legrand) devices by encoding and decoding the messages exchanged on the bus. This way you can integrate 'legacy' home automation hardware in your HA-EspHome environment and bring some HAwesomeness to this old stuff. The component work is based on the reverse engineered protocol from [GuidoPic](http://guidopic.altervista.org/alter/eibscsgt.html) and needs some dedicated hardware in order to adapt the ESP GPIO to the bus physical layer. Actual implementation exposes basic 'hooks' in order to send/receive raw frames to/from devices and a cover implementation for well...BTicino roller-shutters
 
-For feature requests, please see [feature requests](https://github.com/esphome/feature-requests/issues).
+**Official Repositiory:** https://github.com/esphome
+
+**Official Documentation:** https://esphome.io/
