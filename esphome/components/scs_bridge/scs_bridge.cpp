@@ -67,6 +67,7 @@ namespace scs_bridge {
 */
 #define RX_FRAME_COUNT 4
 struct RXFrame {
+  uint32_t millis_begin;
   uint32_t micros_begin;
   uint32_t micros_end;
   uint8_t data[RX_BUFFER_SIZE];
@@ -117,6 +118,7 @@ void ICACHE_RAM_ATTR rx_isr() {
         rx_frame_write = rx_frame;
       rx_frame_write->length = 0;
     }
+    rx_frame_write->millis_begin = millis();
     rx_frame_write->micros_begin = t;
     rx_frame_write->data[0] = 0xFF;
     rx_busy = true;
@@ -218,13 +220,14 @@ uint8_t getnibble(const char c) {
 };
 
 const char *const SCSBridge::TAG = "scs_bridge";
+SCSBridge *SCSBridge::instance_;
+std::vector<SCSCover *> SCSBridge::covers_;
 
-SCSBridge::SCSBridge() {
-
-}
+SCSBridge::SCSBridge() { SCSBridge::instance_ = this; }
 
 SCSBridge::SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string cover_name_template)
   : cover_name_template(cover_name_template) {
+  SCSBridge::instance_ = this;
   RX_PIN = rx_pin;
   TX_PIN = tx_pin;
 }
@@ -263,15 +266,15 @@ void SCSBridge::loop() {
     ETS_INTR_UNLOCK();
   }
 
-  std::string frame;
+  std::string framestr;
   while (rx_frame_read != rx_frame_write) {
-    frame.clear();
+    framestr.clear();
     for (int i = 0; i < rx_frame_read->length; ++i) {
       uint8_t b = rx_frame_read->data[i];
-      frame += HEX_TABLE[(b >> 4) & 0x0F];
-      frame += HEX_TABLE[b & 0x0F];
+      framestr += HEX_TABLE[(b >> 4) & 0x0F];
+      framestr += HEX_TABLE[b & 0x0F];
     }
-    ESP_LOGD(TAG, "frame received { frame: %s , micros: %lu} ", frame.c_str(), rx_frame_read->micros_begin);
+    ESP_LOGD(TAG, "frame received { frame: %s , micros: %lu} ", framestr.c_str(), rx_frame_read->micros_begin);
 
     if ((rx_frame_read->length >= 7) &&
       (rx_frame_read->data[0] == 0xA8) &&
@@ -287,13 +290,13 @@ void SCSBridge::loop() {
               case SCS_CMD_SET:
                 switch (value) {
                   case SCS_VAL_COVER_UP:
-                    getcover_(src_address)->command_up(rx_frame_read->micros_begin);
+                    getcover_(src_address)->command_up(rx_frame_read->millis_begin);
                     break;
                   case SCS_VAL_COVER_DOWN:
-                    getcover_(src_address)->command_down(rx_frame_read->micros_begin);
+                    getcover_(src_address)->command_down(rx_frame_read->millis_begin);
                     break;
                   case SCS_VAL_COVER_STOP:
-                    getcover_(src_address)->command_stop(rx_frame_read->micros_begin);
+                    getcover_(src_address)->command_stop(rx_frame_read->millis_begin);
                     break;
                 }
             }
@@ -305,7 +308,7 @@ void SCSBridge::loop() {
     if (++rx_frame_read == rx_frame_end)
       rx_frame_read = rx_frame;
 
-    this->frame_callback_.call(frame);
+    this->frame_callback_.call(framestr);
   }
 
   /*
@@ -315,16 +318,17 @@ void SCSBridge::loop() {
   if (!((tx_frame != NULL) | rx_busy | tx_queue.empty())) {
     tx_frame = tx_queue.front();
     tx_queue.pop();
+    framestr.clear();
+    for (uint8_t b : tx_frame->data) {
+      framestr += HEX_TABLE[(b >> 4) & 0x0F];
+      framestr += HEX_TABLE[b & 0x0F];
+    }
+    ESP_LOGD(TAG, "sending frame { frame: %s , micros: %lu} ", framestr.c_str(), current_micros);
     tx_ptr = &(*tx_frame->data.begin());
     tx_end = &(*tx_frame->data.end());
     timer1_write(TX_1_TICKS);  // schedule the tx isr
   }
 
-  if (current_micros > this->next_polling_micros_) {
-    this->next_polling_micros_ = current_micros + LOOP_LOWFREQUENCY_PERIOD;
-    for (auto cover : this->covers_)
-      cover->loop_refresh(current_micros);
-  }
 }
 
 void SCSBridge::dump_config() {
@@ -332,7 +336,7 @@ void SCSBridge::dump_config() {
   ESP_LOGCONFIG(TAG, "TX pin: %d", TX_PIN);
 }
 
-void SCSBridge::send(std::vector<uint8_t> payload, uint32_t repeat) {
+/*static*/ void SCSBridge::send(std::vector<uint8_t> payload, uint32_t repeat) {
   struct TXFrame *frame;
   if (tx_cache.empty()) {
     frame = new TXFrame();
@@ -354,7 +358,7 @@ void SCSBridge::send(std::vector<uint8_t> payload, uint32_t repeat) {
   //ESP_LOGD(TAG, "scs_send : enqueuing %s", payload.c_str());
 }
 
-void SCSBridge::send(std::string payload, uint32_t repeat) {
+/*static*/ void SCSBridge::send(std::string payload, uint32_t repeat) {
 
   std::vector<uint8_t> _data;
   for (const char* p = payload.c_str();;) {
@@ -378,7 +382,7 @@ void SCSBridge::send(std::string payload, uint32_t repeat) {
   SCSBridge::send(_data, repeat);
 }
 
-void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value) {
+/*static*/ void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value) {
   struct TXFrame *frame;
   if (tx_cache.empty()) {
     frame = new TXFrame();
@@ -398,16 +402,32 @@ void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, 
   tx_queue.push(frame);
 }
 
+/*static*/ void SCSBridge::register_cover(SCSCover *cover) {
+  SCSBridge::covers_.push_back(cover);
+  App.register_component(cover);
+}
+
 SCSCover *SCSBridge::getcover_(uint8_t address) {
-  for (auto cover : this->covers_) {
+  for (auto cover : SCSBridge::covers_) {
     if (cover->address == address)
       return cover;
   }
 
+  /*
+    dynamically adding a component/nameable to core:
+    this could be tricky. Right now I see
+    the component at this stage will not be added to the looping
+    components but that's no issue so far since
+    scs components rely on the Scheduler to process execution
+  */
   SCSCover *cover = new SCSCover(address,
     this->cover_name_template + HEX_TABLE[(address >> 4) & 0x0F] + HEX_TABLE[address & 0x0F]);
-  this->covers_.push_back(cover);
+
   App.register_cover(cover);
+  /*
+    at this stage api::global_api_server has already looped through registered entities
+    so we'll 'manually' add this cover
+  */
   if (api::global_api_server)
     cover->add_on_state_callback([cover](){ api::global_api_server->on_cover_update(cover); });
 

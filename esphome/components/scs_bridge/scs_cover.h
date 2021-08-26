@@ -11,12 +11,13 @@ class SCSCover : public SCSDevice, public cover::Cover {
  public:
   SCSCover(uint8_t address, std::string name);
 
+  //config
+  void set_max_duration(uint32_t seconds);
+
+  //events from SCSBridge
   void command_up(uint32_t micros);
   void command_down(uint32_t micros);
   void command_stop(uint32_t micros);
-
-  //low frequency call from SCSBridge::loop()
-  void loop_refresh(uint32_t micros);
 
 
   //Cover interface
@@ -24,9 +25,16 @@ class SCSCover : public SCSDevice, public cover::Cover {
   void control(const cover::CoverCall &call) override;
 
  protected:
-  uint32_t command_micros_;//last 'active' received command
-  int32_t position_micros_;//integral sum of movement time -> expresses position(timed)
-  int32_t fullrun_micros_;//duration of full movement
+  uint32_t command_millis_;//last 'active' received command
+  int32_t position_millis_;//integral sum of movement time -> expresses position(timed)
+  int32_t fullrun_millis_{30000};//duration of full movement
+
+  // Scheduler callback to manage state publishing
+  // while in transition
+  void sch_refresh_();
+  // Scheduler timeout to stop cover when we issue
+  // a positioning command
+  void sch_timeout_();
 };
 
 }//namespace scs_bridge

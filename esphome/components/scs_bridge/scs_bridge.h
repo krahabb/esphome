@@ -26,7 +26,7 @@ class SCSBridge : public Component {
  public:
   static const char *const TAG;
 
-  std::string cover_name_template;
+  const std::string cover_name_template;
 
   SCSBridge();
   SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string cover_name_template);
@@ -39,16 +39,20 @@ class SCSBridge : public Component {
     this->frame_callback_.add(std::move(callback));
   }
 
+  static SCSBridge *instance() { return instance_; }
 
   static void send(std::vector<uint8_t> payload, uint32_t repeat);
   static void send(std::string payload, uint32_t repeat);
   static void send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value);
 
- protected:
-  //use this to establish a low frequency 'poll' for time based covers
-  uint32_t next_polling_micros_;
+  static void register_cover(SCSCover *cover);
 
-  std::vector<SCSCover *> covers_;
+ protected:
+
+  static SCSBridge *instance_;
+
+  static std::vector<SCSCover *> covers_;
+
   SCSCover *getcover_(uint8_t address);
 
   CallbackManager<void(std::string)> frame_callback_;

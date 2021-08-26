@@ -21,7 +21,7 @@ SCSBridgeFrameTrigger = scs_bridge_ns.class_(
 SCSBridgeSendAction = scs_bridge_ns.class_("SCSBridgeSendAction", automation.Action)
 
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
-CONF_SCS_COVER_NAME = "scs_cover_name"
+CONF_COVER_NAME_TEMPLATE = "cover_name_template"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -29,7 +29,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(SCSBridge),
             cv.Optional(CONF_RX_PIN, default=3): pins.input_pin,
             cv.Optional(CONF_TX_PIN, default=1): pins.output_pin,
-            cv.Optional(CONF_SCS_COVER_NAME, default="scs_"): cv.string,
+            cv.Optional(CONF_COVER_NAME_TEMPLATE, default="scs_"): cv.string,
             cv.Optional(CONF_ON_FRAME_RECEIVED): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -51,7 +51,7 @@ async def to_code(config):
         config[CONF_ID],
         config[CONF_RX_PIN],
         config[CONF_TX_PIN],
-        config[CONF_SCS_COVER_NAME],
+        config[CONF_COVER_NAME_TEMPLATE],
     )
     await cg.register_component(var, config)
 
