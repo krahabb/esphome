@@ -6,6 +6,7 @@
 #include <queue>
 
 #include "scs_cover.h"
+#include "scs_switch.h"
 
 namespace esphome {
 namespace scs_bridge {
@@ -222,11 +223,12 @@ uint8_t getnibble(const char c) {
 const char *const SCSBridge::TAG = "scs_bridge";
 SCSBridge *SCSBridge::instance_;
 std::vector<SCSCover *> SCSBridge::covers_;
+std::vector<SCSSwitch *> SCSBridge::switches_;
 
 SCSBridge::SCSBridge() { SCSBridge::instance_ = this; }
 
-SCSBridge::SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string cover_name_template)
-  : cover_name_template(cover_name_template) {
+SCSBridge::SCSBridge(uint8_t rx_pin, uint8_t tx_pin, std::string device_name_template)
+  : device_name_template(device_name_template) {
   SCSBridge::instance_ = this;
   RX_PIN = rx_pin;
   TX_PIN = tx_pin;
@@ -289,6 +291,12 @@ void SCSBridge::loop() {
             switch (command) {
               case SCS_CMD_SET:
                 switch (value) {
+                  case SCS_VAL_SWITCH_ON:
+                    getswitch_(src_address)->command_on(rx_frame_read->millis_begin);
+                    break;
+                  case SCS_VAL_SWITCH_OFF:
+                    getswitch_(src_address)->command_off(rx_frame_read->millis_begin);
+                    break;
                   case SCS_VAL_COVER_UP:
                     getcover_(src_address)->command_up(rx_frame_read->millis_begin);
                     break;
@@ -402,9 +410,14 @@ void SCSBridge::dump_config() {
   tx_queue.push(frame);
 }
 
-/*static*/ void SCSBridge::register_cover(SCSCover *cover) {
-  SCSBridge::covers_.push_back(cover);
-  App.register_component(cover);
+/*static*/ void SCSBridge::register_cover(SCSCover *_cover) {
+  SCSBridge::covers_.push_back(_cover);
+  App.register_component(_cover);
+}
+
+/*static*/ void SCSBridge::register_switch(SCSSwitch *_switch) {
+  SCSBridge::switches_.push_back(_switch);
+  App.register_component(_switch);
 }
 
 SCSCover *SCSBridge::getcover_(uint8_t address) {
@@ -421,7 +434,7 @@ SCSCover *SCSBridge::getcover_(uint8_t address) {
     scs components rely on the Scheduler to process execution
   */
   SCSCover *cover = new SCSCover(address,
-    this->cover_name_template + HEX_TABLE[(address >> 4) & 0x0F] + HEX_TABLE[address & 0x0F]);
+    this->device_name_template + HEX_TABLE[(address >> 4) & 0x0F] + HEX_TABLE[address & 0x0F]);
 
   App.register_cover(cover);
   /*
@@ -432,6 +445,23 @@ SCSCover *SCSBridge::getcover_(uint8_t address) {
     cover->add_on_state_callback([cover](){ api::global_api_server->on_cover_update(cover); });
 
   return cover;
+}
+
+SCSSwitch *SCSBridge::getswitch_(uint8_t address) {
+  for (auto _switch : SCSBridge::switches_) {
+    if (_switch->address == address)
+      return _switch;
+  }
+
+  SCSSwitch *_switch = new SCSSwitch(address,
+    this->device_name_template + HEX_TABLE[(address >> 4) & 0x0F] + HEX_TABLE[address & 0x0F]);
+
+  App.register_switch(_switch);
+  if (api::global_api_server)
+    _switch->add_on_state_callback([_switch](bool state){ api::global_api_server->on_switch_update(_switch, state); });
+
+  return _switch;
+
 }
 
 }  // namespace scs_bridge
