@@ -23,7 +23,7 @@ void SCSCover::set_max_duration(uint32_t seconds) { this->fullrun_millis_ = seco
 void SCSCover::command_up(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= millis - this->command_millis_;
+      this->position_millis_ -= (int32_t)(millis - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       this->position = float(this->position_millis_) / float(this->fullrun_millis_);
@@ -38,7 +38,7 @@ void SCSCover::command_up(uint32_t millis) {
 void SCSCover::command_down(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += millis - this->command_millis_;
+      this->position_millis_ += (int32_t)(millis - this->command_millis_);
       if (this->position_millis_ > this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       this->position = float(this->position_millis_) / float(this->fullrun_millis_);
@@ -53,12 +53,12 @@ void SCSCover::command_down(uint32_t millis) {
 void SCSCover::command_stop(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += millis - this->command_millis_;
+      this->position_millis_ += (int32_t)(millis - this->command_millis_);
       if (this->position_millis_ >= this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       break;
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= millis - this->command_millis_;
+      this->position_millis_ -= (int32_t)(millis - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       break;
@@ -107,12 +107,12 @@ void SCSCover::sch_refresh_() {
   uint32_t now = millis();
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += now - this->command_millis_;
+      this->position_millis_ += (int32_t)(now - this->command_millis_);
       if (this->position_millis_ >= this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       break;
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= now - this->command_millis_;
+      this->position_millis_ -= (int32_t)(now - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       break;

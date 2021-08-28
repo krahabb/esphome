@@ -15,9 +15,9 @@ class SCSCover : public SCSDevice, public cover::Cover {
   void set_max_duration(uint32_t seconds);
 
   //events from SCSBridge
-  void command_up(uint32_t micros);
-  void command_down(uint32_t micros);
-  void command_stop(uint32_t micros);
+  void command_up(uint32_t millis);
+  void command_down(uint32_t millis);
+  void command_stop(uint32_t millis);
 
 
   //Cover interface
@@ -25,8 +25,8 @@ class SCSCover : public SCSDevice, public cover::Cover {
   void control(const cover::CoverCall &call) override;
 
  protected:
-  uint32_t command_millis_;//last 'active' received command
-  int32_t position_millis_;//integral sum of movement time -> expresses position(timed)
+  uint32_t command_millis_{0};//last 'active' received command
+  int32_t position_millis_{0};//integral sum of movement time -> expresses position(timed)
   int32_t fullrun_millis_{30000};//duration of full movement
 
   // Scheduler callback to manage state publishing
