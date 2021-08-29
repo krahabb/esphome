@@ -22,6 +22,7 @@ SCSBridgeSendAction = scs_bridge_ns.class_("SCSBridgeSendAction", automation.Act
 
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
 CONF_DEVICE_NAME_TEMPLATE = "device_name_template"
+CONF_ACKNOWLEDGE = "acknowledge"
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -63,7 +64,8 @@ async def to_code(config):
 SCSBRIDGE_SEND_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_PAYLOAD): cv.templatable(cv.string),
-        cv.Optional(CONF_REPEAT): cv.templatable(cv.uint32_t),
+        cv.Optional(CONF_REPEAT, default=1): cv.templatable(cv.uint8_t),
+        cv.Optional(CONF_ACKNOWLEDGE, default=False): cv.templatable(cv.boolean),
     }
 )
 
@@ -76,6 +78,8 @@ async def scs_bridge_send_to_code(config, action_id, template_args, args):
     var = cg.new_Pvariable(action_id, template_args)
     template_ = await cg.templatable(config[CONF_PAYLOAD], args, cg.std_string)
     cg.add(var.set_payload(template_))
-    template_ = await cg.templatable(config[CONF_REPEAT], args, cg.uint32)
+    template_ = await cg.templatable(config[CONF_REPEAT], args, cg.uint8)
     cg.add(var.set_repeat(template_))
+    template_ = await cg.templatable(config[CONF_ACKNOWLEDGE], args, cg.bool_)
+    cg.add(var.set_acknowledge(template_))
     return var

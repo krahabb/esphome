@@ -45,16 +45,17 @@ namespace scs_bridge {
 //#define BYTE_DURATION 1042 // 10 bits->used to detect sync timout/reset since we'll never have that
 #define RX_BYTE_TIMEOUT 1200 // 10 bits + some guard (scs timing is roughly 108 microsec)
 
+#define TX_TRIGGER_TICKS 20 // set a minimum triggering count (if too short it will miss edge!)
 //#define TX_0_TICKS 163 //34.72 microsec * 5 ticks/microsec - 6%
 #define TX_0_TICKS 143 //34.72 microsec * 5 ticks/microsec - 6%
 //#define TX_0RZ_TICKS 326 //69.44 microsec * 5 - 6%
 #define TX_0RZ_TICKS 346 //69.44 microsec * 5 - 6%
 #define TX_1_TICKS 505 //104.16 microsec * 5 - 3%
 #define TX_STOP_TICKS (TX_1_TICKS + 175) // slightly longer STOP bit to meet real SCS behaviour (+35 micros)
-#define TX_FRAME_REPEAT_COUNT 1 // retransmit a 'basic' frame
+//#define TX_FRAME_REPEAT_COUNT 1 // retransmit a 'basic' frame
 #define TX_FRAME_REPEAT_DELAY 16144 // delay between frame repeats (31 bits) [microsec * 5 ticks/microsec]
-#define TX_FRAME_IDLE_TIMEOUT 5000 // 1 msec ? (no protocol spec available so far)
-
+//#define TX_FRAME_IDLE_TIMEOUT 5000 // 1 msec ? (no protocol spec available so far)
+//#define TX_FRAME_RETRY_DELAY 150000// when collision happens wait before retrying tx (roughly 94 bits/frame * 3 frames * 5 ticks/micros)
 #define RX_BUFFER_SIZE 256 //use this to achieve 8 bit modulo arithmetics for indexes/pointers
 
 /*
@@ -85,16 +86,17 @@ static volatile bool rx_busy = false;
 
 struct TXFrame {
   std::vector<uint8_t>  data;
-  int                   repeat;
+  int  repeat; // maximumum number of retries if acknowledge else total
+  bool acknowledge; // verify receiver sent us an ACK ('A5' from receiver)
 };
 static std::queue<struct TXFrame *> tx_queue;
 static std::queue<struct TXFrame *> tx_cache;//keep references to TXFrames to avoid de/realloc
-static TXFrame* tx_frame = NULL;//actual frame in transmission
-static uint8_t* tx_ptr = NULL;//actual byte to send: starts from tx_frame->data.begin()
-static uint8_t* tx_end = NULL;//set to actual tx_frame->data.end()
-static int tx_bitmask = 0;
-static bool tx_waitnrz = false;
-
+static TXFrame* tx_frame = nullptr;//actual frame in transmission
+static volatile uint8_t* tx_ptr = nullptr;//actual byte to send: starts from tx_frame->data.begin()
+static volatile uint8_t* tx_end = nullptr;//set to actual tx_frame->data.end()
+static volatile uint32_t tx_bitmask = 0;
+static volatile bool tx_waitnrz = false;
+static volatile bool tx_collision = false;
 /*
   Config'd pins: static because there's no way (or I'm lazy) we can manage instanced
   state machines which run on 'hw constrained' interrupts ;)
@@ -106,6 +108,9 @@ void ICACHE_RAM_ATTR rx_isr() {
 
   uint32_t t = micros();
   uint32_t dt = t - rx_last_micros;
+
+  // be sure we're not awaiting ACK
+  tx_collision |= (tx_frame && !tx_waitnrz && (tx_ptr != tx_end));
 
   if (dt > RX_BYTE_TIMEOUT) {
     rx_next_micros = t + RX_BYTE_TIMEOUT;
@@ -142,23 +147,26 @@ void ICACHE_RAM_ATTR rx_isr() {
 void ICACHE_RAM_ATTR tx_isr() {
 
   if (tx_waitnrz) {
+    tx_waitnrz = false;
     timer1_write(TX_0RZ_TICKS);
     digitalWrite(TX_PIN, 0);
-    tx_waitnrz = false;
     return;
   }
+
+  if (tx_collision)
+    return;//wait for bus idling and tx restart in main::loop()
 
   if (tx_bitmask == 0) {
     //state machine is idle
     if (tx_ptr != tx_end) {
       //new byte to send: start bit first
+      tx_waitnrz = true;//set before manipulating GPIO else we'd interrupt ourselves
       timer1_write(TX_0_TICKS);
       digitalWrite(TX_PIN, 1);
-      tx_waitnrz = true;
       tx_bitmask = 1;
     } else {
       tx_cache.push(tx_frame);
-      tx_frame = NULL;
+      tx_frame = nullptr;
     }
     return;
   }
@@ -166,14 +174,14 @@ void ICACHE_RAM_ATTR tx_isr() {
   if (tx_bitmask < 256) {
     //shifting out the bits
     if (*tx_ptr & tx_bitmask) {
-      //'1' bit to send: transmit 'low' on the bus for 104 microsec
+      //'1' bit to send: transmit 'low/idle' on the bus for 104 microsec
       timer1_write(TX_1_TICKS);
       digitalWrite(TX_PIN, 0);
     } else {
-      //'0' bit to send: transmit 'hi' on the bus for 35 microsec
+      //'0' bit to send: transmit 'hi/drive' on the bus for 35 microsec
+      tx_waitnrz = true;
       timer1_write(TX_0_TICKS);
       digitalWrite(TX_PIN, 1);
-      tx_waitnrz = true;
     }
     tx_bitmask <<= 1;
     return;
@@ -185,16 +193,23 @@ void ICACHE_RAM_ATTR tx_isr() {
   if (++tx_ptr != tx_end) {
     //another char in frame: STOP bit and then continue
     timer1_write(TX_STOP_TICKS);
+    return;
   }
-  else if (--tx_frame->repeat > 0) {
+
+  if (tx_frame->acknowledge) {
+    return; // idle until rx_isr and main loop proceed
+  }
+
+  if (--tx_frame->repeat > 0) {
     //retransmit the same frame after waiting some
     tx_ptr = &(*tx_frame->data.begin());
     timer1_write(TX_FRAME_REPEAT_DELAY);
+    return;
   }
-  else {
-    //finished: let the bus idle for long enough to allow other transmissions
-    timer1_write(TX_FRAME_IDLE_TIMEOUT);
-  }
+
+  // ahhh..finally done with no ack transaction
+  tx_cache.push(tx_frame);
+  tx_frame = nullptr;
 };
 
 
@@ -221,7 +236,7 @@ uint8_t getnibble(const char c) {
 };
 
 const char *const SCSBridge::TAG = "scs_bridge";
-SCSBridge *SCSBridge::instance_;
+SCSBridge *SCSBridge::instance_ = nullptr;
 std::vector<SCSCover *> SCSBridge::covers_;
 std::vector<SCSSwitch *> SCSBridge::switches_;
 
@@ -246,37 +261,77 @@ void SCSBridge::setup() {
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
 
   //query all physical devices
-  SCSBridge::send(SCS_ADR_BROADCAST_QUERY, SCS_ADR_SCSBRIDGE, SCS_CMD_GET, 0x00);
+  SCSBridge::send(SCS_ADR_BROADCAST_QUERY, SCS_ADR_SCSBRIDGE, SCS_CMD_GET, 0x00, false);
 }
 
 void SCSBridge::loop() {
-  /*
-    flush receive buffer
-  */
+  std::string str;
   uint32_t current_micros = micros();
   if (rx_busy && (current_micros > rx_next_micros)) {
+    int32_t log_offset = -1;
+    uint32_t log_bitmask = -1;
+    const char *log_acknowledge = nullptr;
     ETS_INTR_LOCK();
+    //flush receive buffer
     rx_busy = false;
     if (rx_bit != -1) {
       rx_frame_write->length += 1;
       rx_bit = -1;
     }
     rx_frame_write->micros_end = rx_last_micros;
+
+    //check we're awaiting an ACK or tx_collision
+    if (tx_frame) {
+      if (tx_collision) {
+        tx_collision = false;
+        uint8_t* tx_begin = &(*tx_frame->data.begin());
+        log_offset = tx_ptr - tx_begin;
+        tx_ptr = tx_begin;
+        log_bitmask = tx_bitmask;
+        tx_bitmask = 0;
+        timer1_write(TX_TRIGGER_TICKS);
+      } else {
+        if (tx_frame->acknowledge) {
+          //we don't check rx_frame content == tx_frame content since
+          //this rx_frame 'must' (or should) be definitely ours (collision detect)
+          if ((rx_frame_write->length == (tx_frame->data.size() + 1)) &&
+            (rx_frame_write->data[rx_frame_write->length - 1] == SCS_ACK)) {
+            tx_cache.push(tx_frame);
+            tx_frame = nullptr;
+            // at this stage we expect the tx_isr to not be rescheduled
+            // but.. we set tx_collision so to ensure it just returns in case
+            tx_collision = true;
+            log_acknowledge = "received";
+          } else {
+            //retrigger tx_isr
+            timer1_write(TX_TRIGGER_TICKS);
+            log_acknowledge = "not received";
+          }
+        } else {
+          log_acknowledge = "not requested";
+        }
+      }
+    }
+    //prepare next rx buffers
     if (++rx_frame_write == rx_frame_end)
       rx_frame_write = rx_frame;
     rx_frame_write->length = 0;
+
     ETS_INTR_UNLOCK();
+    if (log_offset >= 0)
+      ESP_LOGD(TAG, "tx_frame collision { offset: %i , bitmask: %u }", log_offset, log_bitmask);
+    if (log_acknowledge)
+      ESP_LOGD(TAG, "tx_frame acknowledge: %s", log_acknowledge);
   }
 
-  std::string framestr;
   while (rx_frame_read != rx_frame_write) {
-    framestr.clear();
+    str.clear();
     for (int i = 0; i < rx_frame_read->length; ++i) {
       uint8_t b = rx_frame_read->data[i];
-      framestr += HEX_TABLE[(b >> 4) & 0x0F];
-      framestr += HEX_TABLE[b & 0x0F];
+      str += HEX_TABLE[(b >> 4) & 0x0F];
+      str += HEX_TABLE[b & 0x0F];
     }
-    ESP_LOGD(TAG, "frame received { frame: %s , micros: %lu} ", framestr.c_str(), rx_frame_read->micros_begin);
+    ESP_LOGD(TAG, "frame received { frame: %s , micros: %lu}", str.c_str(), rx_frame_read->micros_begin);
 
     if ((rx_frame_read->length >= 7) &&
       (rx_frame_read->data[0] == 0xA8) &&
@@ -316,25 +371,31 @@ void SCSBridge::loop() {
     if (++rx_frame_read == rx_frame_end)
       rx_frame_read = rx_frame;
 
-    this->frame_callback_.call(framestr);
+    this->frame_callback_.call(str);
   }
 
   /*
     flush send_queue
   */
 
-  if (!((tx_frame != NULL) | rx_busy | tx_queue.empty())) {
+  if (!(tx_frame || rx_busy || tx_queue.empty())) {
     tx_frame = tx_queue.front();
     tx_queue.pop();
-    framestr.clear();
+    str.clear();
     for (uint8_t b : tx_frame->data) {
-      framestr += HEX_TABLE[(b >> 4) & 0x0F];
-      framestr += HEX_TABLE[b & 0x0F];
+      str += HEX_TABLE[(b >> 4) & 0x0F];
+      str += HEX_TABLE[b & 0x0F];
     }
-    ESP_LOGD(TAG, "sending frame { frame: %s , micros: %lu} ", framestr.c_str(), current_micros);
+    ESP_LOGD(TAG
+      ,"sending frame { frame: %s, repeat:%i, acknowledge:%s, micros: %lu} "
+      , str.c_str()
+      , tx_frame->repeat
+      , YESNO(tx_frame->acknowledge)
+      , current_micros);
     tx_ptr = &(*tx_frame->data.begin());
     tx_end = &(*tx_frame->data.end());
-    timer1_write(TX_1_TICKS);  // schedule the tx isr
+    tx_collision = false;
+    timer1_write(TX_TRIGGER_TICKS);  // schedule the tx isr
   }
 
 }
@@ -344,7 +405,7 @@ void SCSBridge::dump_config() {
   ESP_LOGCONFIG(TAG, "TX pin: %d", TX_PIN);
 }
 
-/*static*/ void SCSBridge::send(std::vector<uint8_t> payload, uint32_t repeat) {
+/*static*/ void SCSBridge::send(std::vector<uint8_t> payload, uint8_t repeat, bool acknowledge) {
   struct TXFrame *frame;
   if (tx_cache.empty()) {
     frame = new TXFrame();
@@ -362,11 +423,11 @@ void SCSBridge::dump_config() {
   frame->data.push_back(checksum);
   frame->data.push_back(0xA3);
   frame->repeat = repeat;
+  frame->acknowledge = acknowledge;
   tx_queue.push(frame);
-  //ESP_LOGD(TAG, "scs_send : enqueuing %s", payload.c_str());
 }
 
-/*static*/ void SCSBridge::send(std::string payload, uint32_t repeat) {
+/*static*/ void SCSBridge::send(std::string payload, uint8_t repeat, bool acknowledge) {
 
   std::vector<uint8_t> _data;
   for (const char* p = payload.c_str();;) {
@@ -387,10 +448,10 @@ void SCSBridge::dump_config() {
 
     _data.push_back((_hinibble << 4) + _lonibble);
   }
-  SCSBridge::send(_data, repeat);
+  SCSBridge::send(_data, repeat, acknowledge);
 }
 
-/*static*/ void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value) {
+/*static*/ void SCSBridge::send(uint8_t dst_address, uint8_t src_address, uint8_t command, uint8_t value, bool acknowledge) {
   struct TXFrame *frame;
   if (tx_cache.empty()) {
     frame = new TXFrame();
@@ -406,7 +467,8 @@ void SCSBridge::dump_config() {
   frame->data.push_back(value);
   frame->data.push_back(dst_address^src_address^command^value);
   frame->data.push_back(0xA3);
-  frame->repeat = 1;
+  frame->repeat = 1;//maximum retries
+  frame->acknowledge = acknowledge;
   tx_queue.push(frame);
 }
 

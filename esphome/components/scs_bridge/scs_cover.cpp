@@ -84,19 +84,19 @@ cover::CoverTraits SCSCover::get_traits() {
 void SCSCover::control(const cover::CoverCall &call) {
   // This will be called every time the user requests a state change.
   if (call.get_stop()) {
-    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP);
+    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
   } else if (call.get_position().has_value()) {
     float pos = *call.get_position();
     if (pos == cover::COVER_OPEN) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP);
+      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
     } else if (pos == cover::COVER_CLOSED) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN);
+      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
     } else if (pos > this->position) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP);
+      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
       int32_t deltapos_millis = (pos - this->position) * float(this->fullrun_millis_);
       this->set_timeout(SCH_TIMEOUT_NAME, deltapos_millis, [this]() { this->sch_timeout_(); });
     } else if (pos < this->position) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN);
+      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
       int32_t deltapos_millis = (this->position - pos) * float(this->fullrun_millis_);
       this->set_timeout(SCH_TIMEOUT_NAME, deltapos_millis, [this]() { this->sch_timeout_(); });
     }
@@ -126,7 +126,7 @@ void SCSCover::sch_refresh_() {
 
 void SCSCover::sch_timeout_() {
   if (this->current_operation != cover::CoverOperation::COVER_OPERATION_IDLE)
-    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP);
+    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
 }
 
 }//namespace scs_bridge

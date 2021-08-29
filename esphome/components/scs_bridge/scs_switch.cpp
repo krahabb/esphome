@@ -17,7 +17,7 @@ void SCSSwitch::command_on(uint32_t micros) { this->publish_state(true); }
 void SCSSwitch::command_off(uint32_t micros) { this->publish_state(false); }
 
 void SCSSwitch::write_state(bool state) {
-  SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, state ? SCS_VAL_SWITCH_ON : SCS_VAL_SWITCH_OFF);
+  SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, state ? SCS_VAL_SWITCH_ON : SCS_VAL_SWITCH_OFF, true);
 }
 
 }//namespace scs_bridge
