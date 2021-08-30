@@ -12,6 +12,7 @@ from esphome.const import (
 )
 
 CODEOWNERS = ["@krahabb"]
+AUTO_LOAD = ["switch", "cover"]
 
 scs_bridge_ns = cg.esphome_ns.namespace("scs_bridge")
 SCSBridge = scs_bridge_ns.class_("SCSBridge", cg.Component)
