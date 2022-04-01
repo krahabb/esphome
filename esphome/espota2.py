@@ -233,7 +233,7 @@ def perform_ota(sock, password, file_handle, filename):
     # show the actual progress
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8192)
     # Set higher timeout during upload
-    sock.settimeout(20.0)
+    sock.settimeout(60.0)
 
     offset = 0
     progress = ProgressBar()
