@@ -6,6 +6,7 @@ from esphome.const import (
     CONF_DALLAS_ID,
     CONF_INDEX,
     CONF_RESOLUTION,
+    CONF_ID,
     DEVICE_CLASS_TEMPERATURE,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
@@ -35,16 +36,10 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_DALLAS_ID])
-    var = await sensor.new_sensor(config)
-
     if CONF_ADDRESS in config:
-        cg.add(var.set_address(config[CONF_ADDRESS]))
+        address = config[CONF_ADDRESS]
+        rhs = hub.Pget_sensor_by_address(address, config.get(CONF_RESOLUTION))
     else:
-        cg.add(var.set_index(config[CONF_INDEX]))
-
-    if CONF_RESOLUTION in config:
-        cg.add(var.set_resolution(config[CONF_RESOLUTION]))
-
-    cg.add(var.set_parent(hub))
-
-    cg.add(hub.register_sensor(var))
+        rhs = hub.Pget_sensor_by_index(config[CONF_INDEX], config.get(CONF_RESOLUTION))
+    var = cg.Pvariable(config[CONF_ID], rhs)
+    await sensor.register_sensor(var, config)
