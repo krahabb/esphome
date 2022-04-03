@@ -1,0 +1,166 @@
+[07:30:22][D][scs_gateway:061]: scs_received : A8B8651208C7
+[07:30:22][D][scs_gateway:061]: scs_received : FFA8B8651208C7FFA8B86512
+[07:30:22][D][scs_gateway:061]: scs_received : 08C7
+[07:30:22][D][scs_gateway:061]: scs_received : A8B865120AC5
+[07:30:23][D][scs_gateway:061]: scs_received : FFA8B865120AC5FFA8B865120A
+[07:30:23][D][scs_gateway:061]: scs_received : C5
+[07:31:42][D][scs_gateway:061]: scs_received : A896A06FA4FDFFA81601
+[07:31:42][D][scs_gateway:061]: scs_received : 7B91EBA3FFD496A06FA4FD00F400
+[07:31:42][D][scs_gateway:061]: scs_received : 80C7
+[07:31:42][D][scs_gateway:061]: scs_received : 08000000000000000000000000000000000000000000000000000000000000
+[07:31:42][D][scs_gateway:061]: scs_received : 00000000000000000000000000000000
+[07:31:42][D][scs_gateway:061]: scs_received : 000000000000000000000000000000000000000000000000000000000000
+[07:31:42][D][scs_gateway:061]: scs_received : 0000000000000000000000000000000000040080
+[07:31:42][D][scs_gateway:061]: scs_received : FFFF01
+[07:31:42][D][scs_gateway:061]: scs_received : A896A06FA0F9
+[07:31:42][D][scs_gateway:061]: scs_received : FFA896A06FA0F9FFA896A06F
+[07:31:42][D][scs_gateway:061]: scs_received : A0F9
+[07:33:08][D][scs_gateway:061]: scs_received : A896
+[07:33:08][D][scs_gateway:061]: scs_received : A06FA4FDFFA806406FA4FDA3FF
+[07:33:08][D][scs_gateway:061]: scs_received : 1F3519B48B5A
+[07:33:09][D][scs_gateway:061]: scs_received : A896A06FA0F9FFA896A06F
+[07:33:09][D][scs_gateway:061]: scs_received : A0F9FFA896A06FA0F9
+
+apriporta 1
+press:		A896A06FA4FDA3(stato) -> A0006FA4
+release:	A896A06FA0F9A3(stato) -> A0006FA0
+apriporta 2
+A896A16FA4FCA3
+
+tapparelle:
+su -> 08
+stop -> 0A
+giu -> 09
+
+tapparuella studio (ind 65)
+su: 	A8B8651208C7A3(stato) -> A8650012087FA3
+stop:	A8B865120AC5A3(stato) -> A86500120A7DA3
+giu:	A8B8651209C6A3(stato) -> A8650012097EA3
+
+tapparella bagno (ind 63)
+giu: 	A8B8631209C0A3(stato)
+stop: 	A8B863120AC3A3
+
+
+una tapparella boh (ind 62 camera?)
+A8B862120AC2(stato)
+
+tapparelle generale
+A8B306120AAD(stato)
+B3 broadcast scenario
+06 indirizzo scenario (gruppo attuatori - stanza in gergo Bticino)
+12 comando
+0A STOP
+
+
+sollevato ricevitore posto 1
+acceso esterno 1
+commutato esterno 2
+aperto esterno 2
+[07:09:58][D][scs_gateway:124]: scs_received : A898A06FA4F3A898A06F		A898A06FA4F3A3
+[07:09:58][D][scs_gateway:124]: scs_received : A4F3A898A06FA4F3A3
+[07:09:58][D][scs_gateway:124]: scs_received : A8A0A06F026DA8A0			A8A0A06F026DA3
+[07:09:58][D][scs_gateway:124]: scs_received : A06F026DA8A0A06F026DA3
+[07:09:59][D][scs_gateway:124]: scs_received : A898A06FA0F7A898A06F		A898A06FA0F7A3
+[07:09:59][D][scs_gateway:124]: scs_received : A0F7A898A06FA0F7A3
+[07:09:59][D][scs_gateway:124]: scs_received : A8A0A06F026DA8			A8A0A06F026DA3
+[07:09:59][D][scs_gateway:124]: scs_received : A0A06F026DA8A0A06F026DA3
+[07:09:59][D][scs_gateway:124]: scs_received : A8B0A06F98E7			A8B0A06F98E7A3
+[07:09:59][D][scs_gateway:124]: scs_received : A8B0A06F98E7A8B0A06F98
+[07:09:59][D][scs_gateway:124]: scs_received : E7A3
+[07:09:59][D][scs_gateway:124]: scs_received : D4910260887BA3			A8910260887BA3
+[07:09:59][D][scs_gateway:124]: scs_received : A8910260887BA8910260
+[07:09:59][D][scs_gateway:124]: scs_received : 887BA3
+[07:09:59][D][scs_gateway:124]: scs_received : A8B2A0				A8B2A06F88F5A3
+[07:09:59][D][scs_gateway:124]: scs_received : 6F88F5A8B2A06F88
+[07:09:59][D][scs_gateway:124]: scs_received : F5A8B2A06F88F5A3		
+[07:09:59][D][scs_gateway:124]: scs_received : A8B302608859A8B3			A8B302608859A3
+
+accensione esterno 1
+[07:26:35][D][scs_gateway:124]: scs_received : A898A06FA4F3A8			A898A06FA4F3A3
+[07:26:35][D][scs_gateway:124]: scs_received : 98A06FA4F3A898A06FA4F3A3
+[07:26:35][D][scs_gateway:124]: scs_received : A8A0A06F026DA3			A8A0A06F026DA3
+[07:26:35][D][scs_gateway:124]: scs_received : A8A0A06F026DA8A0A06F02
+[07:26:35][D][scs_gateway:124]: scs_received : 6DA3
+[07:26:35][D][scs_gateway:124]: scs_received : A898A06FA0F7			A898A06FA0F7A3
+[07:26:35][D][scs_gateway:124]: scs_received : A898A06FA0F7A898A06FA0F7A3
+[07:26:35][D][scs_gateway:124]: scs_received : A8A0A06F026DA3			A8A0A06F026DA3
+[07:26:35][D][scs_gateway:124]: scs_received : A8A0A06F026DA8A0A0
+[07:26:35][D][scs_gateway:124]: scs_received : 6F026DA8B0A06F98E7		A8B0A06F98E7A3
+[07:26:35][D][scs_gateway:124]: scs_received : A8B0A06F98E7A8B0
+[07:26:35][D][scs_gateway:124]: scs_received : A06F98E7A3
+[07:26:35][D][scs_gateway:124]: scs_received : FF
+[07:26:35][D][scs_gateway:124]: scs_received : D4910260887BA8910260		A8910260887BA3
+[07:26:35][D][scs_gateway:124]: scs_received : 887BA8910260887BA3
+[07:26:36][D][scs_gateway:124]: scs_received : A8B2A06F88F5A3			A8B2A06F88F5A3
+[07:26:36][D][scs_gateway:124]: scs_received : A8B2A06F88F5A8B2A06F88
+[07:26:36][D][scs_gateway:124]: scs_received : F5A3
+[07:26:36][D][scs_gateway:124]: scs_received : FE
+[07:26:36][D][scs_gateway:124]: scs_received : FF
+[07:26:36][D][scs_gateway:124]: scs_received : FC
+auto-spegnimento ?
+[07:27:06][D][scs_gateway:124]: scs_received : A8B50260885FA8			A8B50260885FA3
+[07:27:06][D][scs_gateway:124]: scs_received : B50260885FA8B50260885FA3
+
+
+[07:37:28][D][scs_gateway:124]: scs_received : A8B60260984CA3			A8B60260984CA3
+[07:37:28][D][scs_gateway:124]: scs_received : A8B60260984CD4B60260984C
+[07:37:28][D][scs_gateway:124]: scs_received : A3D496A177A4DC			A896A177A4DCA3
+[07:37:28][D][scs_gateway:124]: scs_received : D496A177A4BCD496A1
+[07:37:28][D][scs_gateway:124]: scs_received : 77A4BCF4FF
+[07:37:28][D][scs_gateway:124]: scs_received : FC80
+[07:37:28][D][scs_gateway:124]: scs_received : FF
+[07:37:28][D][scs_gateway:124]: scs_received : A8B60260885CA3			A8B60260885CA3
+[07:37:28][D][scs_gateway:124]: scs_received : A8B60260885CA8B60260885C
+[07:37:28][D][scs_gateway:124]: scs_received : A896A16FA0F8A3			A896A16FA0F8A3
+[07:37:28][D][scs_gateway:124]: scs_received : A896A16FA0F8A896A1
+[07:37:28][D][scs_gateway:124]: scs_received : 6FA0F8A3
+[07:37:31][D][scs_gateway:124]: scs_received : A8B30260				A8B302608859A3
+[07:37:31][D][scs_gateway:124]: scs_received : 8859A8B302608859A8
+[07:37:31][D][scs_gateway:124]: scs_received : B302608859A8B4			A8B4A16F88F2A3
+[07:37:31][D][scs_gateway:124]: scs_received : A16F88F2A8B4A16F88F2A3
+[07:37:31][D][scs_gateway:124]: scs_received : A8B4A16F88F2A3
+[07:37:31][D][scs_gateway:124]: scs_received : FF
+[07:37:31][D][scs_gateway:124]: scs_received : FF
+[07:37:55][D][scs_gateway:124]: scs_received : A8B6026098			A8B60260984CA3
+[07:37:55][D][scs_gateway:124]: scs_received : 4CA8B60260984CA8B6
+[07:37:55][D][scs_gateway:124]: scs_received : 0260984CA896A16F			A896A16FA4FCA3
+[07:37:55][D][scs_gateway:124]: scs_received : A4FCA896A16FA4FCA3
+[07:37:55][D][scs_gateway:124]: scs_received : A896A16FA4FCA3	
+
+apriporta 1 pressione diretta dal posto 1
+[09:21:58][D][scs_gateway:124]: scs_received : A896A06FA4FDA896A06FA4		A896A06FA4FDA3
+[09:21:58][D][scs_gateway:124]: scs_received : FDA896A06FA4FDA3
+[09:21:58][D][scs_gateway:124]: scs_received : A896A06FA0F9A3			A896A06FA0F9A3
+[09:21:58][D][scs_gateway:124]: scs_received : A896A06FA0F9A896A06FA0
+[09:21:58][D][scs_gateway:124]: scs_received : F9A3
+
+corriere citofona esterno 1 -> rispondo
+[09:35:21][D][scs_gateway:124]: scs_received : A8B0A06F88F7A3			A8B0A06F88F7A3
+[09:35:21][D][scs_gateway:124]: scs_received : A8B0A06F88F7A8B0A06F
+[09:35:21][D][scs_gateway:124]: scs_received : 88F7A3
+[09:35:21][D][scs_gateway:124]: scs_received : A8B1				A8B1A06F88F6A3
+[09:35:21][D][scs_gateway:124]: scs_received : A06F88F6A8B1A06F88F6A3
+[09:35:21][D][scs_gateway:124]: scs_received : A8B1A06F88F6A3
+[09:35:22][D][scs_gateway:124]: scs_received : A8B2A06F88			A8B2A06F88F5A3
+[09:35:22][D][scs_gateway:124]: scs_received : F5A8B2A06F88F5A8B2
+[09:35:22][D][scs_gateway:124]: scs_received : A06F88F5A3
+[09:35:31][D][scs_gateway:124]: scs_received : A8B302608859A8B302608859		A8B302608859A3
+[09:35:31][D][scs_gateway:124]: scs_received : A8B302608859A3
+[09:35:31][D][scs_gateway:124]: scs_received : A8B4A06F88F3A8B4A06F88		A8B4A06F88F3A3
+[09:35:31][D][scs_gateway:124]: scs_received : F3A8B4A06F88F3A3
+[09:35:31][D][scs_gateway:124]: scs_received : F4
+[09:35:31][D][scs_gateway:124]: scs_received : FF
+[09:35:31][D][scs_gateway:124]: scs_received : 41F8FE3FFC
+[09:35:31][D][scs_gateway:124]: scs_received : FC
+[09:35:34][D][scs_gateway:124]: scs_received : FF
+[09:35:36][D][scs_gateway:124]: scs_received : FF
+[09:35:36][D][scs_gateway:124]: scs_received : FF
+[09:35:38][D][scs_gateway:124]: scs_received : FF
+[09:35:39][D][scs_gateway:124]: scs_received : FF
+[09:35:39][D][scs_gateway:124]: scs_received : FF
+[09:35:42][D][scs_gateway:124]: scs_received : EF
+[09:35:42][D][scs_gateway:124]: scs_received : A8B5026088			A8B50260885FA3
+[09:35:42][D][scs_gateway:124]: scs_received : 5FA8B50260885F
+[09:35:42][D][scs_gateway:124]: scs_received : A8B50260885FA3
+		
