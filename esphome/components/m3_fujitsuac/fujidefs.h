@@ -2,8 +2,8 @@
 #pragma once
 
 //#include "esphome/core/defines.h"
-//#include "esphome/core/hal.h"
-#include "arduino.h"
+#include "esphome/core/hal.h"
+//#include "arduino.h"
 
 /*const byte kModeIndex = 3;
 const byte kModeMask = 0b00001110;
@@ -117,18 +117,18 @@ enum class FujiFanMode : byte {
 #pragma pack(push, 1)
 typedef struct _FujiFrame {
     unsigned long millis = {};
-    uint8_t datalen = {};
+    unsigned char datalen = {};
     union {
-        byte data[FUJITSUAC_FRAMESIZE] = {};
+        unsigned char data[FUJITSUAC_FRAMESIZE] = {};
         struct {
             //data[0]
             unsigned int addr_src : 8;
             //data[1]
             unsigned int addr_dst : 7;
-            unsigned int bit_unknown : 1;            
+            unsigned int bit_unknown : 1;
             //data[2]
             unsigned int _dummy_2_0 : 3;
-            unsigned int bit_write : 1;            
+            unsigned int bit_write : 1;
             unsigned int type : 2;
             unsigned int _dummy_2_1 : 2;
             //data[3]

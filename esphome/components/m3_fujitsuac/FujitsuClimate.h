@@ -10,7 +10,7 @@ namespace esphome {
 namespace m3_fujitsuac {
 
 class FujitsuClimate : public climate::Climate, public uart::UARTDevice, public Component {
- 
+
  public:
 
     enum State {
@@ -32,7 +32,7 @@ class FujitsuClimate : public climate::Climate, public uart::UARTDevice, public 
 
     void control(const climate::ClimateCall &call) override;
     climate::ClimateTraits traits() override;
-    
+
  protected:
     //configuration
     uint8_t         address_={};
@@ -43,14 +43,14 @@ class FujitsuClimate : public climate::Climate, public uart::UARTDevice, public 
     unsigned long   lastframemillis_={};
     unsigned long   lastboundframemillis_={};
     FujiFrame       statusframe_;
-    byte            sendbuf_[FUJITSUAC_FRAMESIZE];
+    uint8_t         sendbuf_[FUJITSUAC_FRAMESIZE];
 
     //pending write status
     optional<climate::ClimateMode>      call_mode_;
     optional<float>                     call_target_temperature_;
     optional<climate::ClimateFanMode>   call_fan_mode_;
     optional<climate::ClimateSwingMode> call_swing_mode_;
-  
+
     //tell esphome to run this at max speed
     HighFrequencyLoopRequester  highfrequencyloop_;
 
@@ -60,7 +60,7 @@ class FujitsuClimate : public climate::Climate, public uart::UARTDevice, public 
     void update_state(FujiFrame &frame);
     void merge_state();
 
-    void send_frame(FujiFrame &frame);    
+    void send_frame(FujiFrame &frame);
     void send_loginframe();
     void send_statusframe();
 

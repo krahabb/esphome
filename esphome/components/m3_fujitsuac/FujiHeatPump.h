@@ -3,10 +3,6 @@
 
 //#include "esphome/core/defines.h"
 //#include "esphome/core/hal.h"
-#include "arduino.h"
-#include "HardwareSerial.h"
-#include <vector>
-#include "fujidefs.h"
 
 /*
 class FujiHeatPump {
@@ -30,12 +26,12 @@ class FujiHeatPump {
     //void encodeFrame(FujiFrame ff);
 
     //bool pendingFrame = false;
-    
+
 
    public:
     void connect(HardwareSerial *serial, bool secondary);
     void connect(HardwareSerial *serial, bool secondary, int rxPin, int txPin, int txEnablePin);
-    
+
 
     //these are 'do-it-all' members which run the protocol handler
     bool waitForFrame();
@@ -63,7 +59,7 @@ class FujiHeatPump {
 
     FujiFrame *getCurrentState();
     FujiFrame *getUpdateState();
-    
+
     byte getUpdateFields();
 
 };
