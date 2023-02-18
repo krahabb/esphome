@@ -1,0 +1,39 @@
+[08:20:35][C][fujitsuac:118]: Fujitsu AC:
+[08:20:35][C][fujitsuac:120]: Frame payload: 00001198 RECV(8): 0 A0 0 7 19 40 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:4 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00001605 RECV(8): 0 81 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 1 mType: 0 write: 0 login: 0 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00002037 RECV(8): 0 A0 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00002444 RECV(8): 0 81 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 1 mType: 0 write: 0 login: 0 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00002888 RECV(8): 0 A0 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00003829 RECV(8): 0 81 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 1 mType: 0 write: 0 login: 0 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00003830 RECV(8): 0 A0 0 7 19 A0 0 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00003951 RECV(8): 20 81 20 0 0 0 0 0
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 32 mDst: 1 mType: 2 write: 0 login: 0 unknown: 1 onOff: 0 temp: 0, mode: 0 cP:0 uM:0 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00004383 RECV(8): 0 A0 20 1F 1F 4 1 0
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 2 write: 0 login: 1 unknown: 1 onOff: 1 temp: 31, mode: 7 cP:1 uM:0 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00004600 RECV(8): 20 A1 0 7 19 0 32 0
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 32 mDst: 33 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:0 uM:0 cTemp:25 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00010427 RECV(8): 20 81 0 7 19 0 33 0
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 32 mDst: 1 mType: 0 write: 0 login: 0 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:1 uM:0 cTemp:25 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00010863 RECV(8): 0 A0 0 7 19 A0 1 20
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 0 mDst: 32 mType: 0 write: 0 login: 1 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:1 uM:10 cTemp:0 acError:0
+
+[08:20:35][C][fujitsuac:120]: Frame payload: 00011074 RECV(8): 20 81 0 7 19 0 33 0
+[08:20:35][C][fujitsuac:121]: Frame decoded: mSrc: 32 mDst: 1 mType: 0 write: 0 login: 0 unknown: 1 onOff: 1 temp: 25, mode: 3 cP:1 uM:0 cTemp:25 acError:0
