@@ -29,8 +29,8 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SCSBridge),
-            cv.Optional(CONF_RX_PIN, default=3): pins.input_pin,
-            cv.Optional(CONF_TX_PIN, default=1): pins.output_pin,
+            cv.Optional(CONF_RX_PIN, default=3): pins.internal_gpio_input_pin_number,
+            cv.Optional(CONF_TX_PIN, default=1): pins.internal_gpio_output_pin_number,
             cv.Optional(CONF_DEVICE_NAME_TEMPLATE, default="scs_"): cv.string,
             cv.Optional(CONF_ON_FRAME_RECEIVED): automation.validate_automation(
                 {

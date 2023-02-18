@@ -2,7 +2,7 @@
 
 
 #include "esphome/core/component.h"
-#include "esphome/core/esphal.h"
+#include "esphome/core/hal.h"
 #include "esphome/core/automation.h"
 #include <string>
 #include <vector>
