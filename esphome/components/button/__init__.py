@@ -11,6 +11,7 @@ from esphome.const import (
     CONF_ON_PRESS,
     CONF_TRIGGER_ID,
     CONF_MQTT_ID,
+    DEVICE_CLASS_EMPTY,
     DEVICE_CLASS_RESTART,
     DEVICE_CLASS_UPDATE,
 )
@@ -21,6 +22,7 @@ CODEOWNERS = ["@esphome/core"]
 IS_PLATFORM_COMPONENT = True
 
 DEVICE_CLASSES = [
+    DEVICE_CLASS_EMPTY,
     DEVICE_CLASS_RESTART,
     DEVICE_CLASS_UPDATE,
 ]
@@ -102,8 +104,8 @@ async def register_button(var, config):
     await setup_button_core_(var, config)
 
 
-async def new_button(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+async def new_button(config, *args):
+    var = cg.new_Pvariable(config[CONF_ID], *args)
     await register_button(var, config)
     return var
 
