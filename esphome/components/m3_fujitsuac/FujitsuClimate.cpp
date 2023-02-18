@@ -53,23 +53,23 @@ static const uint8_t ESPHOME_TO_FUJITSU_FANMODE[] = {
 
 void FujitsuClimate::setup() {
     /*use GPIO5 to enable/disable TX line adapter
-    this is needed because GPIO15(our TX) doesn't want a pull-up on start 
+    this is needed because GPIO15(our TX) doesn't want a pull-up on start
     and our BJT polarization circuit would 'induce' a pull-up
     should we tie the BJT to a fixed 3.3V
     By using GPIO5 to enable the BJT buffer we're avoiding a fixed (high)
     level on the TX pin (GPIO15) at boot which would then halt the boot process
     */
-    //this->heatpump_.connect(&Serial, true, 13, 15, 5);//use UART0 (tx on 15 and rx on 13)    
+    //this->heatpump_.connect(&Serial, true, 13, 15, 5);//use UART0 (tx on 15 and rx on 13)
     this->highfrequencyloop_.start();
 }
 
-void FujitsuClimate::loop() 
+void FujitsuClimate::loop()
 {
     FujiFrame frame;
     if (read_frame(frame)) {
 
         this->lastframemillis_ = frame.millis;
-        
+
         if (this->address_ == frame.addr_dst) {
             this->lastboundframemillis_ = frame.millis;
             switch (frame.type) {
@@ -85,7 +85,7 @@ void FujitsuClimate::loop()
                     {
                     case FUJITSUAC_ADDR_PRIMARYCONTROLLER:
                         send_loginframe();
-                        break;                    
+                        break;
                     default:
                         /*
                             according to https://github.com/unreality/FujiHeatPump
@@ -106,7 +106,7 @@ void FujitsuClimate::loop()
             case FUJITSUAC_FRAMETYPE_ERROR:
                 break;
             default://FUJITSUAC_FRAMETYPE_UNKNOWN
-                break;                
+                break;
             }
         }
         else {//analyze frames for other devices too
@@ -118,11 +118,11 @@ void FujitsuClimate::loop()
                         frame with this structure:  {00,80,40,80,00,00,00,00}
                         addr_src == 0 addr_dst == 0
                     */
-                    break;   
+                    break;
                 }
                 if (!frame.bit_write) {
                     /*
-                        we passively monitor any frame to look for status. 
+                        we passively monitor any frame to look for status.
                         This is useful if our controller is not bound or for any other reason
                         and provides a consistent status reflection of the unit to HA
                     */
@@ -148,16 +148,16 @@ void FujitsuClimate::loop()
     switch (this->state_)
     {
     case Bound:
-        if ((millis() - this->lastboundframemillis_) < 2000) 
+        if ((millis() - this->lastboundframemillis_) < 2000)
             break;
         this->state_ = Connected;
     case Connected:
-        if ((millis() - this->lastframemillis_) < 1000) 
+        if ((millis() - this->lastframemillis_) < 1000)
             break;
         this->state_ = Disconnected;
     default:
         break;
-    } 
+    }
 
 }
 
@@ -165,7 +165,7 @@ void FujitsuClimate::dump_config() {
     char buffer[256];
     ESP_LOGCONFIG(TAG, "Fujitsu AC:");
     ESP_LOGCONFIG(TAG, "  address: %d", this->address_);
-    LOG_PIN("  TX Pin: ", this->txenable_pin_);    
+    LOG_PIN("  TX Pin: ", this->txenable_pin_);
     /*for (FujiFrame frame : this->frames_log_) {
         ESP_LOGCONFIG(TAG, "%s", frame.dump_payload(buffer));
         ESP_LOGCONFIG(TAG, "%s", frame.dump_decoded(buffer));
@@ -190,7 +190,7 @@ void FujitsuClimate::control(const climate::ClimateCall &call) {
         }
         ESP_LOGD(TAG, "Fuji setting mode %d", (int)fujitsu_mode);
     }
-        
+
     if (call.get_fan_mode().has_value()) {
         auto fujitsu_fanmode = ESPHOME_TO_FUJITSU_FANMODE[call.get_fan_mode().value()];
         this->heatpump_.setFanMode((byte)fujitsu_fanmode);
@@ -232,9 +232,9 @@ climate::ClimateTraits FujitsuClimate::traits() {
     traits.set_visual_max_temperature(30);
 
     traits.set_supported_fan_modes({
-        climate::CLIMATE_FAN_AUTO, 
+        climate::CLIMATE_FAN_AUTO,
         climate::CLIMATE_FAN_LOW,
-        climate::CLIMATE_FAN_MEDIUM, 
+        climate::CLIMATE_FAN_MEDIUM,
         climate::CLIMATE_FAN_HIGH,
         climate::CLIMATE_FAN_FOCUS
     });
@@ -246,8 +246,8 @@ climate::ClimateTraits FujitsuClimate::traits() {
     return traits;
 }
 
-bool FujitsuClimate::read_frame(FujiFrame &frame) 
-{ 
+bool FujitsuClimate::read_frame(FujiFrame &frame)
+{
     if (uart::UARTDevice::available()) {
 
         /*
@@ -260,14 +260,14 @@ bool FujitsuClimate::read_frame(FujiFrame &frame)
         */
         for (frame.datalen = 0; frame.datalen < 8; ++frame.datalen) {
             if (!uart::UARTDevice::read_byte(frame.data + frame.datalen)) {
-                ESP_LOGD(TAG, "Timeout reading frame on the serial bus");    
+                ESP_LOGD(TAG, "Timeout reading frame on the serial bus");
                 break;
             }
         }
         frame.millis = millis();
         for (int i = frame.datalen; i > 0;) {
             frame.data[--i] ^= 0xFF;
-        }        
+        }
         // collect the first transactions on the bus
         // for protocol state machine inspection
         if (frames_log_.size() < 60)
@@ -286,7 +286,7 @@ void FujitsuClimate::update_state(FujiFrame &frame) {
 
     this->statusframe_ = frame;
 
-    bool update = false;                
+    bool update = false;
     if (this->target_temperature != frame.temp_target) {
         this->target_temperature = frame.temp_target;
         update = true;
@@ -299,7 +299,7 @@ void FujitsuClimate::update_state(FujiFrame &frame) {
         }
     }
     if (frame.enabled) {
-        byte fujitsu_mode = frame.acmode;
+        uint8_t fujitsu_mode = frame.acmode;
         if ((fujitsu_mode > 0) && (fujitsu_mode < FUJITSU_TO_ESPHOME_ACMODE_COUNT)) {
             auto esphome_mode = FUJITSU_TO_ESPHOME_ACMODE[fujitsu_mode];
             if (this->mode != esphome_mode) {
@@ -346,7 +346,7 @@ void FujitsuClimate::update_state(FujiFrame &frame) {
         }
     }
 
-    byte fujitsu_fanmode = frame.fanmode;
+    uint8_t fujitsu_fanmode = frame.fanmode;
     if (fujitsu_fanmode < FUJITSU_TO_ESPHOME_FANMODE_COUNT) {
         auto esphome_fanmode = FUJITSU_TO_ESPHOME_FANMODE[fujitsu_fanmode];
         if (this->fan_mode != esphome_fanmode) {
@@ -355,8 +355,8 @@ void FujitsuClimate::update_state(FujiFrame &frame) {
         }
     }
 
-    if (update) 
-        this->publish_state();        
+    if (update)
+        this->publish_state();
 }
 
 void FujitsuClimate::merge_state() {
@@ -404,7 +404,7 @@ void FujitsuClimate::send_frame(FujiFrame &frame) {
     //
     unsigned long waitfor = millis() - this->lastframemillis_;
     if (waitfor < 60)
-        this->set_timeout(FUJISEND_TIMEOUT_NAME, 60 - waitfor, [this]() { this->internal_send_frame(); });        
+        this->set_timeout(FUJISEND_TIMEOUT_NAME, 60 - waitfor, [this]() { this->internal_send_frame(); });
     else {
         ESP_LOGD(TAG, "Timeout exceeded while synchronizing transmission");
     }
@@ -430,13 +430,13 @@ void FujitsuClimate::send_statusframe() {
 
 void FujitsuClimate::internal_send_frame() {
 
-    if (this->txenable_pin_) 
+    if (this->txenable_pin_)
         this->txenable_pin_->digital_write(1);
 
     uart::UARTDevice::write_array(this->sendbuf_, FUJITSUAC_FRAMESIZE);
     uart::UARTDevice::flush();
-    
-    if (this->txenable_pin_) 
+
+    if (this->txenable_pin_)
         this->txenable_pin_->digital_write(0);
 
     /*byte recvbuf[FUJITSUAC_FRAMESIZE];
@@ -444,9 +444,9 @@ void FujitsuClimate::internal_send_frame() {
         ESP_LOGD(TAG, "Timeout reading back transmitted frame on the serial bus");
         return;
     }
-    
+
     if (0 != memcmp(recvbuf, this->sendbuf_, FUJITSUAC_FRAMESIZE)) {
-        ESP_LOGD(TAG, "TX collision while sending frame");    
+        ESP_LOGD(TAG, "TX collision while sending frame");
         return;
     }*/
 

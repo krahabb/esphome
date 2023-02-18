@@ -1,10 +1,10 @@
 #include "fujidefs.h"
-
+#include <stdio.h>
 
 const char* FujiFrame::dump_payload(char buffer[]) {
     sprintf(buffer, "%08d DATA(%d): %X %X %X %X %X %X %X %X", (int)millis, datalen, data[0], data[1], data[2],
-             data[3], data[4], data[5], data[6], data[7]);    
-    return buffer;      
+             data[3], data[4], data[5], data[6], data[7]);
+    return buffer;
 }
 const char* FujiFrame::dump_decoded(char buffer[]) {
     sprintf(buffer,
@@ -78,27 +78,27 @@ void FujiFrame::encode() {
     }
 
     data[kModeIndex] =
-        (data[kModeIndex] & ~kModeMask) | 
+        (data[kModeIndex] & ~kModeMask) |
         (acMode << kModeOffset);
-    data[kModeIndex] = 
-        (data[kEnabledIndex] & ~kEnabledMask) | 
+    data[kModeIndex] =
+        (data[kEnabledIndex] & ~kEnabledMask) |
         (onOff << kEnabledOffset);
     data[kFanIndex] =
-        (data[kFanIndex] & ~kFanMask) | 
+        (data[kFanIndex] & ~kFanMask) |
         (fanMode << kFanOffset);
     data[kErrorIndex] =
-        (data[kErrorIndex] & ~kErrorMask) | 
+        (data[kErrorIndex] & ~kErrorMask) |
         (acError << kErrorOffset);
-    data[kEconomyIndex] = 
-        (data[kEconomyIndex] & ~kEconomyMask) | 
+    data[kEconomyIndex] =
+        (data[kEconomyIndex] & ~kEconomyMask) |
         (economyMode << kEconomyOffset);
     data[kTemperatureIndex] =
         (data[kTemperatureIndex] & ~kTemperatureMask) |
         (temperature << kTemperatureOffset);
     data[kSwingIndex] =
-        (data[kSwingIndex] & ~kSwingMask) | 
+        (data[kSwingIndex] & ~kSwingMask) |
         (swingMode << kSwingOffset);
-    data[kSwingStepIndex] = 
+    data[kSwingStepIndex] =
         (data[kSwingStepIndex] & ~kSwingStepMask) |
         (swingStep << kSwingStepOffset);
     data[kControllerPresentIndex] =
