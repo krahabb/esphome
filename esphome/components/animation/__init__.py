@@ -151,13 +151,13 @@ async def to_code(config):
         pos = 0
         for frameIndex in range(frames):
             image.seek(frameIndex)
-            frame = image.convert("LA", dither=Image.NONE)
+            frame = image.convert("LA", dither=Image.Dither.NONE)
             if CONF_RESIZE in config:
                 frame = frame.resize([width, height])
             pixels = list(frame.getdata())
             if len(pixels) != height * width:
                 raise core.EsphomeError(
-                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height*width})"
+                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height * width})"
                 )
             for pix, a in pixels:
                 if transparent:
@@ -180,7 +180,7 @@ async def to_code(config):
             pixels = list(frame.getdata())
             if len(pixels) != height * width:
                 raise core.EsphomeError(
-                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height*width})"
+                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height * width})"
                 )
             for pix in pixels:
                 data[pos] = pix[0]
@@ -203,7 +203,7 @@ async def to_code(config):
             pixels = list(frame.getdata())
             if len(pixels) != height * width:
                 raise core.EsphomeError(
-                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height*width})"
+                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height * width})"
                 )
             for r, g, b, a in pixels:
                 if transparent:
@@ -232,7 +232,7 @@ async def to_code(config):
             pixels = list(frame.getdata())
             if len(pixels) != height * width:
                 raise core.EsphomeError(
-                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height*width})"
+                    f"Unexpected number of pixels in {path} frame {frameIndex}: ({len(pixels)} != {height * width})"
                 )
             for r, g, b, a in pixels:
                 R = r >> 3
@@ -259,7 +259,7 @@ async def to_code(config):
             if transparent:
                 alpha = image.split()[-1]
                 has_alpha = alpha.getextrema()[0] < 0xFF
-            frame = image.convert("1", dither=Image.NONE)
+            frame = image.convert("1", dither=Image.Dither.NONE)
             if CONF_RESIZE in config:
                 frame = frame.resize([width, height])
                 if transparent:

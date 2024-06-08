@@ -14,6 +14,8 @@
 #include "esphome/core/time.h"
 #endif
 
+#include <cinttypes>
+
 namespace esphome {
 namespace deep_sleep {
 
@@ -103,6 +105,10 @@ class DeepSleepComponent : public Component {
   // Returns nullopt if no run duration is set. Otherwise, returns the run
   // duration before entering deep sleep.
   optional<uint32_t> get_run_duration_() const;
+
+  void dump_config_platform_();
+  bool prepare_to_sleep_();
+  void deep_sleep_();
 
   optional<uint64_t> sleep_duration_;
 #ifdef USE_ESP32

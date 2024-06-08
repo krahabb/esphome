@@ -62,6 +62,7 @@ class DallasTemperatureSensor : public sensor::Sensor {
   uint64_t get_address() { return address_; }  
   /// Helper to get a pointer to the address as uint8_t.
   uint8_t *get_address8();
+  uint64_t get_address();
   /// Helper to create (and cache) the name for this sensor. For example "0xfe0000031f1eaf29".
   const std::string &get_address_name();
 
