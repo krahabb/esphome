@@ -3,7 +3,6 @@ import esphome.config_validation as cv
 from esphome.components import switch
 from esphome.const import (
     CONF_ID,
-    CONF_NAME,
     CONF_ADDRESS,
 )
 
@@ -19,6 +18,6 @@ CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS], config[CONF_NAME])
-
+    var = cg.new_Pvariable(config[CONF_ID])
+    cg.add(var.set_address(config[CONF_ADDRESS]))
     await switch.register_switch(var, config)
