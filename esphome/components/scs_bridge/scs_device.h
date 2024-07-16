@@ -8,17 +8,13 @@ namespace scs_bridge {
 // base class for any SCS entity type (cover-switch-light-...)
 class SCSDevice : public Component {
  public:
-  const uint8_t address;
+  SCSDevice() {}
 
-  SCSDevice(uint8_t address) : address(address) {}
+  uint8_t get_address() { return this->address_; }
+  void set_address(uint8_t address) { this->address_ = address; }
 
-  // Component interface
-  //void setup() override;
-  //void loop() override;
-  //void dump_config() override;
-
-  //virtual void parse(uint8_t command, uint8_t value) = 0;
-
+ protected:
+  uint8_t address_{};
 };
 
 }  // namespace scs_bridge

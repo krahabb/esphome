@@ -11,19 +11,14 @@ namespace scs_bridge {
 const std::string SCH_REFRESH_NAME("refresh");
 const std::string SCH_TIMEOUT_NAME("timeout");
 
-
-SCSCover::SCSCover(uint8_t address, std::string name)
-    : SCSDevice(address), Cover(name) {
-  ESP_LOGCONFIG(SCSBridge::TAG, "SCSCover::SCSCover address=%02X name=%s", (uint32_t)address, name.c_str());
-  SCSBridge::register_cover(this);
-}
+SCSCover::SCSCover() : SCSDevice(), Cover() { SCSBridge::register_cover(this); }
 
 void SCSCover::set_max_duration(uint32_t seconds) { this->fullrun_millis_ = seconds * 1000; }
 
 void SCSCover::command_up(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= (int32_t)(millis - this->command_millis_);
+      this->position_millis_ -= (int32_t) (millis - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       this->position = float(this->position_millis_) / float(this->fullrun_millis_);
@@ -38,7 +33,7 @@ void SCSCover::command_up(uint32_t millis) {
 void SCSCover::command_down(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += (int32_t)(millis - this->command_millis_);
+      this->position_millis_ += (int32_t) (millis - this->command_millis_);
       if (this->position_millis_ > this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       this->position = float(this->position_millis_) / float(this->fullrun_millis_);
@@ -53,12 +48,12 @@ void SCSCover::command_down(uint32_t millis) {
 void SCSCover::command_stop(uint32_t millis) {
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += (int32_t)(millis - this->command_millis_);
+      this->position_millis_ += (int32_t) (millis - this->command_millis_);
       if (this->position_millis_ >= this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       break;
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= (int32_t)(millis - this->command_millis_);
+      this->position_millis_ -= (int32_t) (millis - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       break;
@@ -84,19 +79,19 @@ cover::CoverTraits SCSCover::get_traits() {
 void SCSCover::control(const cover::CoverCall &call) {
   // This will be called every time the user requests a state change.
   if (call.get_stop()) {
-    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
+    SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
   } else if (call.get_position().has_value()) {
     float pos = *call.get_position();
     if (pos == cover::COVER_OPEN) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
+      SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
     } else if (pos == cover::COVER_CLOSED) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
+      SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
     } else if (pos > this->position) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
+      SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_UP, true);
       int32_t deltapos_millis = (pos - this->position) * float(this->fullrun_millis_);
       this->set_timeout(SCH_TIMEOUT_NAME, deltapos_millis, [this]() { this->sch_timeout_(); });
     } else if (pos < this->position) {
-      SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
+      SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_DOWN, true);
       int32_t deltapos_millis = (this->position - pos) * float(this->fullrun_millis_);
       this->set_timeout(SCH_TIMEOUT_NAME, deltapos_millis, [this]() { this->sch_timeout_(); });
     }
@@ -107,12 +102,12 @@ void SCSCover::sch_refresh_() {
   uint32_t now = millis();
   switch (this->current_operation) {
     case cover::CoverOperation::COVER_OPERATION_OPENING:
-      this->position_millis_ += (int32_t)(now - this->command_millis_);
+      this->position_millis_ += (int32_t) (now - this->command_millis_);
       if (this->position_millis_ >= this->fullrun_millis_)
         this->position_millis_ = this->fullrun_millis_;
       break;
     case cover::CoverOperation::COVER_OPERATION_CLOSING:
-      this->position_millis_ -= (int32_t)(now - this->command_millis_);
+      this->position_millis_ -= (int32_t) (now - this->command_millis_);
       if (this->position_millis_ < 0)
         this->position_millis_ = 0;
       break;
@@ -126,8 +121,8 @@ void SCSCover::sch_refresh_() {
 
 void SCSCover::sch_timeout_() {
   if (this->current_operation != cover::CoverOperation::COVER_OPERATION_IDLE)
-    SCSBridge::send(this->address, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
+    SCSBridge::send(this->address_, SCS_ADR_SCSBRIDGE, SCS_CMD_SET, SCS_VAL_COVER_STOP, true);
 }
 
-}//namespace scs_bridge
-}//namespace esphome
+}  // namespace scs_bridge
+}  // namespace esphome
