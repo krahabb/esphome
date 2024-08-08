@@ -1,27 +1,25 @@
 #include "fujidefs.h"
 #include <stdio.h>
 
-const char* FujiFrame::dump_payload(char buffer[]) {
-    sprintf(buffer, "%08d DATA(%d): %X %X %X %X %X %X %X %X", (int)millis, datalen, data[0], data[1], data[2],
-             data[3], data[4], data[5], data[6], data[7]);
-    return buffer;
+const char *FujiFrame::dump_payload(char buffer[]) const {
+  sprintf(buffer, "%08d DATA(%d): %X %X %X %X %X %X %X %X", (int) millis, datalen, data[0], data[1], data[2], data[3],
+          data[4], data[5], data[6], data[7]);
+  return buffer;
 }
-const char* FujiFrame::dump_decoded(char buffer[]) {
-    sprintf(buffer,
-            //"mSrc: %d mDst: %d mType: %d write: %d login: %d unknown: %d "
-            //"onOff: %d temp: %d, mode: %d cP:%d uM:%d cTemp:%d acError:%d\n"
-            "addr_src:%d addr_dst:%d type:%d updatemagic:%d "
-            "bit_unknown:%d bit_write:%d bit_error:%d bit_controllerpresent:%d "
-            "enabled:%d temp_target:%d acmode:%d fanmode:%d temp_room:%d "
-            "economy:%d swing:%d swingstep:%d\n",
-            //messageSource, messageDest, messageType, writeBit,
-            //loginBit, unknownBit, onOff, temperature, acMode,
-            //controllerPresent, updateMagic, controllerTemp, acError,
-            addr_src, addr_dst, type, updatemagic,
-            bit_unknown, bit_write, bit_error, bit_controllerpresent,
-            enabled, temp_target, acmode, fanmode, temp_room,
-            economy, swing, swingstep);
-    return buffer;
+const char *FujiFrame::dump_decoded(char buffer[]) const {
+  sprintf(buffer,
+          //"mSrc: %d mDst: %d mType: %d write: %d login: %d unknown: %d "
+          //"onOff: %d temp: %d, mode: %d cP:%d uM:%d cTemp:%d acError:%d\n"
+          "addr_src:%d addr_dst:%d type:%d updatemagic:%d "
+          "bit_unknown:%d bit_write:%d bit_error:%d bit_controllerpresent:%d "
+          "enabled:%d temp_target:%d acmode:%d fanmode:%d temp_room:%d "
+          "economy:%d swing:%d swingstep:%d\n",
+          // messageSource, messageDest, messageType, writeBit,
+          // loginBit, unknownBit, onOff, temperature, acMode,
+          // controllerPresent, updateMagic, controllerTemp, acError,
+          addr_src, addr_dst, type, updatemagic, bit_unknown, bit_write, bit_error, bit_controllerpresent, enabled,
+          temp_target, acmode, fanmode, temp_room, economy, swing, swingstep);
+  return buffer;
 }
 
 /*
@@ -112,4 +110,3 @@ void FujiFrame::encode() {
         (controllerTemp << kControllerTempOffset);
 
 }*/
-
