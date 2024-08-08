@@ -116,70 +116,70 @@ enum class FujiFanMode : byte {
 
 #pragma pack(push, 1)
 typedef struct _FujiFrame {
-    unsigned long millis = {};
-    unsigned char datalen = {};
-    union {
-        unsigned char data[FUJITSUAC_FRAMESIZE] = {};
-        struct {
-            //data[0]
-            unsigned int addr_src : 8;
-            //data[1]
-            unsigned int addr_dst : 7;
-            unsigned int bit_unknown : 1;
-            //data[2]
-            unsigned int _dummy_2_0 : 3;
-            unsigned int bit_write : 1;
-            unsigned int type : 2;
-            unsigned int _dummy_2_1 : 2;
-            //data[3]
-            unsigned int enabled : 1;//on/off
-            unsigned int acmode : 3;
-            unsigned int fanmode : 3;
-            unsigned int bit_error : 1;
-            //data[4]
-            unsigned int temp_target : 5;
-            unsigned int _dummy_4_0 : 2;
-            unsigned int economy : 1;
-            //data[5]
-            unsigned int _dummy_5_0 : 1;
-            unsigned int swingstep : 1;
-            unsigned int swing : 1;
-            unsigned int _dummy_5_1 : 1;
-            unsigned int updatemagic : 4;
-            //data[6]
-            unsigned int bit_controllerpresent : 1;
-            unsigned int temp_room : 5;
-            unsigned int _dummy_6_0 : 2;
-            //data[7]
-        };
+  unsigned long millis{0};
+  unsigned char datalen{0};
+  union {
+    unsigned char data[FUJITSUAC_FRAMESIZE]{0, 0, 0, 0, 0, 0, 0, 0};
+    struct {
+      // data[0]
+      unsigned int addr_src : 8;
+      // data[1]
+      unsigned int addr_dst : 7;
+      unsigned int bit_unknown : 1;
+      // data[2]
+      unsigned int _dummy_2_0 : 3;
+      unsigned int bit_write : 1;
+      unsigned int type : 2;
+      unsigned int _dummy_2_1 : 2;
+      // data[3]
+      unsigned int enabled : 1;  // on/off
+      unsigned int acmode : 3;
+      unsigned int fanmode : 3;
+      unsigned int bit_error : 1;
+      // data[4]
+      unsigned int temp_target : 5;
+      unsigned int _dummy_4_0 : 2;
+      unsigned int economy : 1;
+      // data[5]
+      unsigned int _dummy_5_0 : 1;
+      unsigned int swingstep : 1;
+      unsigned int swing : 1;
+      unsigned int _dummy_5_1 : 1;
+      unsigned int updatemagic : 4;
+      // data[6]
+      unsigned int bit_controllerpresent : 1;
+      unsigned int temp_room : 5;
+      unsigned int _dummy_6_0 : 2;
+      // data[7]
     };
+  };
 
-    /*byte onOff = 0;
-    byte temperature = 16;
-    byte acMode = 0;
-    byte fanMode = 0;
-    byte acError = 0;
-    byte economyMode = 0;
-    byte swingMode = 0;
-    byte swingStep = 0;
-    byte controllerPresent = 0;
-    byte updateMagic = 0;  // unsure what this value indicates
-    byte controllerTemp = 16;
+  /*byte onOff = 0;
+  byte temperature = 16;
+  byte acMode = 0;
+  byte fanMode = 0;
+  byte acError = 0;
+  byte economyMode = 0;
+  byte swingMode = 0;
+  byte swingStep = 0;
+  byte controllerPresent = 0;
+  byte updateMagic = 0;  // unsure what this value indicates
+  byte controllerTemp = 16;
 
-    bool writeBit = false;
-    bool loginBit = false;
-    bool unknownBit = false;  // unsure what this bit indicates
+  bool writeBit = false;
+  bool loginBit = false;
+  bool unknownBit = false;  // unsure what this bit indicates
 
-    byte messageType = 0;
-    byte messageSource = 0;
-    byte messageDest = 0;
-    */
+  byte messageType = 0;
+  byte messageSource = 0;
+  byte messageDest = 0;
+  */
 
-    //void decode();
-    //void encode();
+  // void decode();
+  // void encode();
 
-    const char* dump_payload(char buffer[]);
-    const char* dump_decoded(char buffer[]);
+  const char *dump_payload(char buffer[]) const;
+  const char *dump_decoded(char buffer[]) const;
 } FujiFrame;
 #pragma pack(pop)
 
@@ -208,4 +208,3 @@ typedef struct _FujiFrame {
     void encode(FujiFrameRaw& rawframe);
     const char* dump(char buffer[]);
 } FujiFrame;*/
-
