@@ -1,0 +1,8 @@
+# more or less the same component as 'legacy' dallas (now onewire)
+# it just adds the capability to setup every connected sensor whatever its address
+m3_dallas:
+  - pin: GPIO2
+    auto_setup_sensors: true  # default: false
+    sensor_name_template: "%s.%s"  # default "%s.%s" -> substitues {appname}.{hexaddress}
+    resolution: 11
+    accuracy_decimals: 1  # default 1
