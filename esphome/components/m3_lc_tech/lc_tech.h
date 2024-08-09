@@ -1,12 +1,11 @@
 #pragma once
 
-
 #include "esphome/core/component.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/uart/uart.h"
 
 //#include "esphome.h"
-//using namespace esphome;
+// using namespace esphome;
 
 /*
  The protocol according to the docs:
@@ -36,14 +35,11 @@
 */
 #define LCTECH_UPDATE_INTERVAL 2000
 
-
 namespace esphome {
-namespace lc_tech {
+namespace m3_lc_tech {
 
 class LCTechRelay : public PollingComponent, public switch_::Switch {
-
  public:
-
   LCTechRelay(uart::UARTComponent *uart, uint8_t channel);
 
   void setup() override;
@@ -52,8 +48,7 @@ class LCTechRelay : public PollingComponent, public switch_::Switch {
   void write_state(bool state);
 
  protected:
-
-  uart::UARTComponent * const uart_;
+  uart::UARTComponent *const uart_;
   const uint8_t channel_;
   uint8_t state_{0x00};
   bool restore_state_{true};
@@ -61,5 +56,5 @@ class LCTechRelay : public PollingComponent, public switch_::Switch {
   void send_packet();
 };
 
-}//namespace lc_tech
-}//namespace esphome
+}  // namespace m3_lc_tech
+}  // namespace esphome

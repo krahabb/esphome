@@ -1,0 +1,35 @@
+# Basic example config for use with m3_lc_tech.
+# Depending on platform you might need to free the esp uart from logging
+
+# Free up uart from logging
+logger:
+  level: warn
+  baud_rate: 0
+
+uart:
+  id: uart_0
+  baud_rate: 115200  # speed to STC15L101EW
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+
+switch:
+  - platform: m3_lc_tech
+    name: '$device_name.relay 1'
+    id: relay1
+    channel: 1
+    uart_id: uart_0
+  - platform: m3_lc_tech
+    name: '$device_name.relay 2'
+    id: relay2
+    channel: 2
+    uart_id: uart_0
+  - platform: m3_lc_tech
+    name: '$device_name.relay 3'
+    id: relay3
+    channel: 3
+    uart_id: uart_0
+  - platform: m3_lc_tech
+    name: '$device_name.relay 4'
+    id: relay4
+    channel: 4
+    uart_id: uart_0

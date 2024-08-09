@@ -1,18 +1,12 @@
 import esphome.codegen as cg
+from esphome.components import switch, uart
 import esphome.config_validation as cv
-from esphome.components import switch
-from esphome.components import uart
-
-from esphome.const import (
-    CONF_ID,
-    CONF_UART_ID,
-    CONF_CHANNEL,
-)
+from esphome.const import CONF_CHANNEL, CONF_ID, CONF_UART_ID
 
 CODEOWNERS = ["@krahabb"]
 DEPENDENCIES = ["uart"]
 
-lc_tech_ns = cg.esphome_ns.namespace("lc_tech")
+lc_tech_ns = cg.esphome_ns.namespace("m3_lc_tech")
 LCTechRelay = lc_tech_ns.class_("LCTechRelay", switch.Switch, cg.PollingComponent)
 
 CONFIG_SCHEMA = (
