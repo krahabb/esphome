@@ -102,7 +102,7 @@ union FramePoll {
     /* 118 */ byte LowestCell;
     /* 119 */ be_uint16 cell_low_voltage;
     /* 121 */ be_uint16 AverageCellVoltage;
-    /* 123 */ byte CellCount;
+    /* 123 */ u8 cell_count;
     /* 124 */ byte Unknown[14];
     /* 138 */ be_uint16 Checksum;
   };
@@ -249,6 +249,7 @@ class AntBms : public uart::UARTDevice, public PollingComponent {
   ENTITY_ARRAY(sensor::Sensor, cell_voltage, FRAME_POLL_CELLS_COUNT)
   CELL_SENSOR_CONFIG(cell_high_voltage, 116)
   CELL_SENSOR_CONFIG(cell_low_voltage, 119)
+  BYTE_SENSOR_CONFIG(cell_count, 123)
   ENTITY_ARRAY(sensor::Sensor, temperature, FRAME_POLL_TEMPERATURES_COUNT)
   TEXT_SENSOR_CONFIG(charge_mos_status, 103, TextSensorConfig::CHARGE_MOS_MAP, TextSensorConfig::CHARGE_MOS_MAP_SIZE)
   TEXT_SENSOR_CONFIG(discharge_mos_status, 104, TextSensorConfig::DISCHARGE_MOS_MAP,

@@ -71,6 +71,11 @@ PLATFORM_ENTITIES = {
             state_class=ec.STATE_CLASS_MEASUREMENT,
         ),
     },
+    "cell_count": {
+        PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
+            accuracy_decimals=0,
+        ),
+    },
     "temperature": {
         PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
             unit_of_measurement=ec.UNIT_CELSIUS,
