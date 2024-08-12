@@ -11,6 +11,7 @@ MULTI_CONF = True
 CONF_ANTBMS_ID = "antbms_id"
 CONF_COUNT = "count"
 
+
 m3_ant_bms_ns = cg.esphome_ns.namespace("m3_antbms")
 AntBmsComponent = m3_ant_bms_ns.class_("AntBms", cg.PollingComponent)
 
@@ -45,25 +46,31 @@ async def platform_to_code(
 
     for entity_key, entity_config in config.items():
         if entity_key in platform_entities:
-            var = await platform_entities[entity_key].get(
+            entity = await platform_entities[entity_key].get(
                 PLATFORM_ENTITY_INIT, default_init_func
             )(entity_config)
             if CONF_COUNT in entity_config:
                 cg.add(
-                    getattr(antbms, f"set_{entity_key}")(var, entity_config[CONF_COUNT])
+                    getattr(antbms, f"set_{entity_key}")(
+                        entity, entity_config[CONF_COUNT]
+                    )
                 )
             else:
-                cg.add(getattr(antbms, f"set_{entity_key}")(var))
+                cg.add(getattr(antbms, f"set_{entity_key}")(entity))
 
 
+CONF_OBJECT_ID_PREFIX = "object_id_prefix"
 CONFIG_SCHEMA = cv.All(
     cv.Schema({cv.GenerateID(): cv.declare_id(AntBmsComponent)})
     .extend(cv.polling_component_schema("1s"))
     .extend(uart.UART_DEVICE_SCHEMA)
+    .extend({cv.Optional(CONF_OBJECT_ID_PREFIX): cv.string_strict})
 )
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
-    await uart.register_uart_device(var, config)
+    antbms = cg.new_Pvariable(config[CONF_ID])
+    await cg.register_component(antbms, config)
+    await uart.register_uart_device(antbms, config)
+    if CONF_OBJECT_ID_PREFIX in config:
+        cg.add(getattr(antbms, "set_object_id_prefix")(config[CONF_OBJECT_ID_PREFIX]))

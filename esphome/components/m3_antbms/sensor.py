@@ -20,6 +20,14 @@ PLATFORM_ENTITIES = {
             state_class=ec.STATE_CLASS_MEASUREMENT,
         ),
     },
+    "battery_power": {
+        PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
+            unit_of_measurement=ec.UNIT_WATT,
+            accuracy_decimals=0,
+            device_class=ec.DEVICE_CLASS_POWER,
+            state_class=ec.STATE_CLASS_MEASUREMENT,
+        ),
+    },
     "soc": {
         PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
             unit_of_measurement=ec.UNIT_PERCENT,
@@ -32,7 +40,6 @@ PLATFORM_ENTITIES = {
         PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
             unit_of_measurement="Ah",
             accuracy_decimals=0,
-            device_class=ec.DEVICE_CLASS_BATTERY,
             state_class=ec.STATE_CLASS_MEASUREMENT,
         ),
     },

@@ -1,7 +1,9 @@
 #include "antbms.h"
 #include "esphome/core/application.h"
 
+#ifdef USE_ESP_IDF
 #include "esp_system.h"
+#endif
 
 namespace esphome {
 namespace m3_antbms {
@@ -12,6 +14,21 @@ static const char *const ENTITY_ARRAY_OBJECT_ID_FMT = ENTITY_ARRAY_NAME_FMT;
 const byte FRAME_POLL[] = {0xDB, 0xDB, 0x00, 0x00, 0x00, 0x00};
 
 #define ARRAY_SIZE(_array) (sizeof(_array) / sizeof(_array[0]))
+
+SensorConfig::SensorConfig(AntBms *_antbms, const char *_name, EntityBase *_entity, int _offset)
+    : entity(_entity), offset(_offset) {
+  std::string object_id = _entity->get_object_id();
+  if (object_id.empty()) {
+    char object_id_buf[256];
+    if (_antbms->get_object_id_prefix()) {
+      sprintf(object_id_buf, "%s_%s", _antbms->get_object_id_prefix(), _name);
+    } else {
+      sprintf(object_id_buf, "%s", _name);
+    }
+    _entity->set_object_id(object_id_buf);
+  }
+}
+
 const char *const TextSensorConfig::CHARGE_MOS_MAP[] = {
     /* 0x00 */ "Off",
     /* 0x01 */ "On",
@@ -65,9 +82,10 @@ const char *const TextSensorConfig::BALANCE_MAP[] = {
 };
 const int TextSensorConfig::BALANCE_MAP_SIZE = ARRAY_SIZE(TextSensorConfig::BALANCE_MAP);
 
+const char *CellSensorConfig::OBJECT_ID = "cell_voltage";
 void AntBms::set_cell_voltage(sensor::Sensor *cell_voltage, int count) {
   // yaml configuration will just setup a 'default' single entity
-  char name[256];  // overflow ?...optimistic approach
+  char name[256];
   std::string original_name = cell_voltage->get_name();
   if (original_name.empty())
     original_name = "Cell voltage";
@@ -75,13 +93,18 @@ void AntBms::set_cell_voltage(sensor::Sensor *cell_voltage, int count) {
   cell_voltage->set_name(strdup(name));
   char object_id[256];
   std::string original_object_id = cell_voltage->get_object_id();
-  if (original_object_id.empty())
-    original_object_id = "cell_voltage";
+  if (original_object_id.empty()) {
+    if (this->get_object_id_prefix()) {
+      sprintf(object_id, "%s_%s", this->get_object_id_prefix(), CellSensorConfig::OBJECT_ID);
+      original_object_id = object_id;
+    } else {
+      original_object_id = CellSensorConfig::OBJECT_ID;
+    }
+  }
   sprintf(object_id, ENTITY_ARRAY_OBJECT_ID_FMT, original_object_id.c_str(), 1);
   cell_voltage->set_object_id(strdup(object_id));
-
   // insert the first one (mainly configured by yaml)
-  this->sensors_.push_back(new FloatSensorConfig(cell_voltage, 6, be_u16_to_float, 0.001f));
+  this->sensors_.push_back(new CellSensorConfig(this, cell_voltage, 6));
 
   for (int i = 2; i <= count; ++i) {
     // now clone the configured entity and fix naming/object_id
@@ -96,10 +119,11 @@ void AntBms::set_cell_voltage(sensor::Sensor *cell_voltage, int count) {
     sensor->set_unit_of_measurement("V");
     sensor->set_accuracy_decimals(cell_voltage->get_accuracy_decimals());
     App.register_sensor(sensor);
-    this->sensors_.push_back(new FloatSensorConfig(sensor, 4 + 2 * i, be_u16_to_float, 0.001f));
+    this->sensors_.push_back(new CellSensorConfig(this, sensor, 4 + 2 * i));
   }
 }
 
+const char *const TEMPERATURE = "temperature";
 void AntBms::set_temperature(sensor::Sensor *_sensor, int count) {
   // yaml configuration will just setup a 'default' single entity
   char name[256];  // overflow ?...optimistic approach
@@ -110,13 +134,18 @@ void AntBms::set_temperature(sensor::Sensor *_sensor, int count) {
   _sensor->set_name(strdup(name));
   char object_id[256];
   std::string original_object_id = _sensor->get_object_id();
-  if (original_object_id.empty())
-    original_object_id = "temperature";
+  if (original_object_id.empty()) {
+    if (this->get_object_id_prefix()) {
+      sprintf(object_id, "%s_%s", this->get_object_id_prefix(), TEMPERATURE);
+      original_object_id = object_id;
+    } else {
+      original_object_id = TEMPERATURE;
+    }
+  }
   sprintf(object_id, ENTITY_ARRAY_OBJECT_ID_FMT, original_object_id.c_str(), 1);
   _sensor->set_object_id(strdup(object_id));
-
   // insert the first one (mainly configured by yaml)
-  this->sensors_.push_back(new FloatSensorConfig(_sensor, 91, be_i16_to_float, 1.f));
+  this->sensors_.push_back(new FloatSensorConfig(this, TEMPERATURE, _sensor, 91, be_i16_to_float, 1.f));
 
   for (int i = 2; i <= count; ++i) {
     // now clone the configured entity and fix naming/object_id
@@ -131,7 +160,7 @@ void AntBms::set_temperature(sensor::Sensor *_sensor, int count) {
     sensor->set_unit_of_measurement("°C");
     sensor->set_accuracy_decimals(0);
     App.register_sensor(sensor);
-    this->sensors_.push_back(new FloatSensorConfig(sensor, 89 + 2 * i, be_i16_to_float, 1.f));
+    this->sensors_.push_back(new FloatSensorConfig(this, TEMPERATURE, sensor, 89 + 2 * i, be_i16_to_float, 1.f));
   }
 }
 
@@ -161,6 +190,11 @@ void AntBms::empty_uart_buffer_() {
 
 void AntBms::read_poll_frame_() {
   FramePoll frame;
+  if (!this->available()) {
+    // UART likely disconnected..
+    return;
+  }
+
   if (this->read_array(frame.bytes, sizeof(frame.bytes))) {
     if (frame.checksum_ok()) {
       for (auto sensor_config : this->sensors_) {
@@ -173,10 +207,12 @@ void AntBms::read_poll_frame_() {
 }
 
 void AntBms::free_heap_check_() {
+#ifdef USE_ESP_IDF
   float free_heap_kb = esp_get_free_heap_size() / 1024;
   if (free_heap_kb != this->memory_free_->get_raw_state()) {
     this->memory_free_->publish_state(free_heap_kb);
   }
+#endif
 }
 
 }  // namespace m3_antbms

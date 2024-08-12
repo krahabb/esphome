@@ -89,14 +89,14 @@ union FramePoll {
     /* 079 */ be_uint32 capacity_remaining;
     /* 083 */ be_uint32 TotalCycleCapacity;
     /* 087 */ be_uint32 TimeFromBoot;  // seconds
-    /* 091 */ be_int16 Temperature[FRAME_POLL_TEMPERATURES_COUNT];
+    /* 091 */ be_int16 temperature[FRAME_POLL_TEMPERATURES_COUNT];
     /* 103 */ byte charge_mos_status;
     /* 104 */ byte discharge_mos_status;
     /* 105 */ byte balance_status;
     /* 106 */ be_uint16 TireLength;
     /* 108 */ be_uint16 PulsesPerWeek;
     /* 110 */ byte Relay;
-    /* 111 */ be_int32 Power;
+    /* 111 */ be_int32 battery_power;
     /* 115 */ byte HighestCell;
     /* 116 */ be_uint16 cell_high_voltage;
     /* 118 */ byte LowestCell;
@@ -130,12 +130,16 @@ union FramePoll {
  public: \
   void set_##name(type *_entity, int count);
 
+class AntBms;
+
 /// @brief Root of *SensorConfig classes: these will generalize the frame parsing based off
 /// the format (and scale) of the encoded data
 class SensorConfig {
  public:
+  EntityBase *entity;
   const int offset;
-  explicit SensorConfig(int _offset) : offset(_offset) {}
+
+  SensorConfig(AntBms *_antbms, const char *_name, EntityBase *_entity, int _offset);
 
   virtual void parse(const FramePoll &frame) = 0;
 };
@@ -145,7 +149,8 @@ class ByteSensorConfig : public SensorConfig {
  public:
   typedef float (*convert_func_type)(const byte *);
   sensor::Sensor *sensor;
-  ByteSensorConfig(sensor::Sensor *_sensor, int _offset) : SensorConfig(_offset), sensor(_sensor) {}
+  ByteSensorConfig(AntBms *_antbms, const char *_name, sensor::Sensor *_sensor, int _offset)
+      : SensorConfig(_antbms, _name, _sensor, _offset), sensor(_sensor) {}
 
   void parse(const FramePoll &frame) override {
     float value = frame.bytes[this->offset];
@@ -155,7 +160,7 @@ class ByteSensorConfig : public SensorConfig {
 };
 #define BYTE_SENSOR_CONFIG(name, _offset) \
   void set_##name(sensor::Sensor *_sensor) { /* NOLINT */ \
-    this->sensors_.push_back(new ByteSensorConfig(_sensor, _offset)); \
+    this->sensors_.push_back(new ByteSensorConfig(this, #name, _sensor, _offset)); \
   }
 
 class FloatSensorConfig : public SensorConfig {
@@ -164,8 +169,9 @@ class FloatSensorConfig : public SensorConfig {
   sensor::Sensor *sensor;
   const convert_func_type convert_func;
   const float scale;
-  FloatSensorConfig(sensor::Sensor *_sensor, int _offset, convert_func_type _convert_func, float _scale)
-      : SensorConfig(_offset), sensor(_sensor), convert_func(_convert_func), scale(_scale) {}
+  FloatSensorConfig(AntBms *_antbms, const char *_name, sensor::Sensor *_sensor, int _offset,
+                    convert_func_type _convert_func, float _scale)
+      : SensorConfig(_antbms, _name, _sensor, _offset), sensor(_sensor), convert_func(_convert_func), scale(_scale) {}
 
   void parse(const FramePoll &frame) override {
     float value = this->convert_func(frame.bytes + this->offset) * this->scale;
@@ -175,7 +181,26 @@ class FloatSensorConfig : public SensorConfig {
 };
 #define FLOAT_SENSOR_CONFIG(name, _offset, _convert_func, _scale) \
   void set_##name(sensor::Sensor *_sensor) { /* NOLINT */ \
-    this->sensors_.push_back(new FloatSensorConfig(_sensor, _offset, _convert_func, _scale)); \
+    this->sensors_.push_back(new FloatSensorConfig(this, #name, _sensor, _offset, _convert_func, _scale)); \
+  }
+
+/// @brief Specialized parser for cell voltages in order to 'statically' cut down the least
+/// significant digit (too noisy)
+class CellSensorConfig : public FloatSensorConfig {
+ public:
+  static const char *OBJECT_ID;
+  CellSensorConfig(AntBms *_antbms, sensor::Sensor *_sensor, int _offset)
+      : FloatSensorConfig(_antbms, OBJECT_ID, _sensor, _offset, be_u16_to_float, 0.001f) {}
+
+  void parse(const FramePoll &frame) override {
+    float value = ((be_u16(frame.bytes + this->offset) + 5) / 10) * 0.01f;
+    if (value != this->sensor->get_raw_state())
+      this->sensor->publish_state(value);
+  }
+};
+#define CELL_SENSOR_CONFIG(name, _offset) \
+  void set_##name(sensor::Sensor *_sensor) { /* NOLINT */ \
+    this->sensors_.push_back(new CellSensorConfig(this, _sensor, _offset)); \
   }
 
 class TextSensorConfig : public SensorConfig {
@@ -190,8 +215,9 @@ class TextSensorConfig : public SensorConfig {
   text_sensor::TextSensor *sensor;
   const char *const *map;
   const int map_size;
-  TextSensorConfig(text_sensor::TextSensor *_sensor, int _offset, const char *const _map[], int _map_size)
-      : SensorConfig(_offset), sensor(_sensor), map(_map), map_size(_map_size) {}
+  TextSensorConfig(AntBms *_antbms, const char *_name, text_sensor::TextSensor *_sensor, int _offset,
+                   const char *const _map[], int _map_size)
+      : SensorConfig(_antbms, _name, _sensor, _offset), sensor(_sensor), map(_map), map_size(_map_size) {}
 
   void parse(const FramePoll &frame) override {
     byte byte_value = frame.bytes[this->offset];
@@ -210,18 +236,19 @@ class TextSensorConfig : public SensorConfig {
 };
 #define TEXT_SENSOR_CONFIG(name, _offset, _map, _map_size) \
   void set_##name(text_sensor::TextSensor *_sensor) { /* NOLINT */ \
-    this->sensors_.push_back(new TextSensorConfig(_sensor, _offset, _map, _map_size)); \
+    this->sensors_.push_back(new TextSensorConfig(this, #name, _sensor, _offset, _map, _map_size)); \
   }
 
 class AntBms : public uart::UARTDevice, public PollingComponent {
  public:
   FLOAT_SENSOR_CONFIG(battery_voltage, 4, be_u16_to_float, 0.1f)
   FLOAT_SENSOR_CONFIG(battery_current, 70, be_i32_to_float, 0.1f)
+  FLOAT_SENSOR_CONFIG(battery_power, 111, be_i32_to_float, 1.f)
   BYTE_SENSOR_CONFIG(soc, 74)
   FLOAT_SENSOR_CONFIG(capacity_remaining, 79, be_u32_to_float, 0.000001f)
   ENTITY_ARRAY(sensor::Sensor, cell_voltage, FRAME_POLL_CELLS_COUNT)
-  FLOAT_SENSOR_CONFIG(cell_high_voltage, 116, be_u16_to_float, 0.001f)
-  FLOAT_SENSOR_CONFIG(cell_low_voltage, 119, be_u16_to_float, 0.001f)
+  CELL_SENSOR_CONFIG(cell_high_voltage, 116)
+  CELL_SENSOR_CONFIG(cell_low_voltage, 119)
   ENTITY_ARRAY(sensor::Sensor, temperature, FRAME_POLL_TEMPERATURES_COUNT)
   TEXT_SENSOR_CONFIG(charge_mos_status, 103, TextSensorConfig::CHARGE_MOS_MAP, TextSensorConfig::CHARGE_MOS_MAP_SIZE)
   TEXT_SENSOR_CONFIG(discharge_mos_status, 104, TextSensorConfig::DISCHARGE_MOS_MAP,
@@ -230,12 +257,17 @@ class AntBms : public uart::UARTDevice, public PollingComponent {
 
   ENTITY(sensor::Sensor, memory_free)
 
+  const char *get_object_id_prefix() { return this->object_id_prefix_; }
+  void set_object_id_prefix(const char *_prefix) { this->object_id_prefix_ = _prefix; }
+
   void setup() override;
   void dump_config() override;
   void update() override;
   void loop() override;
 
  protected:
+  const char *object_id_prefix_{};
+
   std::vector<SensorConfig *> sensors_;
   void empty_uart_buffer_();
   void read_poll_frame_();
