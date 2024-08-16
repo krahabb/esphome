@@ -256,6 +256,8 @@ class AntBms : public uart::UARTDevice, public PollingComponent {
                      TextSensorConfig::DISCHARGE_MOS_MAP_SIZE)
   TEXT_SENSOR_CONFIG(balance_status, 105, TextSensorConfig::BALANCE_MAP, TextSensorConfig::BALANCE_MAP_SIZE)
 
+  ENTITY(sensor::Sensor, battery_energy)
+  ENTITY(binary_sensor::BinarySensor, link_connected)
   ENTITY(sensor::Sensor, memory_free)
 
   const char *get_object_id_prefix() { return this->object_id_prefix_; }
@@ -268,6 +270,10 @@ class AntBms : public uart::UARTDevice, public PollingComponent {
 
  protected:
   const char *object_id_prefix_{};
+
+  long battery_energy_last_time{0};
+  float battery_energy_last_power{0.f};
+  float battery_energy_value{0.f};
 
   std::vector<SensorConfig *> sensors_;
   void empty_uart_buffer_();

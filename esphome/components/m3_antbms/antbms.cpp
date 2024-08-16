@@ -192,14 +192,38 @@ void AntBms::read_poll_frame_() {
   FramePoll frame;
   if (!this->available()) {
     // UART likely disconnected..
+    this->battery_energy_last_time = 0;  // resets energy accumulation until reconnected
+    if (this->link_connected_) {
+      this->link_connected_->publish_state(false);
+    }
     return;
   }
 
   if (this->read_array(frame.bytes, sizeof(frame.bytes))) {
     if (frame.checksum_ok()) {
+      if (this->battery_energy_) {
+        float battery_power = frame.battery_power.to_le();
+        uint32_t time = micros();
+        if (this->battery_energy_last_time) {
+          uint32_t dt = time - this->battery_energy_last_time;
+          this->battery_energy_value += (this->battery_energy_last_power + battery_power) * dt / 7200000000.f;
+          float battery_energy_value_rounded = (int) this->battery_energy_value;
+          if (battery_energy_value_rounded != this->battery_energy_->get_raw_state()) {
+            this->battery_energy_->publish_state(battery_energy_value_rounded);
+          }
+        }
+        this->battery_energy_last_time = time;
+        this->battery_energy_last_power = battery_power;
+      }
+
       for (auto sensor_config : this->sensors_) {
         sensor_config->parse(frame);
       }
+
+      if (this->link_connected_) {
+        this->link_connected_->publish_state(true);
+      }
+
     } else {
       ESP_LOGD(TAG, "Invalid checksum");
     }
