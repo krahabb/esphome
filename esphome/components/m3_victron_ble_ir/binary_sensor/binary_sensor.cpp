@@ -16,20 +16,20 @@ void VictronBinarySensor::setup() {
     switch (this->type_) {
       case VICTRON_BINARY_SENSOR_TYPE::ALARM:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::BATTERY_MONITOR:
+          case VICTRON_BLE_RECORD::TYPE::BATTERY_MONITOR:
             this->publish_state(msg->data.battery_monitor.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER:
             this->publish_state(msg->data.inverter.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(msg->data.smart_battery_protect.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DC_ENERGY_METER:
+          case VICTRON_BLE_RECORD::TYPE::DC_ENERGY_METER:
             this->publish_state(msg->data.dc_energy_meter.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `alarm` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `alarm` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -37,26 +37,26 @@ void VictronBinarySensor::setup() {
 
       case VICTRON_BINARY_SENSOR_TYPE::CHARGER_ERROR:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SOLAR_CHARGER:
+          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
             this->publish_state(msg->data.solar_charger.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
             this->publish_state(msg->data.dcdc_converter.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
             this->publish_state(msg->data.inverter_rs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(msg->data.smart_battery_protect.error_code != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
             this->publish_state(msg->data.multi_rs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD_TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
             this->publish_state(msg->data.orion_xs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `charger error` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `charger error` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -79,32 +79,32 @@ void VictronBinarySensor::setup() {
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BATTERY_SAFE:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_EXTERNAL_CONTROL:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SOLAR_CHARGER:
+          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
             this->publish_state_(msg->data.solar_charger.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER:
             this->publish_state_(msg->data.inverter.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
             this->publish_state_(msg->data.dcdc_converter.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
             this->publish_state_(msg->data.inverter_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::VE_BUS:
+          case VICTRON_BLE_RECORD::TYPE::VE_BUS:
             this->publish_state_(msg->data.ve_bus.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
             this->publish_state_(msg->data.orion_xs.device_state);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }

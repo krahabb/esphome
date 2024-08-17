@@ -16,11 +16,11 @@ void VictronTextSensor::setup() {
     switch (this->type_) {
       case VICTRON_TEXT_SENSOR_TYPE::ALARM:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::VE_BUS:
+          case VICTRON_BLE_RECORD::TYPE::VE_BUS:
             this->publish_state_(msg->data.ve_bus.alarm);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `alarm` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `alarm` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -28,14 +28,14 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::ACTIVE_AC_IN:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.active_ac_in);
             break;
-          case VICTRON_BLE_RECORD_TYPE::VE_BUS:
+          case VICTRON_BLE_RECORD::TYPE::VE_BUS:
             this->publish_state_(msg->data.ve_bus.active_ac_in);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `active ac in` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `active ac in` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -43,20 +43,20 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::ALARM_REASON:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::BATTERY_MONITOR:
+          case VICTRON_BLE_RECORD::TYPE::BATTERY_MONITOR:
             this->publish_state_(msg->data.battery_monitor.alarm_reason);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER:
             this->publish_state_(msg->data.inverter.alarm_reason);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.alarm_reason);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DC_ENERGY_METER:
+          case VICTRON_BLE_RECORD::TYPE::DC_ENERGY_METER:
             this->publish_state_(msg->data.dc_energy_meter.alarm_reason);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `alarm reason` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `alarm reason` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -64,26 +64,26 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::CHARGER_ERROR:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SOLAR_CHARGER:
+          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
             this->publish_state_(msg->data.solar_charger.charger_error);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
             this->publish_state_(msg->data.dcdc_converter.charger_error);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
             this->publish_state_(msg->data.inverter_rs.charger_error);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.error_code);
             break;
-          case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.charger_error);
             break;
-          case VICTRON_BLE_RECORD_TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
             this->publish_state_(msg->data.orion_xs.charger_error);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `charger error` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `charger error` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -91,32 +91,32 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::DEVICE_STATE:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SOLAR_CHARGER:
+          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
             this->publish_state_(msg->data.solar_charger.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER:
             this->publish_state_(msg->data.inverter.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
             this->publish_state_(msg->data.dcdc_converter.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
             this->publish_state_(msg->data.inverter_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::VE_BUS:
+          case VICTRON_BLE_RECORD::TYPE::VE_BUS:
             this->publish_state_(msg->data.ve_bus.device_state);
             break;
-          case VICTRON_BLE_RECORD_TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
             this->publish_state_(msg->data.orion_xs.device_state);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -124,11 +124,11 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::ERROR_CODE:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.error_code);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `error code` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `error code` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -136,17 +136,17 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::OFF_REASON:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
             this->publish_state_(msg->data.dcdc_converter.off_reason);
             break;
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.off_reason);
             break;
-          case VICTRON_BLE_RECORD_TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
             this->publish_state_(msg->data.orion_xs.off_reason);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `off reason` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `off reason` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -154,11 +154,11 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::WARNING_REASON:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.warning_reason);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `warning reason` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `warning reason` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -166,11 +166,11 @@ void VictronTextSensor::setup() {
 
       case VICTRON_TEXT_SENSOR_TYPE::BALANCER_STATUS:
         switch (msg->record_type) {
-          case VICTRON_BLE_RECORD_TYPE::SMART_LITHIUM:
+          case VICTRON_BLE_RECORD::TYPE::SMART_LITHIUM:
             this->publish_state_(msg->data.smart_lithium.balancer_status);
             break;
           default:
-            ESP_LOGW(TAG, "[%s] Device has no `balancer status` field.", this->parent_->address_str().c_str());
+            ESP_LOGW(TAG, "[%s] Device has no `balancer status` field.", this->parent_->address_str());
             this->publish_state("");
             break;
         }
@@ -297,7 +297,7 @@ void VictronTextSensor::publish_state_(VE_REG_DEVICE_STATE val) {
       this->publish_state("Not available");
       break;
     default:
-      ESP_LOGW(TAG, "[%s] Unknown device state (%u).", this->parent_->address_str().c_str(), (u_int8_t) val);
+      ESP_LOGW(TAG, "[%s] Unknown device state (%u).", this->parent_->address_str(), (u_int8_t) val);
       this->publish_state(to_string((u_int8_t) val));
       break;
   }
@@ -507,7 +507,7 @@ void VictronTextSensor::publish_state_(VE_REG_CHR_ERROR_CODE val) {
       this->publish_state("Not available");
       break;
     default:
-      ESP_LOGW(TAG, "[%s] Unknown device error (%u).", this->parent_->address_str().c_str(), (u_int8_t) val);
+      ESP_LOGW(TAG, "[%s] Unknown device error (%u).", this->parent_->address_str(), (u_int8_t) val);
       this->publish_state(to_string((u_int8_t) val));
       break;
   }
