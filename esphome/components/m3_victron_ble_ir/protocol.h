@@ -1,17 +1,10 @@
 #pragma once
 
+#include "defines.h"
+#include "protocol_enums.h"
+
 namespace esphome {
 namespace m3_victron_ble_ir {
-
-typedef unsigned char u_int8_t;
-typedef unsigned short u_int16_t;
-typedef signed short int16_t;
-typedef unsigned int u_int32_t;
-typedef signed int int32_t;
-
-// Max documented message size is 16 byte. Maximum length of a record is 20 bytes = 4 byte header
-// (VICTRON_BLE_RECORD_BASE minus VICTRON_BLE_MANUFACTURER_DATA) + 16 byte payload
-#define VICTRON_ENCRYPTED_DATA_MAX_SIZE 16
 
 #pragma pack(push, 1)
 
@@ -336,61 +329,6 @@ enum class VICTRON_BLE_RECORD_TYPE : u_int8_t {
 };
 */
 
-struct VICTRON_BLE_RECORD {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-                             // REMOVE VICTRON_BLE_MANUFACTURER_DATA manufacturer_base;
-  struct HEADER {            // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-    // VICTRON_MANUFACTURER_RECORD_TYPE record_type;
-    enum class TYPE : u_int8_t {
-      PRODUCT_ADVERTISEMENT = 0x10,
-    } record_type;
-
-    u_int8_t record_length;
-
-    VICTRON_PRODUCT_ID product_id;
-
-  } __attribute__((packed)) header;
-
-  enum class TYPE : u_int8_t {
-    // VICTRON_BLE_RECORD_TEST
-    TEST_RECORD = 0x00,
-    // VICTRON_BLE_RECORD_SOLAR_CHARGER
-    SOLAR_CHARGER = 0x01,
-    // VICTRON_BLE_RECORD_BATTERY_MONITOR
-    BATTERY_MONITOR = 0x02,
-    // VICTRON_BLE_RECORD_INVERTER
-    INVERTER = 0x03,
-    // VICTRON_BLE_RECORD_DCDC_CONVERTER
-    DCDC_CONVERTER = 0x04,
-    // VICTRON_BLE_RECORD_SMART_LITHIUM
-    SMART_LITHIUM = 0x05,
-    // VICTRON_BLE_RECORD_INVERTER_RS
-    INVERTER_RS = 0x06,
-    // Not defined
-    GX_DEVICE = 0x07,
-    // Not defined
-    AC_CHARGER = 0x08,
-    // VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT
-    SMART_BATTERY_PROTECT = 0x09,
-    // VICTRON_BLE_RECORD_LYNX_SMART_BMS
-    LYNX_SMART_BMS = 0x0A,
-    // VICTRON_BLE_RECORD_MULTI_RS
-    MULTI_RS = 0x0B,
-    // VICTRON_BLE_RECORD_VE_BUS
-    VE_BUS = 0x0C,
-    // VICTRON_BLE_RECORD_DC_ENERGY_METER
-    DC_ENERGY_METER = 0x0D,
-    // VICTRON_BLE_RECORD_ORION_XS
-    ORION_XS = 0x0F,
-  } record_type;
-
-  // VICTRON_BLE_RECORD_TYPE record_type;
-  u_int16_t data_counter;
-
-  u_int8_t encryption_key_0;  // Byte 0 of the encryption key (bindkey)
-
-  u_int8_t data[0];
-} __attribute__((packed));
-
 struct VICTRON_BLE_RECORD_TEST {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   // 1 s, 0 .. 34 year
   u_int32_t uptime : 30;
@@ -402,7 +340,7 @@ struct VICTRON_BLE_RECORD_TEST {  // NOLINT(readability-identifier-naming,altera
 // source:
 // - https://www.victronenergy.com/upload/documents/VE.Direct-Protocol-3.33.pdf
 // - https://github.com/victronenergy/venus-html5-app/blob/master/src/app/utils/constants.js
-enum class VE_REG_DEVICE_STATE : u_int8_t {
+enum VE_REG_DEVICE_STATE : u_int8_t {
   // Off
   OFF = 0x00,
   // Low power
@@ -900,12 +838,58 @@ struct VICTRON_BLE_RECORD_ORION_XS {  // NOLINT(readability-identifier-naming,al
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed));
 
-#pragma pack(pop)
+struct VICTRON_BLE_RECORD {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  struct HEADER {            // NOLINT(readability-identifier-naming,altera-struct-pack-align)
 
-struct VictronBleData {
-  u_int16_t data_counter = 0;
-  VICTRON_BLE_RECORD::TYPE record_type = VICTRON_BLE_RECORD::TYPE::TEST_RECORD;
-  // Assumption: One device (class instance) will send only one type of record.
+    enum class MANUFACTURER_RECORD_TYPE : u_int8_t {
+      PRODUCT_ADVERTISEMENT = 0x10,
+    } manufacturer_record_type;
+
+    u_int8_t record_length;
+
+    VICTRON_PRODUCT_ID product_id;
+
+    enum TYPE : u_int8_t {
+      // VICTRON_BLE_RECORD_TEST
+      TEST_RECORD = 0x00,
+      // VICTRON_BLE_RECORD_SOLAR_CHARGER
+      SOLAR_CHARGER = 0x01,
+      // VICTRON_BLE_RECORD_BATTERY_MONITOR
+      BATTERY_MONITOR = 0x02,
+      // VICTRON_BLE_RECORD_INVERTER
+      INVERTER = 0x03,
+      // VICTRON_BLE_RECORD_DCDC_CONVERTER
+      DCDC_CONVERTER = 0x04,
+      // VICTRON_BLE_RECORD_SMART_LITHIUM
+      SMART_LITHIUM = 0x05,
+      // VICTRON_BLE_RECORD_INVERTER_RS
+      INVERTER_RS = 0x06,
+      // Not defined
+      GX_DEVICE = 0x07,
+      // Not defined
+      AC_CHARGER = 0x08,
+      // VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT
+      SMART_BATTERY_PROTECT = 0x09,
+      // VICTRON_BLE_RECORD_LYNX_SMART_BMS
+      LYNX_SMART_BMS = 0x0A,
+      // VICTRON_BLE_RECORD_MULTI_RS
+      MULTI_RS = 0x0B,
+      // VICTRON_BLE_RECORD_VE_BUS
+      VE_BUS = 0x0C,
+      // VICTRON_BLE_RECORD_DC_ENERGY_METER
+      DC_ENERGY_METER = 0x0D,
+      // VICTRON_BLE_RECORD_ORION_XS
+      ORION_XS = 0x0F,
+      // as of now, this is a 'stub' to direct our entity initialization code
+      _TEMINATOR = 0xFF,
+    } record_type;
+
+    u_int16_t data_counter;
+
+    u_int8_t encryption_key_0;  // Byte 0 of the encryption key (bindkey)
+
+  } __attribute__((packed)) header;
+
   union {
     VICTRON_BLE_RECORD_BATTERY_MONITOR battery_monitor;
     VICTRON_BLE_RECORD_SOLAR_CHARGER solar_charger;
@@ -921,7 +905,14 @@ struct VictronBleData {
     VICTRON_BLE_RECORD_ORION_XS orion_xs;
     u_int8_t raw[VICTRON_ENCRYPTED_DATA_MAX_SIZE];
   } data;
-};
+
+  // expand with a 'safety zone' since our parsing code might
+  // access any address in data.raw with a 32 bit read
+  u_int8_t guard[4];
+
+} __attribute__((packed));
+
+#pragma pack(pop)
 
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome

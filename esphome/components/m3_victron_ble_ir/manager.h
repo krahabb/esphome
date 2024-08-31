@@ -1,25 +1,38 @@
 #pragma once
 
-#ifdef USE_ESP32
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
-#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
-#include <aes/esp_aes.h>
 
 #include <array>
+#include <vector>
 
 #include "protocol.h"
+#include "entity.h"
+
+#ifdef USE_ESP32
+#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#include <aes/esp_aes.h>
+#endif
+
+#define DEBUG_VBIENTITY
 
 namespace esphome {
 namespace m3_victron_ble_ir {
 
+#ifdef USE_ESP32
 class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Component {
+#else
+class VictronBle : public Component {
+#endif
  public:
   void dump_config() override;
 
   void setup() override;
+  void loop() override;
 
+#ifdef USE_ESP32
   bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
+#endif
 
   void set_address(uint64_t address) {
     this->address_ = address;
@@ -31,6 +44,8 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
   const char *address_str() const { return this->address_str_; }
 
   void set_bindkey(std::array<uint8_t, 16> key) { this->bindkey_ = key; }
+
+  void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
 
   void add_on_battery_monitor_message_callback(
       std::function<void(const VICTRON_BLE_RECORD_BATTERY_MONITOR *)> callback) {
@@ -71,7 +86,8 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
   void add_on_orion_xs_message_callback(std::function<void(const VICTRON_BLE_RECORD_ORION_XS *)> callback) {
     this->on_orion_xs_message_callback_.add(std::move(callback));
   }
-  void add_on_message_callback(std::function<void(const VictronBleData *)> callback) {
+
+  void add_on_message_callback(std::function<void(const VICTRON_BLE_RECORD *)> callback) {
     this->on_message_callback_.add(std::move(callback));
   }
 
@@ -81,13 +97,21 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
 
   std::array<uint8_t, 16> bindkey_;
 
+#ifdef USE_ESP32
   esp_aes_context aes_ctx_;
+#endif
 
-  VictronBleData last_package_{};
+  VICTRON_BLE_RECORD record_{};
+
+#ifdef DEBUG_VBIENTITY
+  uint32_t time_loop_{};
+#endif
+
+  std::vector<VBIEntity *> entities_;
+
+  CallbackManager<void(const VICTRON_BLE_RECORD *)> on_message_callback_{};
 
 #define VICTRON_MESSAGE_STORAGE_CB(name, type) CallbackManager<void(const type *)> on_##name##_message_callback_{};
-
-  CallbackManager<void(const VictronBleData *)> on_message_callback_{};
   VICTRON_MESSAGE_STORAGE_CB(battery_monitor, VICTRON_BLE_RECORD_BATTERY_MONITOR)
   VICTRON_MESSAGE_STORAGE_CB(solar_charger, VICTRON_BLE_RECORD_SOLAR_CHARGER)
   VICTRON_MESSAGE_STORAGE_CB(inverter, VICTRON_BLE_RECORD_INVERTER)
@@ -106,5 +130,3 @@ class VictronBle : public esp32_ble_tracker::ESPBTDeviceListener, public Compone
 
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome
-
-#endif

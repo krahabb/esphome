@@ -3,6 +3,7 @@
 #include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
 #include "../manager.h"
+#include "../entity.h"
 
 namespace esphome {
 namespace m3_victron_ble_ir {
@@ -187,5 +188,17 @@ class VictronSensor : public Component, public sensor::Sensor, public Parented<V
  protected:
   VICTRON_SENSOR_TYPE type_;
 };
+
+/*
+class VBISensor : public sensor::Sensor, VBIEntity {
+ public:
+
+  VBISensor(const char* label) : VBIEntity(label) {}
+
+ protected:
+
+};
+*/
+
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome

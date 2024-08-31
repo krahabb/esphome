@@ -33,14 +33,48 @@ MULTI_CONF = True
 
 m3_victron_ble_ir = cg.esphome_ns.namespace("m3_victron_ble_ir")
 VictronBle = m3_victron_ble_ir.class_(
-    "VictronBle", esp32_ble_tracker.ESPBTDeviceListener, cg.PollingComponent
+    "VictronBle", esp32_ble_tracker.ESPBTDeviceListener, cg.Component
+)
+VBIEntity = m3_victron_ble_ir.class_("VBIEntity")
+VBIEntity_Type = VBIEntity.enum("TYPE")
+
+PLATFORM_ENTITY_SCHEMA = "schema"
+PLATFORM_ENTITY_INIT = "init"
+
+# root schema to group (platform) entities linked to a Bms
+PLATFORM_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_VICTRON_BLE_ID): cv.use_id(VictronBle),
+    }
 )
 
-VictronBleDataConstPtr = (
-    m3_victron_ble_ir.struct("VictronBleData").operator("ptr").operator("const")
+
+def platform_schema(
+    platform_entities: dict[str, cv.Schema],
+):
+    return PLATFORM_SCHEMA.extend(
+        {cv.Optional(type): schema for type, schema in platform_entities.items()}
+    )
+
+
+async def platform_to_code(
+    config: dict,
+    platform_entities: dict[str, cv.Schema],
+    init_func,
+):
+    manager = await cg.get_variable(config[CONF_VICTRON_BLE_ID])
+
+    for entity_key, entity_config in config.items():
+        if entity_key in platform_entities:
+            entity = await init_func(entity_config, VBIEntity_Type.enum(entity_key))
+            cg.add(getattr(manager, "register_entity")(entity))
+
+
+VictronBleRecordConstPtr = (
+    m3_victron_ble_ir.struct("VICTRON_BLE_RECORD").operator("ptr").operator("const")
 )
 MessageTrigger = m3_victron_ble_ir.class_(
-    "MessageTrigger", automation.Trigger.template(VictronBleDataConstPtr)
+    "MessageTrigger", automation.Trigger.template(VictronBleRecordConstPtr)
 )
 
 BatteryMonitorMessageConstPtr = (
@@ -322,7 +356,7 @@ async def to_code(config):
     for conf in config.get(CONF_ON_MESSAGE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(
-            trigger, [(VictronBleDataConstPtr, "message")], conf
+            trigger, [(VictronBleRecordConstPtr, "message")], conf
         )
 
     for conf in config.get(CONF_ON_BATTERY_MONITOR_MESSAGE, []):

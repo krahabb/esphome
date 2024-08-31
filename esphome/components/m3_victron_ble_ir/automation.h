@@ -1,18 +1,19 @@
 #pragma once
 
-#include "esphome/core/component.h"
+#include "esphome/core/automation.h"
 #include "manager.h"
+#include "protocol.h"
 
 namespace esphome {
 namespace m3_victron_ble_ir {
 
-class MessageTrigger : public Trigger<const VictronBleData *> {
+class MessageTrigger : public Trigger<const VICTRON_BLE_RECORD *> {
  public:
   explicit MessageTrigger(VictronBle *parent) {
-    parent->add_on_message_callback([this](const VictronBleData *message) { this->trigger(message); });
+    parent->add_on_message_callback([this](const VICTRON_BLE_RECORD *message) { this->trigger(message); });
   }
 };
-
+/*REMOVE
 class BatteryMonitorMessageTrigger : public Trigger<const VICTRON_BLE_RECORD_BATTERY_MONITOR *> {
  public:
   explicit BatteryMonitorMessageTrigger(VictronBle *parent) {
@@ -100,6 +101,7 @@ class DcEnergyMeterMessageTrigger : public Trigger<const VICTRON_BLE_RECORD_DC_E
         [this](const VICTRON_BLE_RECORD_DC_ENERGY_METER *message) { this->trigger(message); });
   }
 };
+*/
 
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome

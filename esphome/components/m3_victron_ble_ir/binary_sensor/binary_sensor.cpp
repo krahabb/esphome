@@ -1,6 +1,6 @@
 #include "binary_sensor.h"
 #include "esphome/core/log.h"
-
+#include "../protocol.h"
 namespace esphome {
 namespace m3_victron_ble_ir {
 
@@ -12,20 +12,20 @@ void VictronBinarySensor::dump_config() {
 }
 
 void VictronBinarySensor::setup() {
-  this->parent_->add_on_message_callback([this](const VictronBleData *msg) {
+  this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
     switch (this->type_) {
       case VICTRON_BINARY_SENSOR_TYPE::ALARM:
-        switch (msg->record_type) {
-          case VICTRON_BLE_RECORD::TYPE::BATTERY_MONITOR:
+        switch (msg->header.record_type) {
+          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
             this->publish_state(msg->data.battery_monitor.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD::TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
             this->publish_state(msg->data.inverter.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(msg->data.smart_battery_protect.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
-          case VICTRON_BLE_RECORD::TYPE::DC_ENERGY_METER:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
             this->publish_state(msg->data.dc_energy_meter.alarm_reason != VE_REG_ALARM_REASON::NO_ALARM);
             break;
           default:
@@ -36,23 +36,23 @@ void VictronBinarySensor::setup() {
         break;
 
       case VICTRON_BINARY_SENSOR_TYPE::CHARGER_ERROR:
-        switch (msg->record_type) {
-          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
+        switch (msg->header.record_type) {
+          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
             this->publish_state(msg->data.solar_charger.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
             this->publish_state(msg->data.dcdc_converter.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
             this->publish_state(msg->data.inverter_rs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(msg->data.smart_battery_protect.error_code != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
             this->publish_state(msg->data.multi_rs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
-          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
             this->publish_state(msg->data.orion_xs.charger_error != VE_REG_CHR_ERROR_CODE::NO_ERROR);
             break;
           default:
@@ -78,29 +78,29 @@ void VictronBinarySensor::setup() {
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_AUTO_EQUALIZE:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_BATTERY_SAFE:
       case VICTRON_BINARY_SENSOR_TYPE::DEVICE_STATE_EXTERNAL_CONTROL:
-        switch (msg->record_type) {
-          case VICTRON_BLE_RECORD::TYPE::SOLAR_CHARGER:
+        switch (msg->header.record_type) {
+          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
             this->publish_state_(msg->data.solar_charger.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::INVERTER:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
             this->publish_state_(msg->data.inverter.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::DCDC_CONVERTER:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
             this->publish_state_(msg->data.dcdc_converter.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::INVERTER_RS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
             this->publish_state_(msg->data.inverter_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::SMART_BATTERY_PROTECT:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state_(msg->data.smart_battery_protect.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::MULTI_RS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
             this->publish_state_(msg->data.multi_rs.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::VE_BUS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
             this->publish_state_(msg->data.ve_bus.device_state);
             break;
-          case VICTRON_BLE_RECORD::TYPE::ORION_XS:
+          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
             this->publish_state_(msg->data.orion_xs.device_state);
             break;
           default:

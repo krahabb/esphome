@@ -1,65 +1,31 @@
-import esphome.codegen as cg
 from esphome.components import text_sensor
-import esphome.config_validation as cv
-from esphome.const import CONF_TYPE
 
-from .. import CONF_VICTRON_BLE_ID, VictronBle, m3_victron_ble_ir
+from .. import VBIEntity, m3_victron_ble_ir, platform_schema, platform_to_code
 
-DEPENDENCIES = ["m3_victron_ble_ir"]
-CODEOWNERS = ["@Fabian-Schmidt"]
-
-VictronTextSensor = m3_victron_ble_ir.class_(
-    "VictronTextSensor", text_sensor.TextSensor, cg.Component
+VBITextSensor = m3_victron_ble_ir.class_(
+    "VBITextSensor", text_sensor.TextSensor, VBIEntity
 )
 
-VICTRON_TEXT_SENSOR_TYPE = m3_victron_ble_ir.namespace("VICTRON_TEXT_SENSOR_TYPE")
+_vbitextsensor_schema = text_sensor.text_sensor_schema(VBITextSensor)
 
-CONF_SUPPORTED_TYPE = {
-    "ALARM": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.ALARM,
-    },
-    "ACTIVE_AC_IN": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.ACTIVE_AC_IN,
-    },
-    "ALARM_REASON": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.ALARM_REASON,
-    },
-    "CHARGER_ERROR": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.CHARGER_ERROR,
-    },
-    "DEVICE_STATE": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.DEVICE_STATE,
-    },
-    "ERROR_CODE": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.ERROR_CODE,
-    },
-    "OFF_REASON": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.OFF_REASON,
-    },
-    "WARNING_REASON": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.WARNING_REASON,
-    },
-    "BALANCER_STATUS": {
-        CONF_TYPE: VICTRON_TEXT_SENSOR_TYPE.BALANCER_STATUS,
-    },
-}
+TYPES = [
+    "AC_IN_ACTIVE",
+    "ALARM_NOTIFICATION",
+    "ALARM_REASON",
+    "BALANCER_STATUS",
+    "CHR_ERROR_CODE",
+    "DEVICE_OFF_REASON_2",
+    "DEVICE_STATE",
+    "WARNING_REASON",
+]
+PLATFORM_ENTITIES = {_type: _vbitextsensor_schema for _type in TYPES}
+
+CONFIG_SCHEMA = platform_schema(PLATFORM_ENTITIES)
 
 
-CONFIG_SCHEMA = (
-    text_sensor.text_sensor_schema(VictronTextSensor)
-    .extend(
-        {
-            cv.GenerateID(CONF_VICTRON_BLE_ID): cv.use_id(VictronBle),
-            cv.Required(CONF_TYPE): cv.enum(CONF_SUPPORTED_TYPE, upper=True),
-        }
+async def to_code(config: dict):
+    await platform_to_code(
+        config,
+        PLATFORM_ENTITIES,
+        init_func=text_sensor.new_text_sensor,
     )
-    .extend(cv.COMPONENT_SCHEMA)
-)
-
-
-async def to_code(config):
-    var = await text_sensor.new_text_sensor(config)
-    await cg.register_component(var, config)
-    await cg.register_parented(var, config[CONF_VICTRON_BLE_ID])
-
-    cg.add(var.set_type(CONF_SUPPORTED_TYPE[config[CONF_TYPE]][CONF_TYPE]))
