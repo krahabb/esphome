@@ -3,7 +3,7 @@ from esphome.components import text_sensor
 from .. import VBIEntity, m3_victron_ble_ir, platform_schema, platform_to_code
 
 VBITextSensor = m3_victron_ble_ir.class_(
-    "VBITextSensor", text_sensor.TextSensor, VBIEntity
+    "VBITextSensor", VBIEntity, text_sensor.TextSensor
 )
 
 _vbitextsensor_schema = text_sensor.text_sensor_schema(VBITextSensor)

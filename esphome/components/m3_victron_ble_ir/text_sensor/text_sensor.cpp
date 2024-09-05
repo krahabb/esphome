@@ -6,60 +6,66 @@ namespace esphome {
 namespace m3_victron_ble_ir {
 
 // static const char *const TAG = "m3_victron_ble_ir.text_sensor";
+VBITextSensor::VBITextSensor(TYPE type) : VBIEntity(type) {
+  this->set_name(this->def->label);
+  this->set_object_id(str_sanitize(str_snake_case(this->get_name())).c_str());
+}
 
 void VBITextSensor::init_() {
   switch (this->def->cls) {
     case CLASS::ENUM:
-      this->raw_value_ = this->get_record_def()->data_mask;
-      if ((this->get_record_def()->data_shift == 0) && (this->get_record_def()->data_mask == 0xFF)) {
-        this->set_parse_func_(parse_enum_8bit_aligned_);
-      } else {
-        this->set_parse_func_(parse_enum_);
+      if (this->data_shift_ == 0) {
+        if (this->data_mask_ == 0xFF) {
+          this->set_parse_func_(parse_enum_t_<u_int8_t>);
+          break;
+        }
+        if (this->data_mask_ == 0xFFFF) {
+          this->set_parse_func_(parse_enum_t_<u_int16_t>);
+          break;
+        }
       }
+      this->set_parse_func_(parse_enum_t_<u_int32_t>);
       break;
     case CLASS::BITMASK:
-      this->raw_value_ = this->get_record_def()->data_mask;
-      this->set_parse_func_(parse_bitmask_);
+      if (this->data_shift_ == 0) {
+        if (this->data_mask_ == 0xFF) {
+          this->set_parse_func_(parse_bitmask_t_<u_int8_t>);
+          break;
+        }
+        if (this->data_mask_ == 0xFFFF) {
+          this->set_parse_func_(parse_bitmask_t_<u_int16_t>);
+          break;
+        }
+      }
+      this->set_parse_func_(parse_bitmask_t_<u_int32_t>);
       break;
     default:
       this->init_unsupported_();
   }
 }
 
-void VBITextSensor::parse_enum_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
-  VBITextSensor *text_sensor = static_cast<VBITextSensor *>(entity);
-  u_int32_t value = RECORD_DEF::get_u_int32_t(entity->get_record_def(), record);
-  if (value != text_sensor->raw_value_) {
-    text_sensor->raw_value_ = value;
-    text_sensor->publish_state(((EnumBase::lookup_func_t) text_sensor->def->params)(value));
-  }
-}
-
-void VBITextSensor::parse_enum_8bit_aligned_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
-  VBITextSensor *text_sensor = static_cast<VBITextSensor *>(entity);
-  u_int32_t value = RECORD_DEF::get_u_int8_t_aligned(entity->get_record_def(), record);
-  if (value != text_sensor->raw_value_) {
-    text_sensor->raw_value_ = value;
-    text_sensor->publish_state(((EnumBase::lookup_func_t) text_sensor->def->params)(value));
-  }
-}
-
-void VBITextSensor::parse_bitmask_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
-  VBITextSensor *text_sensor = static_cast<VBITextSensor *>(entity);
-  auto record_def = entity->get_record_def();
-  u_int32_t value = RECORD_DEF::get_u_int32_t(record_def, record);
-  if (value != text_sensor->raw_value_) {
-    text_sensor->raw_value_ = value;
+template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+  T value = entity->read_record_t_<T>(record);
+  if (value != entity->raw_value_) {
+    entity->raw_value_ = value;
     if (value) {
       for (u_int32_t i = 1;; i = i << 1) {
         if (value & i) {
-          text_sensor->publish_state(((EnumBase::lookup_func_t) text_sensor->def->params)(i));
+          static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(i));
           break;
         }
       }
     } else {
-      text_sensor->publish_state(((EnumBase::lookup_func_t) text_sensor->def->params)(0));
+      static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(0));
     }
+  }
+}
+
+template<typename T> void VBITextSensor::parse_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+  T value = entity->read_record_t_<T>(record);
+  if (value != entity->raw_value_) {
+    entity->raw_value_ = value;
+    static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(value));
   }
 }
 

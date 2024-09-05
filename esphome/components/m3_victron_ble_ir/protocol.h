@@ -881,7 +881,7 @@ struct VICTRON_BLE_RECORD {  // NOLINT(readability-identifier-naming,altera-stru
       // VICTRON_BLE_RECORD_ORION_XS
       ORION_XS = 0x0F,
       // as of now, this is a 'stub' to direct our entity initialization code
-      _TEMINATOR = 0xFF,
+      _COUNT = 0x10,
     } record_type;
 
     u_int16_t data_counter;

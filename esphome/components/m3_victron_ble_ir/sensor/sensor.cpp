@@ -7,156 +7,8 @@ namespace m3_victron_ble_ir {
 
 static const char *const TAG = "m3_victron_ble_ir.sensor";
 
-void VictronSensor::dump_config() {
-  LOG_SENSOR("", "Victron Sensor", this);
-  ESP_LOGCONFIG(TAG, "  Type '%s'", enum_to_c_str(this->type_));
-}
-
 void VictronSensor::setup() {
   switch (this->type_) {
-    case VICTRON_SENSOR_TYPE::ACTIVE_AC_IN:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            this->publish_state((u_int8_t) msg->data.multi_rs.active_ac_in);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            this->publish_state((u_int8_t) msg->data.ve_bus.active_ac_in);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `active ac in` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::ACTIVE_AC_IN_POWER:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            if (msg->data.multi_rs.active_ac_in_power == 0x7FFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.multi_rs.active_ac_in_power);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            if (msg->data.ve_bus.active_ac_in_power == 0x3FFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.ve_bus.active_ac_in_power);
-            }
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `ac in power` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::AC_APPARENT_POWER:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            if (msg->data.inverter.ac_apparent_power == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.inverter.ac_apparent_power);
-            }
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `ac apparent power` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::AC_CURRENT:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            this->publish_state(0.1f * msg->data.inverter.ac_current);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `ac current` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::AC_OUT_POWER:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            if (msg->data.inverter_rs.ac_out_power == 0x7FFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.inverter_rs.ac_out_power);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            if (msg->data.multi_rs.active_ac_out_power == 0x7FFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.multi_rs.active_ac_out_power);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            if (msg->data.ve_bus.ac_out_power == 0x3FFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.ve_bus.ac_out_power);
-            }
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `ac out power` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::AC_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            this->publish_state(0.01f * msg->data.inverter.ac_voltage);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `ac voltage` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::ALARM_REASON:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
-            this->publish_state((u_int16_t) msg->data.battery_monitor.alarm_reason);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            this->publish_state((u_int16_t) msg->data.inverter.alarm_reason);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
-            this->publish_state((u_int16_t) msg->data.smart_battery_protect.alarm_reason);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
-            this->publish_state((u_int16_t) msg->data.dc_energy_meter.alarm_reason);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `alarm reason` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
     case VICTRON_SENSOR_TYPE::AUX_VOLTAGE:
       this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
         switch (msg->header.record_type) {
@@ -178,76 +30,6 @@ void VictronSensor::setup() {
             break;
           default:
             ESP_LOGW(TAG, "[%s] Device has no `aux voltage` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::BATTERY_CURRENT:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            this->publish_state(0.1f * msg->data.solar_charger.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
-            this->publish_state(0.001f * msg->data.battery_monitor.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            this->publish_state(0.1f * msg->data.inverter_rs.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::LYNX_SMART_BMS:
-            this->publish_state(0.1f * msg->data.lynx_smart_bms.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            this->publish_state(0.1f * msg->data.multi_rs.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            this->publish_state(0.1f * msg->data.ve_bus.battery_current);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
-            this->publish_state(0.001f * msg->data.dc_energy_meter.battery_current);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `battery current` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::BATTERY_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            this->publish_state(0.01f * msg->data.solar_charger.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
-            this->publish_state(0.01f * msg->data.battery_monitor.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            this->publish_state(0.01f * msg->data.inverter.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_LITHIUM:
-            this->publish_state(0.01f * msg->data.smart_lithium.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            this->publish_state(0.01f * msg->data.inverter_rs.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::LYNX_SMART_BMS:
-            this->publish_state(0.01f * msg->data.lynx_smart_bms.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            this->publish_state(0.01f * msg->data.multi_rs.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            this->publish_state(0.01f * msg->data.ve_bus.battery_voltage);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
-            this->publish_state(0.01f * msg->data.dc_energy_meter.battery_voltage);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `battery voltage` field.", this->parent_->address_str());
             this->publish_state(NAN);
             break;
         }
@@ -292,35 +74,6 @@ void VictronSensor::setup() {
       });
       break;
 
-    case VICTRON_SENSOR_TYPE::CHARGER_ERROR:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            this->publish_state((u_int8_t) msg->data.solar_charger.charger_error);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
-            this->publish_state((u_int8_t) msg->data.dcdc_converter.charger_error);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            this->publish_state((u_int8_t) msg->data.inverter_rs.charger_error);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
-            this->publish_state((u_int8_t) msg->data.smart_battery_protect.error_code);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            this->publish_state((u_int8_t) msg->data.multi_rs.charger_error);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
-            this->publish_state((u_int8_t) msg->data.orion_xs.charger_error);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `charger error` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
     case VICTRON_SENSOR_TYPE::CONSUMED_AH:
       this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
         switch (msg->header.record_type) {
@@ -332,41 +85,6 @@ void VictronSensor::setup() {
             break;
           default:
             ESP_LOGW(TAG, "[%s] Device has no `consumed Ah` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::DEVICE_STATE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            this->publish_state((u_int8_t) msg->data.solar_charger.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-            this->publish_state((u_int8_t) msg->data.inverter.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
-            this->publish_state((u_int8_t) msg->data.dcdc_converter.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            this->publish_state((u_int8_t) msg->data.inverter_rs.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
-            this->publish_state((u_int8_t) msg->data.smart_battery_protect.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            this->publish_state((u_int8_t) msg->data.multi_rs.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-            this->publish_state((u_int8_t) msg->data.ve_bus.device_state);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
-            this->publish_state((u_int8_t) msg->data.orion_xs.device_state);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `device state` field.", this->parent_->address_str());
             this->publish_state(NAN);
             break;
         }
@@ -489,58 +207,6 @@ void VictronSensor::setup() {
       });
       break;
 
-    case VICTRON_SENSOR_TYPE::OFF_REASON:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
-            this->publish_state((u_int32_t) msg->data.dcdc_converter.off_reason);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
-            this->publish_state((u_int32_t) msg->data.smart_battery_protect.off_reason);
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
-            this->publish_state((u_int32_t) msg->data.orion_xs.off_reason);
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `off reason` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::PV_POWER:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            if (msg->data.solar_charger.pv_power == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.solar_charger.pv_power);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            if (msg->data.inverter_rs.pv_power == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.inverter_rs.pv_power);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            if (msg->data.multi_rs.pv_power == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(msg->data.multi_rs.pv_power);
-            }
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `PV power` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
     case VICTRON_SENSOR_TYPE::STATE_OF_CHARGE:
       this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
         switch (msg->header.record_type) {
@@ -628,38 +294,6 @@ void VictronSensor::setup() {
             break;
           default:
             ESP_LOGW(TAG, "[%s] Device has no `time to go` field.", this->parent_->address_str());
-            this->publish_state(NAN);
-            break;
-        }
-      });
-      break;
-
-    case VICTRON_SENSOR_TYPE::YIELD_TODAY:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
-        switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-            if (msg->data.solar_charger.yield_today == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(0.01f * msg->data.solar_charger.yield_today);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-            if (msg->data.inverter_rs.yield_today == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(0.01f * msg->data.inverter_rs.yield_today);
-            }
-            break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-            if (msg->data.multi_rs.yield_today == 0xFFFF) {
-              this->publish_state(0);
-            } else {
-              this->publish_state(0.01f * msg->data.multi_rs.yield_today);
-            }
-            break;
-          default:
-            ESP_LOGW(TAG, "[%s] Device has no `yield today` field.", this->parent_->address_str());
             this->publish_state(NAN);
             break;
         }
@@ -846,6 +480,126 @@ void VictronSensor::setup() {
 
     default:
       break;
+  }
+}
+
+const char *VBISensor::UNITS[] = {"A", "V", "VA", "W", "kWh"};
+const char *VBISensor::DEVICE_CLASSES[] = {"current", "voltage", "apparent_power", "power", "energy"};
+const float VBISensor::DIGITS_TO_SCALE[] = {1.f, .1f, .01f, .001f};
+
+VBISensor::VBISensor(TYPE type) : VBIEntity(type) {
+  auto def = this->def;
+  this->set_name(def->label);
+  this->set_object_id(str_sanitize(str_snake_case(this->get_name())).c_str());
+  switch (def->cls) {
+    case CLASS::MEASURE:
+      this->set_state_class(sensor::StateClass::STATE_CLASS_MEASUREMENT);
+      goto _setup_numeric_sensor;
+    case CLASS::MEASURE_TOTAL:
+      this->set_state_class(sensor::StateClass::STATE_CLASS_TOTAL);
+      goto _setup_numeric_sensor;
+    case CLASS::MEASURE_INCREASING:
+      this->set_state_class(sensor::StateClass::STATE_CLASS_TOTAL_INCREASING);
+      goto _setup_numeric_sensor;
+    default:
+      return;
+  }
+
+_setup_numeric_sensor:
+  this->set_unit_of_measurement(UNITS[def->unit]);
+  this->set_device_class(DEVICE_CLASSES[def->unit]);
+}
+
+void VBISensor::init_() {
+  switch (this->def->cls) {
+    case CLASS::MEASURE:
+    case CLASS::MEASURE_TOTAL:
+    case CLASS::MEASURE_INCREASING:
+      this->set_accuracy_decimals(this->get_record_def()->decimal_digits);
+      this->scale_ = DIGITS_TO_SCALE[this->get_record_def()->decimal_digits];
+      if (this->get_record_def()->is_signed) {
+        this->signed_offset_ = this->data_mask_ + 1;
+        this->nan_value_ = this->data_mask_ >> 1;
+        if (this->data_shift_ == 0) {
+          if (this->data_mask_ == 0xFF) {
+            this->set_parse_func_(parse_signed_t_<u_int8_t>);
+            break;
+          }
+          if (this->data_mask_ == 0xFFFF) {
+            this->set_parse_func_(parse_signed_t_<u_int16_t>);
+            break;
+          }
+        }
+        this->set_parse_func_(parse_signed_t_<u_int32_t>);
+        break;
+      } else {
+        this->nan_value_ = this->data_mask_;
+        if (this->data_shift_ == 0) {
+          if (this->data_mask_ == 0xFF) {
+            this->set_parse_func_(parse_unsigned_t_<u_int8_t>);
+            break;
+          }
+          if (this->data_mask_ == 0xFFFF) {
+            this->set_parse_func_(parse_unsigned_t_<u_int16_t>);
+            break;
+          }
+        }
+        this->set_parse_func_(parse_unsigned_t_<u_int32_t>);
+        break;
+      }
+    case CLASS::ENUM:
+    case CLASS::BITMASK:
+      if (this->data_shift_ == 0) {
+        if (this->data_mask_ == 0xFF) {
+          this->set_parse_func_(parse_bitmask_enum_t_<u_int8_t>);
+          break;
+        }
+        if (this->data_mask_ == 0xFFFF) {
+          this->set_parse_func_(parse_bitmask_enum_t_<u_int16_t>);
+          break;
+        }
+      }
+      this->set_parse_func_(parse_bitmask_enum_t_<u_int32_t>);
+      break;
+    default:
+      this->init_unsupported_();
+  }
+}
+
+template<typename T> void VBISensor::parse_bitmask_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+  T value = entity->read_record_t_<T>(record);
+  if (value != entity->raw_value_) {
+    entity->raw_value_ = value;
+    if (value == entity->nan_value_)
+      static_cast<VBISensor *>(entity)->publish_state(NAN);
+    else
+      static_cast<VBISensor *>(entity)->publish_state(value);
+  }
+}
+template<typename T> void VBISensor::parse_signed_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+  u_int32_t value = entity->read_record_t_<T>(record);
+  if (value != entity->raw_value_) {
+    entity->raw_value_ = value;
+    auto sensor = static_cast<VBISensor *>(entity);
+    if (value == sensor->nan_value_) {
+      sensor->publish_state(NAN);
+    } else if (value < sensor->nan_value_) {
+      sensor->publish_state(value * sensor->scale_);
+    } else {
+      sensor->publish_state(((int32_t) value - sensor->signed_offset_) * sensor->scale_);
+    }
+  }
+}
+template<typename T> void VBISensor::parse_unsigned_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+  T value = entity->read_record_t_<T>(record);
+  if (value != entity->raw_value_) {
+    entity->raw_value_ = value;
+    if (value == entity->nan_value_)
+      static_cast<VBISensor *>(entity)->publish_state(NAN);
+    else {
+      auto sensor = static_cast<VBISensor *>(entity);
+      sensor->publish_state(value * sensor->scale_);
+    }
   }
 }
 

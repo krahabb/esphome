@@ -1,18 +1,23 @@
 #include "manager.h"
-#include "esphome/core/log.h"
+#include "esphome/core/application.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/log.h"
+#include "esphome/components/api/api_server.h"
+
+#include "sensor/sensor.h"
+#include "text_sensor/text_sensor.h"
 
 namespace esphome {
 namespace m3_victron_ble_ir {
 
 static const char *const TAG = "m3_victron_ble_ir";
 
-void VictronBle::dump_config() {
+void Manager::dump_config() {
   ESP_LOGCONFIG(TAG, "Victron BLE:");
   ESP_LOGCONFIG(TAG, "  Address: %s", this->address_str());
 }
 
-void VictronBle::setup() {
+void Manager::setup() {
 #ifdef DEBUG_VBIENTITY
   this->time_loop_ = millis();
 #endif
@@ -27,21 +32,48 @@ void VictronBle::setup() {
 #endif
 }
 
-void VictronBle::loop() {
+void Manager::loop() {
 #ifdef DEBUG_VBIENTITY
   uint32_t t = millis();
   if ((t - this->time_loop_) > 2000) {
     VICTRON_BLE_RECORD test_record;
 
-    test_record.header.record_type = VICTRON_BLE_RECORD::HEADER::VE_BUS;
+    test_record.header.record_type = VICTRON_BLE_RECORD::HEADER::MULTI_RS;
     switch (test_record.header.record_type) {
       case VICTRON_BLE_RECORD::HEADER::MULTI_RS:
-        if (t % 2) {
-          test_record.data.multi_rs.device_state = VE_REG_DEVICE_STATE::INVERTING;
-          test_record.data.multi_rs.charger_error = VE_REG_CHR_ERROR_CODE::BMS;
-        } else {
-          test_record.data.multi_rs.device_state = VE_REG_DEVICE_STATE::BULK;
-          test_record.data.multi_rs.charger_error = VE_REG_CHR_ERROR_CODE::CURRENT_SENSOR;
+        switch (t % 3) {
+          case 0:
+            test_record.data.multi_rs.active_ac_out_power = -1;
+            test_record.data.multi_rs.active_ac_in_power = -2;
+            test_record.data.multi_rs.yield_today = 100;
+            test_record.data.multi_rs.pv_power = 1;
+            test_record.data.multi_rs.battery_current = -32768;
+            test_record.data.multi_rs.battery_voltage = 0;
+            test_record.data.multi_rs.device_state = VE_REG_DEVICE_STATE::INVERTING;
+            test_record.data.multi_rs.charger_error = VE_REG_CHR_ERROR_CODE::BMS;
+            test_record.data.multi_rs.active_ac_in = VE_REG_AC_IN_ACTIVE::AC_IN_1;
+            break;
+          case 1:
+            test_record.data.multi_rs.active_ac_out_power = 32766;
+            test_record.data.multi_rs.active_ac_in_power = 10;
+            test_record.data.multi_rs.yield_today = 100;
+            test_record.data.multi_rs.pv_power = 65534;
+            test_record.data.multi_rs.battery_current = 32766;
+            test_record.data.multi_rs.battery_voltage = 16382;
+            test_record.data.multi_rs.device_state = VE_REG_DEVICE_STATE::BULK;
+            test_record.data.multi_rs.charger_error = VE_REG_CHR_ERROR_CODE::CURRENT_SENSOR;
+            test_record.data.multi_rs.active_ac_in = VE_REG_AC_IN_ACTIVE::AC_IN_2;
+            break;
+          default:
+            test_record.data.multi_rs.active_ac_out_power = 0x7FFF;
+            test_record.data.multi_rs.active_ac_in_power = 0x7FFF;
+            test_record.data.multi_rs.yield_today = 0xFFFF;
+            test_record.data.multi_rs.pv_power = 0xFFFF;
+            test_record.data.multi_rs.battery_current = 32767;
+            test_record.data.multi_rs.battery_voltage = 16383;
+            test_record.data.multi_rs.device_state = VE_REG_DEVICE_STATE::NOT_AVAILABLE;
+            test_record.data.multi_rs.charger_error = VE_REG_CHR_ERROR_CODE::NOT_AVAILABLE;
+            test_record.data.multi_rs.active_ac_in = VE_REG_AC_IN_ACTIVE::UNKNOWN;
         }
         break;
       case VICTRON_BLE_RECORD::HEADER::VE_BUS:
@@ -54,6 +86,11 @@ void VictronBle::loop() {
         break;
       default:
         break;
+    }
+
+    if (this->auto_create_entities_) {
+      this->auto_create_(test_record.header.record_type);
+      this->auto_create_entities_ = false;
     }
 
     for (auto entity : this->entities_) {
@@ -69,7 +106,7 @@ void VictronBle::loop() {
  */
 
 #ifdef USE_ESP32
-bool VictronBle::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
+bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   if (device.address_uint64() != this->address_) {
     return false;
   }
@@ -132,151 +169,61 @@ bool VictronBle::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     this->defer("VictronBle0", [this]() { this->on_message_callback_.call(&this->record_); });
   }
 
+  if (this->auto_create_entities_) {
+    this->auto_create_(this->record_.header.record_type);
+    this->auto_create_entities_ = false;
+  }
+
   for (auto entity : this->entities_) {
     entity->parse(&this->record_);
   }
 
-  size_t expected_len = 0;
-  switch (victron_data->header.record_type) {
-    case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
-      ESP_LOGD(TAG, "[%s] Recieved SOLAR_CHARGER message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_SOLAR_CHARGER)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_SOLAR_CHARGER);
-        goto _error_len;
-      }
-      if (this->on_solar_charger_message_callback_.size()) {
-        this->defer("VictronBle1",
-                    [this]() { this->on_solar_charger_message_callback_.call(&this->record_.data.solar_charger); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
-      ESP_LOGD(TAG, "[%s] Recieved BATTERY_MONITOR message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_BATTERY_MONITOR)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_BATTERY_MONITOR);
-        goto _error_len;
-      }
-      if (this->on_battery_monitor_message_callback_.size()) {
-        this->defer("VictronBle2",
-                    [this]() { this->on_battery_monitor_message_callback_.call(&this->record_.data.battery_monitor); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER:
-      ESP_LOGD(TAG, "[%s] Recieved INVERTER message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_INVERTER)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_INVERTER);
-        goto _error_len;
-      }
-      if (this->on_inverter_message_callback_.size()) {
-        this->defer("VictronBle3",
-                    [this]() { this->on_inverter_message_callback_.call(&this->record_.data.inverter); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
-      ESP_LOGD(TAG, "[%s] Recieved DCDC_CONVERTER message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_DCDC_CONVERTER)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_DCDC_CONVERTER);
-        goto _error_len;
-      }
-      if (this->on_dcdc_converter_message_callback_.size()) {
-        this->defer("VictronBle4",
-                    [this]() { this->on_dcdc_converter_message_callback_.call(&this->record_.data.dcdc_converter); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_LITHIUM:
-      ESP_LOGD(TAG, "[%s] Recieved SMART_LITHIUM message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_SMART_LITHIUM)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_SMART_LITHIUM);
-        goto _error_len;
-      }
-      if (this->on_smart_lithium_message_callback_.size()) {
-        this->defer("VictronBle5",
-                    [this]() { this->on_smart_lithium_message_callback_.call(&this->record_.data.smart_lithium); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::INVERTER_RS:
-      ESP_LOGD(TAG, "[%s] Recieved INVERTER_RS message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_INVERTER_RS)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_INVERTER_RS);
-        goto _error_len;
-      }
-      if (this->on_inverter_rs_message_callback_.size()) {
-        this->defer("VictronBle6",
-                    [this]() { this->on_inverter_rs_message_callback_.call(&this->record_.data.inverter_rs); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
-      ESP_LOGD(TAG, "[%s] Recieved SMART_BATTERY_PROTECT message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT);
-        goto _error_len;
-      }
-      if (this->on_smart_battery_protect_message_callback_.size()) {
-        this->defer("VictronBle9", [this]() {
-          this->on_smart_battery_protect_message_callback_.call(&this->record_.data.smart_battery_protect);
-        });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::LYNX_SMART_BMS:
-      ESP_LOGD(TAG, "[%s] Recieved LYNX_SMART_BMS message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_LYNX_SMART_BMS)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_LYNX_SMART_BMS);
-        goto _error_len;
-      }
-      if (this->on_lynx_smart_bms_message_callback_.size()) {
-        this->defer("VictronBleA",
-                    [this]() { this->on_lynx_smart_bms_message_callback_.call(&this->record_.data.lynx_smart_bms); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::MULTI_RS:
-      ESP_LOGD(TAG, "[%s] Recieved MULTI_RS message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_MULTI_RS)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_MULTI_RS);
-        goto _error_len;
-      }
-      if (this->on_multi_rs_message_callback_.size()) {
-        this->defer("VictronBleB",
-                    [this]() { this->on_multi_rs_message_callback_.call(&this->record_.data.multi_rs); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
-      ESP_LOGD(TAG, "[%s] Recieved VE_BUS message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_VE_BUS)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_VE_BUS);
-        goto _error_len;
-      }
-      if (this->on_ve_bus_message_callback_.size()) {
-        this->defer("VictronBleC", [this]() { this->on_ve_bus_message_callback_.call(&this->record_.data.ve_bus); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
-      ESP_LOGD(TAG, "[%s] Recieved DC_ENERGY_METER message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_DC_ENERGY_METER)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_DC_ENERGY_METER);
-        goto _error_len;
-      }
-      if (this->on_dc_energy_meter_message_callback_.size()) {
-        this->defer("VictronBleD",
-                    [this]() { this->on_dc_energy_meter_message_callback_.call(&this->record_.data.dc_energy_meter); });
-      }
-      break;
-    case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
-      ESP_LOGD(TAG, "[%s] Recieved ORION_XS message.", this->address_str());
-      if (crypted_len < sizeof(VICTRON_BLE_RECORD_ORION_XS)) {
-        expected_len = sizeof(VICTRON_BLE_RECORD_ORION_XS);
-        goto _error_len;
-      }
-      break;
-    default:
-      break;
-  }
   return true;
-
-_error_len:
-  ESP_LOGW(TAG, "[%s] Record type %02X message is too short %u, expected %u bytes.", this->address_str(),
-           (u_int8_t) victron_data->header.record_type, crypted_len, expected_len);
-  return false;
 }
 #endif
+
+void Manager::auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type) {
+  // for every defined entity 'TYPE'
+  for (auto &def : VBIEntity::DEFS) {
+    // check if it was not already defined (yaml config)
+    bool existing = false;
+    for (auto entity : this->entities_) {
+      if (entity->def == &def) {
+        existing = true;
+        break;
+      }
+    }
+    if (existing)
+      continue;
+    // scan the RECORD_DEFS looking for a matching 'record_type'
+    for (const auto *record_def = def.record_types; record_def->record_type < VICTRON_BLE_RECORD::HEADER::_COUNT;
+         ++record_def) {
+      if (record_def->record_type == record_type) {
+        // entity 'TYPE' has a definition for incoming 'record_type'
+        switch (def.cls) {
+          case VBIEntity::CLASS::BITMASK:
+          case VBIEntity::CLASS::ENUM: {
+            auto text_sensor = new VBITextSensor(def.type);
+            App.register_text_sensor(text_sensor);
+            if (api::global_api_server)
+              text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
+                api::global_api_server->on_text_sensor_update(text_sensor, state);
+              });
+            this->register_entity(text_sensor);
+          } break;
+          default: {
+            auto sensor = new VBISensor(def.type);
+            App.register_sensor(sensor);
+            if (api::global_api_server)
+              sensor->add_on_state_callback(
+                  [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
+            this->register_entity(sensor);
+          }
+        }
+      }
+    }
+  }
+}
 
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome
