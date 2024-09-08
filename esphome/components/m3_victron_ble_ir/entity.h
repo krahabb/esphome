@@ -15,13 +15,18 @@ namespace m3_victron_ble_ir {
   DEFINE_(ALARM_NOTIFICATION, "Alarm", CLASS::ENUM, ENUM_VE_REG_ALARM_NOTIFICATION::lookup) \
   DEFINE_(ALARM_REASON, "Alarm reason", CLASS::BITMASK, ENUM_VE_REG_ALARM_REASON::lookup) \
   DEFINE_(BALANCER_STATUS, "Balancer status", CLASS::ENUM, ENUM_VE_REG_BALANCER_STATUS::lookup) \
+  DEFINE_(BAT_TEMPERATURE, "Battery temperature", CLASS::MEASURE, UNIT::CELSIUS) \
+  DEFINE_(CAH, "Consumed AH", CLASS::MEASURE_TOTAL, UNIT::Ah) \
   DEFINE_(CHR_ERROR_CODE, "Charger error", CLASS::ENUM, ENUM_VE_REG_CHR_ERROR_CODE::lookup) \
   DEFINE_(CHR_TODAY_YIELD, "Yield today", CLASS::MEASURE_INCREASING, UNIT::kWh) \
   DEFINE_(DC_CHANNEL1_CURRENT, "Battery current", CLASS::MEASURE, UNIT::A) \
   DEFINE_(DC_CHANNEL1_VOLTAGE, "Battery voltage", CLASS::MEASURE, UNIT::V) \
   DEFINE_(DC_INPUT_POWER, "PV power", CLASS::MEASURE, UNIT::W) \
+  DEFINE_(DC_OUTPUT_STATUS, "Output state", CLASS::ENUM, ENUM_VE_REG_DC_OUTPUT_STATUS::lookup) \
   DEFINE_(DEVICE_OFF_REASON_2, "Off reason", CLASS::BITMASK, ENUM_VE_REG_DEVICE_OFF_REASON_2::lookup) \
   DEFINE_(DEVICE_STATE, "Device state", CLASS::ENUM, ENUM_VE_REG_DEVICE_STATE::lookup) \
+  DEFINE_(SOC, "State of charge", CLASS::MEASURE, UNIT::SOC_PERCENTAGE) \
+  DEFINE_(TTG, "Time to go", CLASS::MEASURE, UNIT::minute) \
   DEFINE_(WARNING_REASON, "Warning reason", CLASS::BITMASK, ENUM_VE_REG_WARNING_REASON::lookup)
 
 #define VBI_DECLARE_ENUM(name_, ...) name_,
@@ -38,8 +43,8 @@ class VBIEntity {
     ENUM,
     BITMASK,
     MEASURE,
-    MEASURE_TOTAL,
     MEASURE_INCREASING,
+    MEASURE_TOTAL,
   };
 
   // configuration symbols for numeric sensors
@@ -48,7 +53,11 @@ class VBIEntity {
     V = 1,
     VA = 2,
     W = 3,
-    kWh = 4,
+    Ah = 4,
+    kWh = 5,
+    SOC_PERCENTAGE = 6,
+    minute = 7,
+    CELSIUS = 8,
   };
 
   enum DIGITS : u_int8_t {
@@ -104,6 +113,7 @@ class VBIEntity {
   u_int32_t get_raw_value() { return this->raw_value_; }
 
  protected:
+  friend class VBIBinarySensor;
   friend class VBISensor;
   friend class VBITextSensor;
 

@@ -46,6 +46,8 @@ template<typename T> void VBIBinarySensor::parse_bitmask_t_(VBIEntity *entity, c
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
+    auto binary_sensor = static_cast<VBIBinarySensor *>(entity);
+    binary_sensor->publish_state(value & binary_sensor->mask_);
   }
 }
 
@@ -53,6 +55,8 @@ template<typename T> void VBIBinarySensor::parse_enum_t_(VBIEntity *entity, cons
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
+    auto binary_sensor = static_cast<VBIBinarySensor *>(entity);
+    binary_sensor->publish_state(value == binary_sensor->mask_);
   }
 }
 }  // namespace m3_victron_ble_ir

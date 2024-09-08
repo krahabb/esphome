@@ -23,7 +23,37 @@ Manager = m3_victron_ble_ir.class_(
     "Manager", esp32_ble_tracker.ESPBTDeviceListener, cg.Component
 )
 VBIEntity = m3_victron_ble_ir.class_("VBIEntity")
-VBIEntity_Type = VBIEntity.enum("TYPE")
+VBIEntity_TYPE = VBIEntity.enum("TYPE")
+VBIEntity_CLASS = VBIEntity.enum("CLASS")
+VBIEntity_CLASS_BITMASK = VBIEntity_CLASS.enum("BITMASK")
+VBIEntity_CLASS_ENUM = VBIEntity_CLASS.enum("ENUM")
+VBIEntity_CLASS_MEASURE = VBIEntity_CLASS.enum("MEASURE")
+VBIEntity_CLASS_MEASURE_INCREASING = VBIEntity_CLASS.enum("MEASURE_INCREASING")
+VBIEntity_CLASS_MEASURE_TOTAL = VBIEntity_CLASS.enum("MEASURE_TOTAL")
+
+TYPES = {
+    "AC_IN_ACTIVE": VBIEntity_CLASS_ENUM,
+    "AC_IN_REAL_POWER": VBIEntity_CLASS_MEASURE,
+    "AC_OUT_CURRENT": VBIEntity_CLASS_MEASURE,
+    "AC_OUT_VOLTAGE": VBIEntity_CLASS_MEASURE,
+    "AC_OUT_APPARENT_POWER": VBIEntity_CLASS_MEASURE,
+    "AC_OUT_REAL_POWER": VBIEntity_CLASS_MEASURE,
+    "ALARM_NOTIFICATION": VBIEntity_CLASS_ENUM,
+    "ALARM_REASON": VBIEntity_CLASS_BITMASK,
+    "BALANCER_STATUS": VBIEntity_CLASS_ENUM,
+    "CAH": VBIEntity_CLASS_MEASURE_TOTAL,
+    "CHR_ERROR_CODE": VBIEntity_CLASS_ENUM,
+    "CHR_TODAY_YIELD": VBIEntity_CLASS_MEASURE_INCREASING,
+    "DC_CHANNEL1_CURRENT": VBIEntity_CLASS_MEASURE,
+    "DC_CHANNEL1_VOLTAGE": VBIEntity_CLASS_MEASURE,
+    "DC_INPUT_POWER": VBIEntity_CLASS_MEASURE,
+    "DC_OUTPUT_STATUS": VBIEntity_CLASS_ENUM,
+    "DEVICE_OFF_REASON_2": VBIEntity_CLASS_BITMASK,
+    "DEVICE_STATE": VBIEntity_CLASS_ENUM,
+    "SOC": VBIEntity_CLASS_MEASURE,
+    "TTG": VBIEntity_CLASS_MEASURE,
+    "WARNING_REASON": VBIEntity_CLASS_BITMASK,
+}
 
 PLATFORM_ENTITY_SCHEMA = "schema"
 PLATFORM_ENTITY_INIT = "init"
@@ -53,7 +83,7 @@ async def platform_to_code(
 
     for entity_key, entity_config in config.items():
         if entity_key in platform_entities:
-            entity = await init_func(entity_config, VBIEntity_Type.enum(entity_key))
+            entity = await init_func(entity_config, VBIEntity_TYPE.enum(entity_key))
             cg.add(getattr(manager, "register_entity")(entity))
 
 

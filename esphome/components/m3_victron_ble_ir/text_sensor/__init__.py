@@ -1,6 +1,14 @@
 from esphome.components import text_sensor
 
-from .. import VBIEntity, m3_victron_ble_ir, platform_schema, platform_to_code
+from .. import (
+    TYPES,
+    VBIEntity,
+    VBIEntity_CLASS_BITMASK,
+    VBIEntity_CLASS_ENUM,
+    m3_victron_ble_ir,
+    platform_schema,
+    platform_to_code,
+)
 
 VBITextSensor = m3_victron_ble_ir.class_(
     "VBITextSensor", VBIEntity, text_sensor.TextSensor
@@ -8,17 +16,11 @@ VBITextSensor = m3_victron_ble_ir.class_(
 
 _vbitextsensor_schema = text_sensor.text_sensor_schema(VBITextSensor)
 
-TYPES = [
-    "AC_IN_ACTIVE",
-    "ALARM_NOTIFICATION",
-    "ALARM_REASON",
-    "BALANCER_STATUS",
-    "CHR_ERROR_CODE",
-    "DEVICE_OFF_REASON_2",
-    "DEVICE_STATE",
-    "WARNING_REASON",
-]
-PLATFORM_ENTITIES = {_type: _vbitextsensor_schema for _type in TYPES}
+PLATFORM_ENTITIES = {
+    _type: _vbitextsensor_schema
+    for _type, _class in TYPES.items()
+    if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
+}
 
 CONFIG_SCHEMA = platform_schema(PLATFORM_ENTITIES)
 

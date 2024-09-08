@@ -12,16 +12,12 @@ enum class VICTRON_SENSOR_TYPE {
   UNSET,
 
   AUX_VOLTAGE,
-  BATTERY_POWER,
-  CONSUMED_AH,
   ERROR,
   INPUT_VOLTAGE,
   LOAD_CURRENT,
   MID_VOLTAGE,
   OUTPUT_VOLTAGE,
-  STATE_OF_CHARGE,
   TEMPERATURE,
-  TIME_TO_GO,
 
   // SMART_LITHIUM
   BALANCER_STATUS,
@@ -34,10 +30,6 @@ enum class VICTRON_SENSOR_TYPE {
   CELL6,
   CELL7,
   CELL8,
-
-  // SMART_BATTERY_PROTECT
-  OUTPUT_STATE,
-  WARNING_REASON,
 
   // LYNX_SMART_BMS
   IO_STATUS,
@@ -81,6 +73,7 @@ class VBISensor : public VBIEntity, public sensor::Sensor {
   template<typename T> static void parse_bitmask_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
   template<typename T> static void parse_signed_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
   template<typename T> static void parse_unsigned_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
+  static void parse_temperature_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
 };
 
 }  // namespace m3_victron_ble_ir
