@@ -445,6 +445,13 @@ void VBISensor::init(const RECORD_DEF *record_def) {
   }
 }
 
+void VBISensor::link_disconnected() {
+  if (this->raw_value_ != this->nan_value_) {
+    this->raw_value_ = this->nan_value_;
+    this->publish_state(NAN);
+  }
+}
+
 template<typename T> void VBISensor::parse_bitmask_enum_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {

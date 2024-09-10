@@ -45,6 +45,13 @@ void VBITextSensor::init(const RECORD_DEF *record_def) {
   }
 }
 
+void VBITextSensor::link_disconnected() {
+  if (this->raw_value_ != this->nan_value_) {
+    this->raw_value_ = this->nan_value_;
+    this->publish_state("unknown");
+  }
+}
+
 template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {

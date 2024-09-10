@@ -2,10 +2,12 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 
 #include <array>
 #include <vector>
 
+#include "defines.h"
 #include "protocol.h"
 #include "entity.h"
 
@@ -14,10 +16,17 @@
 #include <aes/esp_aes.h>
 #endif
 
-#define DEBUG_VBIENTITY
-
 namespace esphome {
 namespace m3_victron_ble_ir {
+
+#define MANAGER_ENTITY(type, name) \
+ protected: \
+  type *name##_{}; /* NOLINT */ \
+\
+ public: \
+  void set_##name(type *name) { /* NOLINT */ \
+    this->name##_ = name; \
+  }
 
 #ifdef USE_ESP32
 class Manager : public esp32_ble_tracker::ESPBTDeviceListener, public Component {
@@ -26,7 +35,6 @@ class Manager : public Component {
 #endif
  public:
   void dump_config() override;
-
   void setup() override;
   void loop() override;
 
@@ -46,11 +54,6 @@ class Manager : public Component {
   }
   const char *address_str() const { return this->address_str_; }
   void set_bindkey(std::array<uint8_t, 16> key) { this->bindkey_ = key; }
-  void set_auto_create_entities(VBI_RECORD::HEADER::TYPE value) {
-    this->auto_create_entities_ = true;
-    this->auto_create_type_ = value;
-  }
-  void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
 
   void add_on_message_callback(std::function<void(const VBI_RECORD *)> callback) {
     this->on_message_callback_.add(std::move(callback));
@@ -95,6 +98,16 @@ class Manager : public Component {
     this->on_orion_xs_message_callback_.add(std::move(callback));
   }
 
+  void set_auto_create_entities(VBI_RECORD::HEADER::TYPE value) {
+    this->auto_create_entities_ = true;
+    this->auto_create_type_ = value;
+  }
+
+  MANAGER_ENTITY(binary_sensor::BinarySensorInitiallyOff, link_connected)
+  void set_link_connected_timeout(uint32_t timeout_seconds) { this->link_connected_timeout_ = timeout_seconds * 1000; }
+
+  void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
+
  protected:
   uint64_t address_{};
   char address_str_[18] = {};
@@ -106,11 +119,14 @@ class Manager : public Component {
   VBI_RECORD record_{};
   CallbackManager<void(const VBI_RECORD *)> on_message_callback_{};
 
+  std::vector<VBIEntity *> entities_;
+
   bool auto_create_entities_{false};
   VBI_RECORD::HEADER::TYPE auto_create_type_{VBI_RECORD::HEADER::TYPE::AUTO};
-
-  std::vector<VBIEntity *> entities_;
   void auto_create_(VBI_RECORD::HEADER::TYPE record_type);
+
+  uint32_t link_connected_timeout_{};
+  void timeout_link_connected_();
 
 #ifdef DEBUG_VBIENTITY
   uint32_t time_loop_{};

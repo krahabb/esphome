@@ -14,6 +14,7 @@ class VBIBinarySensor : public VBIEntity, public binary_sensor::BinarySensor {
   void set_mask(u_int32_t mask) { this->mask_ = mask; }
 
   void init(const RECORD_DEF *record_def) override;
+  void link_disconnected() override;
 
  protected:
   u_int32_t mask_{0xFFFFFFFF};

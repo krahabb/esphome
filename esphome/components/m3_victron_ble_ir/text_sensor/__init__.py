@@ -16,18 +16,18 @@ VBITextSensor = m3_victron_ble_ir.class_(
 
 _vbitextsensor_schema = text_sensor.text_sensor_schema(VBITextSensor)
 
-PLATFORM_ENTITIES = {
+PLATFORM_VBI_ENTITIES = {
     _type: _vbitextsensor_schema
     for _type, _class in VBIEntity_TYPES.items()
     if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
 }
 
-CONFIG_SCHEMA = platform_schema(PLATFORM_ENTITIES)
+CONFIG_SCHEMA = platform_schema(PLATFORM_VBI_ENTITIES)
 
 
 async def to_code(config: dict):
     await platform_to_code(
         config,
-        PLATFORM_ENTITIES,
+        PLATFORM_VBI_ENTITIES,
         init_func=text_sensor.new_text_sensor,
     )

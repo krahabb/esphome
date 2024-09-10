@@ -11,6 +11,7 @@ class VBITextSensor : public VBIEntity, public text_sensor::TextSensor {
   VBITextSensor(TYPE type);
 
   void init(const RECORD_DEF *record_def) override;
+  void link_disconnected() override;
 
  protected:
   template<typename T> static void parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record);

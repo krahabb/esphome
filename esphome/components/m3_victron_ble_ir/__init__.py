@@ -18,6 +18,7 @@ MULTI_CONF = True
 
 CONF_VICTRON_BLE_IR_ID = "victron_ble_ir_id"
 CONF_AUTO_CREATE_ENTITIES = "auto_create_entities"
+CONF_LINK_CONNECTED_TIMEOUT = "link_connected_timeout"
 
 m3_victron_ble_ir = cg.esphome_ns.namespace("m3_victron_ble_ir")
 Manager = m3_victron_ble_ir.class_(
@@ -87,20 +88,16 @@ VBIEntity_TYPES = {
 PLATFORM_ENTITY_SCHEMA = "schema"
 PLATFORM_ENTITY_INIT = "init"
 
-# root schema to group (platform) entities linked to a Victron BLE device
-PLATFORM_SCHEMA = cv.Schema(
-    {
-        cv.Required(CONF_VICTRON_BLE_IR_ID): cv.use_id(Manager),
-    }
-)
 
-
+# root schema to group (platform) VBIEntities linked to a Victron BLE device
 def platform_schema(
     platform_entities: dict[str, cv.Schema],
 ):
-    return PLATFORM_SCHEMA.extend(
-        {cv.Optional(type): schema for type, schema in platform_entities.items()}
-    )
+    return cv.Schema(
+        {
+            cv.Required(CONF_VICTRON_BLE_IR_ID): cv.use_id(Manager),
+        }
+    ).extend({cv.Optional(type): schema for type, schema in platform_entities.items()})
 
 
 async def platform_to_code(
@@ -170,6 +167,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_MAC_ADDRESS): bind_mac_address_or_shortened,
             cv.Required(CONF_BINDKEY): bind_key_array,
             cv.Optional(CONF_AUTO_CREATE_ENTITIES): validate_auto_create_entities,
+            cv.Optional(
+                CONF_LINK_CONNECTED_TIMEOUT, default="12s"
+            ): cv.positive_time_period_seconds,
             cv.Optional(CONF_ON_MESSAGE): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(MessageTrigger),
@@ -195,6 +195,7 @@ async def to_code(config):
                 VBIRecord_TYPE.enum(config[CONF_AUTO_CREATE_ENTITIES])
             )
         )
+    cg.add(var.set_link_connected_timeout(config[CONF_LINK_CONNECTED_TIMEOUT]))
 
     for conf in config.get(CONF_ON_MESSAGE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

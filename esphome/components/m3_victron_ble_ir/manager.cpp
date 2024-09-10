@@ -37,8 +37,9 @@ void Manager::setup() {
 }
 
 void Manager::loop() {
-#ifdef DEBUG_VBIENTITY
   uint32_t t = millis();
+#ifdef DEBUG_VBIENTITY
+
   if ((t - this->time_loop_) > 2000) {
     VBI_RECORD test_record;
 
@@ -110,7 +111,6 @@ void Manager::loop() {
 /**
  * Parse all incoming BLE payloads to see if it is a Victron BLE advertisement.
  */
-
 #ifdef USE_ESP32
 bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   if (device.address_uint64() != this->address_) {
@@ -183,6 +183,11 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     entity->parse(&this->record_);
   }
 
+  if (this->link_connected_) {
+    this->link_connected_->publish_state(true);
+    this->set_timeout("link_connected", this->link_connected_timeout_, [this]() { this->timeout_link_connected_(); });
+  }
+
   return true;
 }
 #endif
@@ -238,6 +243,13 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
       }
     }
   }
+}
+
+void Manager::timeout_link_connected_() {
+  for (auto entity : this->entities_) {
+    entity->link_disconnected();
+  }
+  this->link_connected_->publish_state(false);
 }
 
 }  // namespace m3_victron_ble_ir

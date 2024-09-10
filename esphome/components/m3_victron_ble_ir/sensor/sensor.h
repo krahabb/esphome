@@ -65,6 +65,7 @@ class VBISensor : public VBIEntity, public sensor::Sensor {
   VBISensor(TYPE type);
 
   void init(const RECORD_DEF *record_def) override;
+  void link_disconnected() override;
 
  protected:
   float scale_;

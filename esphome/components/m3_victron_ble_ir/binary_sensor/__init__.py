@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 from esphome.components import binary_sensor
 import esphome.config_validation as cv
+import esphome.const as ec
 
 from .. import (
     CONF_VICTRON_BLE_IR_ID,
@@ -19,33 +20,42 @@ VBIBinarySensor = m3_victron_ble_ir.class_(
 
 CONF_MASK = "mask"
 _vbibinarysensor_schema = binary_sensor.binary_sensor_schema(VBIBinarySensor).extend(
-    {cv.Optional(CONF_MASK, default=0xFFFFFFFF): cv.Any(cv.positive_int, cv.string)}
+    {cv.Required(CONF_MASK): cv.Any(cv.positive_int, cv.string)}
 )
 
 
-PLATFORM_ENTITIES = {
+PLATFORM_VBI_ENTITIES = {
     _type: cv.ensure_list(_vbibinarysensor_schema)
     for _type, _class in VBIEntity_TYPES.items()
     if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
 }
-
-CONFIG_SCHEMA = platform_schema(PLATFORM_ENTITIES)
+PLATFORM_MANAGER_ENTITIES = {
+    cv.Optional("link_connected"): binary_sensor.binary_sensor_schema(
+        binary_sensor.BinarySensorInitiallyOff,
+        device_class=ec.DEVICE_CLASS_CONNECTIVITY,
+        entity_category=ec.ENTITY_CATEGORY_DIAGNOSTIC,
+    ),
+}
+CONFIG_SCHEMA = platform_schema(PLATFORM_VBI_ENTITIES).extend(PLATFORM_MANAGER_ENTITIES)
 
 
 async def to_code(config: dict):
     manager = await cg.get_variable(config[CONF_VICTRON_BLE_IR_ID])
 
-    for entity_key, entity_config_list in config.items():
-        if entity_key in PLATFORM_ENTITIES:
+    for entity_key, entity_config in config.items():
+        if entity_key in PLATFORM_VBI_ENTITIES:
             entity_enum_class = m3_victron_ble_ir.enum(
                 f"ENUM_VE_REG_{entity_key}", is_class=True
             )
-            for entity_config in entity_config_list:
+            for entity_config_item in entity_config:
                 entity = await binary_sensor.new_binary_sensor(
-                    entity_config, VBIEntity_TYPE.enum(entity_key)
+                    entity_config_item, VBIEntity_TYPE.enum(entity_key)
                 )
-                mask = entity_config[CONF_MASK]
+                mask = entity_config_item[CONF_MASK]
                 if isinstance(mask, str):
                     mask = entity_enum_class.enum(mask)
                 cg.add(entity.set_mask(mask))
                 cg.add(manager.register_entity(entity))
+        elif entity_key in PLATFORM_MANAGER_ENTITIES:
+            entity = await binary_sensor.new_binary_sensor(entity_config)
+            cg.add(getattr(manager, f"set_{entity_key}")(entity))

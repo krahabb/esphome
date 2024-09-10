@@ -111,6 +111,8 @@ class VBIEntity {
   // fix pointers to data record and setup proper parse_func
   // inherited class should likely call the base implementation first
   virtual void init(const RECORD_DEF *record_def);
+  // called by the Manager when BLE timeouts (we'll send 'unknown' to APIServer)
+  virtual void link_disconnected() = 0;
 
   void parse(const VBI_RECORD *record) { this->parse_func_(this, record); }
 

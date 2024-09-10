@@ -43,6 +43,10 @@ void VBIBinarySensor::init(const RECORD_DEF *record_def) {
   }
 }
 
+void VBIBinarySensor::link_disconnected() {
+  // no way: BinarySensor cannot report unknown/disconnected
+}
+
 template<typename T> void VBIBinarySensor::parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
