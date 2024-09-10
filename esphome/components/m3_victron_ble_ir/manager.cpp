@@ -18,6 +18,10 @@ void Manager::dump_config() {
 }
 
 void Manager::setup() {
+  if (this->auto_create_entities_ && (this->auto_create_type_ < VBI_RECORD::HEADER::TYPE::_COUNT)) {
+    this->auto_create_(this->auto_create_type_);
+  }
+
 #ifdef DEBUG_VBIENTITY
   this->time_loop_ = millis();
 #endif
@@ -36,11 +40,14 @@ void Manager::loop() {
 #ifdef DEBUG_VBIENTITY
   uint32_t t = millis();
   if ((t - this->time_loop_) > 2000) {
-    VICTRON_BLE_RECORD test_record;
+    VBI_RECORD test_record;
 
-    test_record.header.record_type = VICTRON_BLE_RECORD::HEADER::MULTI_RS;
+    if (this->auto_create_type_ < VBI_RECORD::HEADER::TYPE::_COUNT)
+      test_record.header.record_type = this->auto_create_type_;
+    else
+      test_record.header.record_type = VBI_RECORD::HEADER::MULTI_RS;
     switch (test_record.header.record_type) {
-      case VICTRON_BLE_RECORD::HEADER::MULTI_RS:
+      case VBI_RECORD::HEADER::MULTI_RS:
         switch (t % 3) {
           case 0:
             test_record.data.multi_rs.active_ac_out_power = -1;
@@ -76,7 +83,7 @@ void Manager::loop() {
             test_record.data.multi_rs.active_ac_in = VE_REG_AC_IN_ACTIVE::UNKNOWN;
         }
         break;
-      case VICTRON_BLE_RECORD::HEADER::VE_BUS:
+      case VBI_RECORD::HEADER::VE_BUS:
         if (t % 2) {
           test_record.data.ve_bus.device_state = VE_REG_DEVICE_STATE::INVERTING;
         } else {
@@ -90,7 +97,6 @@ void Manager::loop() {
 
     if (this->auto_create_entities_) {
       this->auto_create_(test_record.header.record_type);
-      this->auto_create_entities_ = false;
     }
 
     for (auto entity : this->entities_) {
@@ -119,15 +125,15 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   const auto &manu_data = manu_datas[0];
   const auto record_size = manu_data.data.size();
   if (manu_data.uuid != esp32_ble_tracker::ESPBTUUID::from_uint16(VICTRON_MANUFACTURER_ID) ||
-      (record_size <= sizeof(VICTRON_BLE_RECORD::HEADER)) || (record_size > sizeof(VICTRON_BLE_RECORD))) {
+      (record_size <= sizeof(VBI_RECORD::HEADER)) || (record_size > sizeof(VBI_RECORD))) {
     return false;
   }
 
   // Parse the unencrypted data.
-  const auto *victron_data = (const VICTRON_BLE_RECORD *) manu_data.data.data();
+  const auto *victron_data = (const VBI_RECORD *) manu_data.data.data();
 
   if (victron_data->header.manufacturer_record_type !=
-      VICTRON_BLE_RECORD::HEADER::MANUFACTURER_RECORD_TYPE::PRODUCT_ADVERTISEMENT) {
+      VBI_RECORD::HEADER::MANUFACTURER_RECORD_TYPE::PRODUCT_ADVERTISEMENT) {
     return false;
   }
 
@@ -141,7 +147,7 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     return false;
   }
 
-  const u_int8_t crypted_len = record_size - sizeof(VICTRON_BLE_RECORD::HEADER);
+  const u_int8_t crypted_len = record_size - sizeof(VBI_RECORD::HEADER);
   ESP_LOGVV(TAG, "[%s] Cryted message: %s", this->address_str(),
             format_hex_pretty(victron_data->data, crypted_len).c_str());
 
@@ -163,7 +169,7 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   ESP_LOGV(TAG, "[%s] Encrypted message: %s", this->address_str(),
            format_hex_pretty(encrypted_data, crypted_len).c_str());
 
-  memcpy(&this->record_.header, &victron_data->header, sizeof(VICTRON_BLE_RECORD::HEADER));
+  memcpy(&this->record_.header, &victron_data->header, sizeof(VBI_RECORD::HEADER));
 
   if (this->on_message_callback_.size()) {
     this->defer("VictronBle0", [this]() { this->on_message_callback_.call(&this->record_); });
@@ -171,7 +177,6 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 
   if (this->auto_create_entities_) {
     this->auto_create_(this->record_.header.record_type);
-    this->auto_create_entities_ = false;
   }
 
   for (auto entity : this->entities_) {
@@ -182,7 +187,15 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 }
 #endif
 
-void Manager::auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type) {
+void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
+  // disable calling again
+  this->auto_create_entities_ = false;
+
+  api::APIServer *api_server = api::global_api_server;
+  if (api_server && (api_server->get_component_state() == COMPONENT_STATE_CONSTRUCTION))
+    // api_server eventually not initialized yet
+    api_server = nullptr;
+
   // for every defined entity 'TYPE'
   for (auto &def : VBIEntity::DEFS) {
     // check if it was not already defined (yaml config)
@@ -196,7 +209,7 @@ void Manager::auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type) {
     if (existing)
       continue;
     // scan the RECORD_DEFS looking for a matching 'record_type'
-    for (const auto *record_def = def.record_types; record_def->record_type < VICTRON_BLE_RECORD::HEADER::_COUNT;
+    for (const auto *record_def = def.record_types; record_def->record_type < VBI_RECORD::HEADER::_COUNT;
          ++record_def) {
       if (record_def->record_type == record_type) {
         // entity 'TYPE' has a definition for incoming 'record_type'
@@ -204,8 +217,9 @@ void Manager::auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type) {
           case VBIEntity::CLASS::BITMASK:
           case VBIEntity::CLASS::ENUM: {
             auto text_sensor = new VBITextSensor(def.type);
+            text_sensor->init(record_def);
             App.register_text_sensor(text_sensor);
-            if (api::global_api_server)
+            if (api_server)
               text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
                 api::global_api_server->on_text_sensor_update(text_sensor, state);
               });
@@ -213,8 +227,9 @@ void Manager::auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type) {
           } break;
           default: {
             auto sensor = new VBISensor(def.type);
+            sensor->init(record_def);
             App.register_sensor(sensor);
-            if (api::global_api_server)
+            if (api_server)
               sensor->add_on_state_callback(
                   [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
             this->register_entity(sensor);

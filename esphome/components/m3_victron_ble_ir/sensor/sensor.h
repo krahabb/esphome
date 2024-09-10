@@ -64,16 +64,16 @@ class VBISensor : public VBIEntity, public sensor::Sensor {
 
   VBISensor(TYPE type);
 
+  void init(const RECORD_DEF *record_def) override;
+
  protected:
   float scale_;
   int32_t signed_offset_;
 
-  virtual void init_();
-
-  template<typename T> static void parse_bitmask_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
-  template<typename T> static void parse_signed_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
-  template<typename T> static void parse_unsigned_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
-  static void parse_temperature_(VBIEntity *entity, const VICTRON_BLE_RECORD *record);
+  template<typename T> static void parse_bitmask_enum_t_(VBIEntity *entity, const VBI_RECORD *record);
+  template<typename T> static void parse_signed_t_(VBIEntity *entity, const VBI_RECORD *record);
+  template<typename T> static void parse_unsigned_t_(VBIEntity *entity, const VBI_RECORD *record);
+  static void parse_temperature_(VBIEntity *entity, const VBI_RECORD *record);
 };
 
 }  // namespace m3_victron_ble_ir

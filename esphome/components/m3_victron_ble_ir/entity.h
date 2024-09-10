@@ -36,7 +36,7 @@ namespace m3_victron_ble_ir {
 /// @brief Abstract base class for all of the entities
 class VBIEntity {
  public:
-  typedef void (*parse_func_t)(VBIEntity *_this, const VICTRON_BLE_RECORD *record);
+  typedef void (*parse_func_t)(VBIEntity *_this, const VBI_RECORD *record);
 
   enum CLASS : u_int8_t {
     UNKNOWN = 0,
@@ -70,9 +70,9 @@ class VBIEntity {
   enum TYPE : u_int8_t { VBIENTITIES(VBI_DECLARE_ENUM) _COUNT };
 
   /// @brief This descriptor carries the mapping between an entity
-  /// @brief and its layout in a specific VICTRON_BLE_RECORD type.
+  /// @brief and its layout in a specific VBI_RECORD type.
   struct RECORD_DEF {
-    const VICTRON_BLE_RECORD::HEADER::TYPE record_type : 7;
+    const VBI_RECORD::HEADER::TYPE record_type : 7;
     const bool is_signed : 1;
     const u_int8_t bit_offset;
     const u_int8_t bit_size : 6;
@@ -80,7 +80,7 @@ class VBIEntity {
   } __attribute__((packed));
   /// @brief This descriptor carries the common properties
   /// @brief of an entity 'TYPE' such as 'parse_func'
-  /// @brief and the list (map) of supporting VICTRON_BLE_RECORD types
+  /// @brief and the list (map) of supporting VBI_RECORD types
   /// @brief and their layout related to the entity
   struct DEF {
     const TYPE type;
@@ -107,7 +107,12 @@ class VBIEntity {
 
   VBIEntity(TYPE type) : def(&DEFS[type]) {}
 
-  void parse(const VICTRON_BLE_RECORD *record) { this->parse_func_(this, record); }
+  // to be called when record_type is known in order to
+  // fix pointers to data record and setup proper parse_func
+  // inherited class should likely call the base implementation first
+  virtual void init(const RECORD_DEF *record_def);
+
+  void parse(const VBI_RECORD *record) { this->parse_func_(this, record); }
 
   const RECORD_DEF *get_record_def() const { return this->record_def_; }
   u_int32_t get_raw_value() { return this->raw_value_; }
@@ -126,40 +131,43 @@ class VBIEntity {
   // mask to apply to the raw buffer read to extract the raw value
   u_int32_t data_mask_;
   // generic (any alignment/bit size) read into buffered record data
-  inline u_int32_t read_record_(const VICTRON_BLE_RECORD *record) {
+  inline u_int32_t read_record_(const VBI_RECORD *record) {
     return (*(u_int32_t *) (record->data.raw + this->data_begin_) >> this->data_shift_) & this->data_mask_;
   }
   // fast read 8 bit aligned
-  inline u_int8_t read_record_u_int8_t_(const VICTRON_BLE_RECORD *record) {
+  inline u_int8_t read_record_u_int8_t_(const VBI_RECORD *record) {
     return *(u_int8_t *) (record->data.raw + this->data_begin_);
   }
   // fast read 16 bit aligned
-  inline u_int16_t read_record_u_int16_t_(const VICTRON_BLE_RECORD *record) {
+  inline u_int16_t read_record_u_int16_t_(const VBI_RECORD *record) {
     return *(u_int16_t *) (record->data.raw + this->data_begin_);
   }
   // fast read 32 bit aligned
-  inline u_int32_t read_record_u_int32_t_(const VICTRON_BLE_RECORD *record) {
+  inline u_int32_t read_record_u_int32_t_(const VBI_RECORD *record) {
     return *(u_int32_t *) (record->data.raw + this->data_begin_);
   }
 
-  template<typename T> inline T read_record_t_(const VICTRON_BLE_RECORD *record);
+  template<typename T> inline T read_record_t_(const VBI_RECORD *record);
 
   u_int32_t nan_value_;
   u_int32_t raw_value_;
 
-  virtual void init_() {}
   void init_unsupported_() { this->parse_func_ = VBIEntity::parse_empty_; }
 
   void set_parse_func_(parse_func_t parse_func) { this->parse_func_ = parse_func; }
 
-  static void parse_empty_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {}
+  // helper to dynamically setup entity object_id
+  static int OBJECT_ID_COUNTER_;
+  std::string object_id_str_;
+  const char *calculate_object_id_();
 
  private:
   parse_func_t parse_func_{parse_init_};
 
   const RECORD_DEF *record_def_{};
 
-  static void parse_init_(VBIEntity *_this, const VICTRON_BLE_RECORD *record);
+  static void parse_empty_(VBIEntity *entity, const VBI_RECORD *record) {}
+  static void parse_init_(VBIEntity *_this, const VBI_RECORD *record);
 };
 
 /*
@@ -169,11 +177,11 @@ class VBIEntity {
   while in general, for any unaligned or variable bit size we'll use the 32bit version
   which does the align/masking
 */
-template<typename T> inline T VBIEntity::read_record_t_(const VICTRON_BLE_RECORD *record) {
+template<typename T> inline T VBIEntity::read_record_t_(const VBI_RECORD *record) {
   return *(T *) (record->data.raw + this->data_begin_);
 }
 
-template<> inline u_int32_t VBIEntity::read_record_t_<u_int32_t>(const VICTRON_BLE_RECORD *record) {
+template<> inline u_int32_t VBIEntity::read_record_t_<u_int32_t>(const VBI_RECORD *record) {
   return (*(u_int32_t *) (record->data.raw + this->data_begin_) >> this->data_shift_) & this->data_mask_;
 }
 

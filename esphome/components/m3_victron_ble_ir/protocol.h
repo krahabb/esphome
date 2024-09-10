@@ -838,8 +838,8 @@ struct VICTRON_BLE_RECORD_ORION_XS {  // NOLINT(readability-identifier-naming,al
   VE_REG_DEVICE_OFF_REASON_2 off_reason;
 } __attribute__((packed));
 
-struct VICTRON_BLE_RECORD {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-  struct HEADER {            // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+struct VBI_RECORD {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
+  struct HEADER {    // NOLINT(readability-identifier-naming,altera-struct-pack-align)
 
     enum class MANUFACTURER_RECORD_TYPE : u_int8_t {
       PRODUCT_ADVERTISEMENT = 0x10,
@@ -880,8 +880,10 @@ struct VICTRON_BLE_RECORD {  // NOLINT(readability-identifier-naming,altera-stru
       DC_ENERGY_METER = 0x0D,
       // VICTRON_BLE_RECORD_ORION_XS
       ORION_XS = 0x0F,
-      // as of now, this is a 'stub' to direct our entity initialization code
+      // as of now, this is a 'placeholder' to direct our entity initialization code
       _COUNT = 0x10,
+      // special enums used to config auto_create_entities in Manager
+      AUTO = 0x11,
     } record_type;
 
     u_int16_t data_counter;

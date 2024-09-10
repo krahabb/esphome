@@ -1,10 +1,10 @@
 from esphome.components import text_sensor
 
 from .. import (
-    TYPES,
     VBIEntity,
     VBIEntity_CLASS_BITMASK,
     VBIEntity_CLASS_ENUM,
+    VBIEntity_TYPES,
     m3_victron_ble_ir,
     platform_schema,
     platform_to_code,
@@ -18,7 +18,7 @@ _vbitextsensor_schema = text_sensor.text_sensor_schema(VBITextSensor)
 
 PLATFORM_ENTITIES = {
     _type: _vbitextsensor_schema
-    for _type, _class in TYPES.items()
+    for _type, _class in VBIEntity_TYPES.items()
     if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
 }
 

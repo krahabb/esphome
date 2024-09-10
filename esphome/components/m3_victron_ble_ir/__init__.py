@@ -13,6 +13,7 @@ from esphome.yaml_util import ESPHomeDumper
 
 CODEOWNERS = ["@krahabb"]
 DEPENDENCIES = ["esp32_ble_tracker"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 MULTI_CONF = True
 
 CONF_VICTRON_BLE_IR_ID = "victron_ble_ir_id"
@@ -22,6 +23,34 @@ m3_victron_ble_ir = cg.esphome_ns.namespace("m3_victron_ble_ir")
 Manager = m3_victron_ble_ir.class_(
     "Manager", esp32_ble_tracker.ESPBTDeviceListener, cg.Component
 )
+
+VBIRecord = m3_victron_ble_ir.struct("VBI_RECORD")
+VBIRecordConstPtr = VBIRecord.operator("ptr").operator("const")
+
+VBIRecord_HEADER = VBIRecord.struct("HEADER")
+VBIRecord_TYPE = VBIRecord_HEADER.enum("TYPE")
+
+MessageTrigger = m3_victron_ble_ir.class_(
+    "MessageTrigger", automation.Trigger.template(VBIRecordConstPtr)
+)
+VBIRecord_TYPES = [
+    "TEST_RECORD",
+    "SOLAR_CHARGER",
+    "BATTERY_MONITOR",
+    "INVERTER",
+    "DCDC_CONVERTER",
+    "SMART_LITHIUM",
+    "INVERTER_RS",
+    "GX_DEVICE",
+    "AC_CHARGER",
+    "SMART_BATTERY_PROTECT",
+    "LYNX_SMART_BMS",
+    "MULTI_RS",
+    "VE_BUS",
+    "DC_ENERGY_METER",
+    "ORION_XS",
+    "AUTO",
+]
 VBIEntity = m3_victron_ble_ir.class_("VBIEntity")
 VBIEntity_TYPE = VBIEntity.enum("TYPE")
 VBIEntity_CLASS = VBIEntity.enum("CLASS")
@@ -31,7 +60,7 @@ VBIEntity_CLASS_MEASURE = VBIEntity_CLASS.enum("MEASURE")
 VBIEntity_CLASS_MEASURE_INCREASING = VBIEntity_CLASS.enum("MEASURE_INCREASING")
 VBIEntity_CLASS_MEASURE_TOTAL = VBIEntity_CLASS.enum("MEASURE_TOTAL")
 
-TYPES = {
+VBIEntity_TYPES = {
     "AC_IN_ACTIVE": VBIEntity_CLASS_ENUM,
     "AC_IN_REAL_POWER": VBIEntity_CLASS_MEASURE,
     "AC_OUT_CURRENT": VBIEntity_CLASS_MEASURE,
@@ -87,14 +116,6 @@ async def platform_to_code(
             cg.add(getattr(manager, "register_entity")(entity))
 
 
-VictronBleRecordConstPtr = (
-    m3_victron_ble_ir.struct("VICTRON_BLE_RECORD").operator("ptr").operator("const")
-)
-MessageTrigger = m3_victron_ble_ir.class_(
-    "MessageTrigger", automation.Trigger.template(VictronBleRecordConstPtr)
-)
-
-
 class Array:
     def __init__(self, *parts):
         self.parts = parts
@@ -134,6 +155,13 @@ def bind_mac_address_or_shortened(value):
     return cv.mac_address(":".join(parts_int))
 
 
+def validate_auto_create_entities(value):
+    value = cv.string_strict(value)
+    if value not in VBIRecord_TYPES:
+        raise cv.Invalid(f"Must be one of {VBIRecord_TYPES}")
+    return value
+
+
 CONFIG_SCHEMA = cv.All(
     cv.only_on_esp32,
     cv.Schema(
@@ -141,7 +169,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(Manager),
             cv.Required(CONF_MAC_ADDRESS): bind_mac_address_or_shortened,
             cv.Required(CONF_BINDKEY): bind_key_array,
-            cv.Optional(CONF_AUTO_CREATE_ENTITIES, default=False): cv.boolean,
+            cv.Optional(CONF_AUTO_CREATE_ENTITIES): validate_auto_create_entities,
             cv.Optional(CONF_ON_MESSAGE): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(MessageTrigger),
@@ -161,10 +189,15 @@ async def to_code(config):
 
     cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
     cg.add(var.set_bindkey(config[CONF_BINDKEY].as_array))
-    cg.add(var.set_auto_create_entities(config[CONF_AUTO_CREATE_ENTITIES]))
+    if CONF_AUTO_CREATE_ENTITIES in config:
+        cg.add(
+            var.set_auto_create_entities(
+                VBIRecord_TYPE.enum(config[CONF_AUTO_CREATE_ENTITIES])
+            )
+        )
 
     for conf in config.get(CONF_ON_MESSAGE, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(
-            trigger, [(VictronBleRecordConstPtr, "message")], conf
+            trigger, [(VBIRecordConstPtr, "message")], conf
         )

@@ -10,9 +10,9 @@ static const char *const TAG = "m3_victron_ble_ir.sensor";
 void VictronSensor::setup() {
   switch (this->type_) {
     case VICTRON_SENSOR_TYPE::AUX_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
+          case VBI_RECORD::HEADER::TYPE::BATTERY_MONITOR:
             if (msg->data.battery_monitor.aux_input_type == VE_REG_BMV_AUX_INPUT::VE_REG_DC_CHANNEL2_VOLTAGE) {
               this->publish_state(0.01f * msg->data.battery_monitor.aux_input.aux_voltage);
             } else {
@@ -20,7 +20,7 @@ void VictronSensor::setup() {
               this->publish_state(NAN);
             }
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
+          case VBI_RECORD::HEADER::TYPE::DC_ENERGY_METER:
             if (msg->data.dc_energy_meter.aux_input_type == VE_REG_BMV_AUX_INPUT::VE_REG_DC_CHANNEL2_VOLTAGE) {
               this->publish_state(0.01f * msg->data.dc_energy_meter.aux_input.aux_voltage);
             } else {
@@ -37,18 +37,18 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::ERROR:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_LITHIUM:
+          case VBI_RECORD::HEADER::TYPE::SMART_LITHIUM:
             this->publish_state((u_int16_t) msg->data.smart_lithium.SmartLithium_error);
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
+          case VBI_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state((u_int8_t) msg->data.smart_battery_protect.error_code);
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::LYNX_SMART_BMS:
+          case VBI_RECORD::HEADER::TYPE::LYNX_SMART_BMS:
             this->publish_state((u_int8_t) msg->data.lynx_smart_bms.error);
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::VE_BUS:
+          case VBI_RECORD::HEADER::TYPE::VE_BUS:
             this->publish_state((u_int8_t) msg->data.ve_bus.ve_bus_error);
             break;
           default:
@@ -60,15 +60,15 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::INPUT_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
+          case VBI_RECORD::HEADER::TYPE::DCDC_CONVERTER:
             this->publish_state(0.01f * msg->data.dcdc_converter.input_voltage);
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
+          case VBI_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             this->publish_state(0.01f * msg->data.smart_battery_protect.input_voltage);
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
+          case VBI_RECORD::HEADER::TYPE::ORION_XS:
             if (msg->data.orion_xs.input_voltage == 0xFFFF) {
               this->publish_state(0.0f);
             } else {
@@ -84,9 +84,9 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::LOAD_CURRENT:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SOLAR_CHARGER:
+          case VBI_RECORD::HEADER::TYPE::SOLAR_CHARGER:
             if (msg->data.solar_charger.load_current == 0x1FF) {
               this->publish_state(0);
             } else {
@@ -102,9 +102,9 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::MID_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
+          case VBI_RECORD::HEADER::TYPE::BATTERY_MONITOR:
             if (msg->data.battery_monitor.aux_input_type == VE_REG_BMV_AUX_INPUT::VE_REG_BATTERY_MID_POINT_VOLTAGE) {
               this->publish_state(0.01f * msg->data.battery_monitor.aux_input.mid_voltage);
             } else {
@@ -121,23 +121,23 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::OUTPUT_VOLTAGE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DCDC_CONVERTER:
+          case VBI_RECORD::HEADER::TYPE::DCDC_CONVERTER:
             if (msg->data.dcdc_converter.output_voltage == 0x7FFF) {
               this->publish_state(0.0f);
             } else {
               this->publish_state(0.01f * msg->data.dcdc_converter.output_voltage);
             }
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
+          case VBI_RECORD::HEADER::TYPE::SMART_BATTERY_PROTECT:
             if (msg->data.smart_battery_protect.output_voltage == 0xFFFF) {
               this->publish_state(0.0f);
             } else {
               this->publish_state(0.01f * msg->data.smart_battery_protect.output_voltage);
             }
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
+          case VBI_RECORD::HEADER::TYPE::ORION_XS:
             if (msg->data.orion_xs.output_voltage == 0xFFFF) {
               this->publish_state(0.0f);
             } else {
@@ -153,9 +153,9 @@ void VictronSensor::setup() {
       break;
 
     case VICTRON_SENSOR_TYPE::TEMPERATURE:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::BATTERY_MONITOR:
+          case VBI_RECORD::HEADER::TYPE::BATTERY_MONITOR:
             if (msg->data.battery_monitor.aux_input_type == VE_REG_BMV_AUX_INPUT::VE_REG_BAT_TEMPERATURE) {
               if (msg->data.battery_monitor.aux_input.temperature == 0xFFFF) {
                 this->publish_state(NAN);
@@ -167,7 +167,7 @@ void VictronSensor::setup() {
               this->publish_state(NAN);
             }
             break;
-          case VICTRON_BLE_RECORD::HEADER::TYPE::DC_ENERGY_METER:
+          case VBI_RECORD::HEADER::TYPE::DC_ENERGY_METER:
             if (msg->data.dc_energy_meter.aux_input_type == VE_REG_BMV_AUX_INPUT::VE_REG_BAT_TEMPERATURE) {
               if (msg->data.dc_energy_meter.aux_input.temperature == 0xFFFF) {
                 this->publish_state(NAN);
@@ -312,9 +312,9 @@ void VictronSensor::setup() {
 
       // ORION_XS
     case VICTRON_SENSOR_TYPE::OUTPUT_CURRENT:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
+          case VBI_RECORD::HEADER::TYPE::ORION_XS:
             if (msg->data.orion_xs.output_current == 0xFFFF) {
               this->publish_state(0);
             } else {
@@ -329,9 +329,9 @@ void VictronSensor::setup() {
       });
       break;
     case VICTRON_SENSOR_TYPE::INPUT_CURRENT:
-      this->parent_->add_on_message_callback([this](const VICTRON_BLE_RECORD *msg) {
+      this->parent_->add_on_message_callback([this](const VBI_RECORD *msg) {
         switch (msg->header.record_type) {
-          case VICTRON_BLE_RECORD::HEADER::TYPE::ORION_XS:
+          case VBI_RECORD::HEADER::TYPE::ORION_XS:
             if (msg->data.orion_xs.input_current == 0xFFFF) {
               this->publish_state(0);
             } else {
@@ -362,7 +362,7 @@ const float VBISensor::DIGITS_TO_SCALE[] = {1.f, .1f, .01f, .001f};
 VBISensor::VBISensor(TYPE type) : VBIEntity(type) {
   auto def = this->def;
   this->set_name(def->label);
-  this->set_object_id(str_sanitize(str_snake_case(this->get_name())).c_str());
+  this->set_object_id(this->calculate_object_id_());
   switch (def->cls) {
     case CLASS::MEASURE:
       this->set_state_class(sensor::StateClass::STATE_CLASS_MEASUREMENT);
@@ -382,14 +382,15 @@ _setup_numeric_sensor:
   this->set_device_class(DEVICE_CLASSES[def->unit]);
 }
 
-void VBISensor::init_() {
+void VBISensor::init(const RECORD_DEF *record_def) {
+  this->VBIEntity::init(record_def);
   switch (this->def->cls) {
     case CLASS::MEASURE:
     case CLASS::MEASURE_TOTAL:
     case CLASS::MEASURE_INCREASING:
-      this->set_accuracy_decimals(this->get_record_def()->decimal_digits);
-      this->scale_ = DIGITS_TO_SCALE[this->get_record_def()->decimal_digits];
-      if (this->get_record_def()->is_signed) {
+      this->set_accuracy_decimals(record_def->decimal_digits);
+      this->scale_ = DIGITS_TO_SCALE[record_def->decimal_digits];
+      if (record_def->is_signed) {
         this->signed_offset_ = this->data_mask_ + 1;
         this->nan_value_ = this->data_mask_ >> 1;
         if (this->data_shift_ == 0) {
@@ -444,7 +445,7 @@ void VBISensor::init_() {
   }
 }
 
-template<typename T> void VBISensor::parse_bitmask_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+template<typename T> void VBISensor::parse_bitmask_enum_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
@@ -454,7 +455,8 @@ template<typename T> void VBISensor::parse_bitmask_enum_t_(VBIEntity *entity, co
       static_cast<VBISensor *>(entity)->publish_state(value);
   }
 }
-template<typename T> void VBISensor::parse_signed_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+
+template<typename T> void VBISensor::parse_signed_t_(VBIEntity *entity, const VBI_RECORD *record) {
   u_int32_t value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
@@ -468,7 +470,8 @@ template<typename T> void VBISensor::parse_signed_t_(VBIEntity *entity, const VI
     }
   }
 }
-template<typename T> void VBISensor::parse_unsigned_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+
+template<typename T> void VBISensor::parse_unsigned_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
@@ -480,7 +483,8 @@ template<typename T> void VBISensor::parse_unsigned_t_(VBIEntity *entity, const 
     }
   }
 }
-void VBISensor::parse_temperature_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+
+void VBISensor::parse_temperature_(VBIEntity *entity, const VBI_RECORD *record) {
   int value = (int) entity->read_record_(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;

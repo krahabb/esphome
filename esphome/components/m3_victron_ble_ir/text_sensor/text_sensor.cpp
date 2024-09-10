@@ -8,10 +8,11 @@ namespace m3_victron_ble_ir {
 // static const char *const TAG = "m3_victron_ble_ir.text_sensor";
 VBITextSensor::VBITextSensor(TYPE type) : VBIEntity(type) {
   this->set_name(this->def->label);
-  this->set_object_id(str_sanitize(str_snake_case(this->get_name())).c_str());
+  this->set_object_id(this->calculate_object_id_());
 }
 
-void VBITextSensor::init_() {
+void VBITextSensor::init(const RECORD_DEF *record_def) {
+  this->VBIEntity::init(record_def);
   switch (this->def->cls) {
     case CLASS::ENUM:
       if (this->data_shift_ == 0) {
@@ -44,7 +45,7 @@ void VBITextSensor::init_() {
   }
 }
 
-template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
@@ -61,7 +62,7 @@ template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, con
   }
 }
 
-template<typename T> void VBITextSensor::parse_enum_t_(VBIEntity *entity, const VICTRON_BLE_RECORD *record) {
+template<typename T> void VBITextSensor::parse_enum_t_(VBIEntity *entity, const VBI_RECORD *record) {
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;

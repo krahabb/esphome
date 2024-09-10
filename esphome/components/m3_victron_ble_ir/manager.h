@@ -30,6 +30,10 @@ class Manager : public Component {
   void setup() override;
   void loop() override;
 
+  // ensure this component is setup before ApiServer in order
+  // to dynamically register entities before ApiServer is setup
+  float get_setup_priority() const override { return setup_priority::DATA; }
+
 #ifdef USE_ESP32
   bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
 #endif
@@ -42,10 +46,13 @@ class Manager : public Component {
   }
   const char *address_str() const { return this->address_str_; }
   void set_bindkey(std::array<uint8_t, 16> key) { this->bindkey_ = key; }
-  void set_auto_create_entities(bool v) { this->auto_create_entities_ = v; }
+  void set_auto_create_entities(VBI_RECORD::HEADER::TYPE value) {
+    this->auto_create_entities_ = true;
+    this->auto_create_type_ = value;
+  }
   void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
 
-  void add_on_message_callback(std::function<void(const VICTRON_BLE_RECORD *)> callback) {
+  void add_on_message_callback(std::function<void(const VBI_RECORD *)> callback) {
     this->on_message_callback_.add(std::move(callback));
   }
   void add_on_battery_monitor_message_callback(
@@ -96,12 +103,14 @@ class Manager : public Component {
   esp_aes_context aes_ctx_;
 #endif
 
-  VICTRON_BLE_RECORD record_{};
-  CallbackManager<void(const VICTRON_BLE_RECORD *)> on_message_callback_{};
+  VBI_RECORD record_{};
+  CallbackManager<void(const VBI_RECORD *)> on_message_callback_{};
 
-  bool auto_create_entities_{};
+  bool auto_create_entities_{false};
+  VBI_RECORD::HEADER::TYPE auto_create_type_{VBI_RECORD::HEADER::TYPE::AUTO};
+
   std::vector<VBIEntity *> entities_;
-  void auto_create_(VICTRON_BLE_RECORD::HEADER::TYPE record_type);
+  void auto_create_(VBI_RECORD::HEADER::TYPE record_type);
 
 #ifdef DEBUG_VBIENTITY
   uint32_t time_loop_{};
@@ -124,10 +133,10 @@ class Manager : public Component {
 #undef VICTRON_MESSAGE_STORAGE_CB
 };
 
-class MessageTrigger : public Trigger<const VICTRON_BLE_RECORD *> {
+class MessageTrigger : public Trigger<const VBI_RECORD *> {
  public:
   explicit MessageTrigger(Manager *manager) {
-    manager->add_on_message_callback([this](const VICTRON_BLE_RECORD *message) { this->trigger(message); });
+    manager->add_on_message_callback([this](const VBI_RECORD *message) { this->trigger(message); });
   }
 };
 

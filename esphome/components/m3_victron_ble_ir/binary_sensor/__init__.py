@@ -4,11 +4,11 @@ import esphome.config_validation as cv
 
 from .. import (
     CONF_VICTRON_BLE_IR_ID,
-    TYPES,
     VBIEntity,
     VBIEntity_CLASS_BITMASK,
     VBIEntity_CLASS_ENUM,
     VBIEntity_TYPE,
+    VBIEntity_TYPES,
     m3_victron_ble_ir,
     platform_schema,
 )
@@ -25,7 +25,7 @@ _vbibinarysensor_schema = binary_sensor.binary_sensor_schema(VBIBinarySensor).ex
 
 PLATFORM_ENTITIES = {
     _type: cv.ensure_list(_vbibinarysensor_schema)
-    for _type, _class in TYPES.items()
+    for _type, _class in VBIEntity_TYPES.items()
     if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
 }
 
