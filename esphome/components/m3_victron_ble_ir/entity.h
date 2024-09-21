@@ -114,6 +114,8 @@ class VBIEntity {
   // called by the Manager when BLE timeouts (we'll send 'unknown' to APIServer)
   virtual void link_disconnected() = 0;
 
+  virtual bool is_binary_sensor() { return false; }
+
   void parse(const VBI_RECORD *record) { this->parse_func_(this, record); }
 
   const RECORD_DEF *get_record_def() const { return this->record_def_; }

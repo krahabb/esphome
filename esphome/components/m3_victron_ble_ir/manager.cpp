@@ -206,7 +206,10 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
     // check if it was not already defined (yaml config)
     bool existing = false;
     for (auto entity : this->entities_) {
-      if (entity->def == &def) {
+      // When checking for existing entities we exclude (eventual) BinarySensors
+      // since those can be mapped to individual BITMASKs or ENUMs and
+      // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
+      if ((entity->def == &def) && !entity->is_binary_sensor()) {
         existing = true;
         break;
       }
