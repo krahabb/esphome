@@ -109,8 +109,7 @@ async def platform_to_code(
 
     for entity_key, entity_config in config.items():
         if entity_key in platform_entities:
-            entity = await init_func(entity_config, VBIEntity_TYPE.enum(entity_key))
-            cg.add(getattr(manager, "register_entity")(entity))
+            await init_func(entity_config, manager, VBIEntity_TYPE.enum(entity_key))
 
 
 class Array:

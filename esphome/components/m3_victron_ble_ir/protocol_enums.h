@@ -11,25 +11,25 @@ namespace m3_victron_ble_ir {
 // strings representations
 //
 struct ENUM_LOOKUP_DEF {
-  int value;
+  u_int32_t value;
   std::string label;
 
-  ENUM_LOOKUP_DEF(int value, const char *enum_name);
+  ENUM_LOOKUP_DEF(u_int32_t value, const char *enum_name);
 
-  bool operator<(const int &value) const { return this->value < value; }
+  bool operator<(const u_int32_t &value) const { return this->value < value; }
 };
 
 // This acts mainly as a namespace for enum/lookup
 class EnumBase {
  public:
-  typedef std::string (*lookup_func_t)(int value);
+  typedef std::string (*lookup_func_t)(u_int32_t value);
 
  protected:
   /// @brief Lookup the raw enum 'value' and returns the string description
   /// @brief according to the enum definition (see DECLARE_ENUM). If
   /// @brief the raw value was not defined at compile time returns a plain numeric string
   /// @brief conversion
-  static std::string lookup(int value, const ENUM_LOOKUP_DEF *lookup, const ENUM_LOOKUP_DEF *lookup_end);
+  static std::string lookup(u_int32_t value, const ENUM_LOOKUP_DEF *lookup, const ENUM_LOOKUP_DEF *lookup_end);
 };
 
 // clang-format off
@@ -42,12 +42,8 @@ class EnumBase {
     enum : underlying_type { ENUM_MACRO(DECLARE_ENUM_ITEM) }; \
     static const ENUM_LOOKUP_DEF LOOKUP[]; \
     static const ENUM_LOOKUP_DEF *const LOOKUP_END; \
-    inline static std::string lookup(int value) { return EnumBase::lookup(value, LOOKUP, LOOKUP_END); } \
+    inline static std::string lookup(u_int32_t value) { return EnumBase::lookup(value, LOOKUP, LOOKUP_END); } \
   };
-
-#define DEFINE_ENUM(ENUM_MACRO) \
-  const ENUM_LOOKUP_DEF ENUM_MACRO::LOOKUP[] = {ENUM_MACRO(DEFINE_ENUM_LOOKUP_ITEM)}; \
-  const ENUM_LOOKUP_DEF *const ENUM_MACRO::LOOKUP_END = ENUM_MACRO::LOOKUP + ARRAY_COUNT(ENUM_MACRO::LOOKUP);
 
 //
 // victron BLE enum declarations
@@ -72,6 +68,24 @@ DECLARE_ENUM(ENUM_VE_REG_ALARM_REASON, u_int16_t)
   ENUM(NOT_KNOWN, 0x00), ENUM(BALANCED, 0x01), ENUM(BALANCING, 0x02), ENUM(IMBALANCE, 0x03)
 DECLARE_ENUM(ENUM_VE_REG_BALANCER_STATUS, u_int8_t)
 
+// definition unknown (currently appearing in Lynx Smart BMS)
+#define ENUM_VE_REG_BMS_ERROR(ENUM) \
+  ENUM(UNKNOWN, 0x00)
+DECLARE_ENUM(ENUM_VE_REG_BMS_ERROR, u_int8_t)
+
+// definition unknown (currently appearing in SmartLithium)
+#define BITMASK_VE_REG_BMS_FLAGS(ENUM) \
+  ENUM(UNKNOWN, 0xFFFFFFFF)
+DECLARE_ENUM(BITMASK_VE_REG_BMS_FLAGS, u_int32_t)
+
+#define ENUM_VE_REG_BMV_AUX_INPUT(ENUM) \
+  ENUM(DC_CHANNEL2_VOLTAGE, 0x00), ENUM(BATTERY_MID_POINT_VOLTAGE, 0x01), ENUM(BAT_TEMPERATURE, 0x02), ENUM(UNKNOWN, 0x03)
+DECLARE_ENUM(ENUM_VE_REG_BMV_AUX_INPUT, u_int8_t)
+
+// definition unknown (currently appearing in DC energy meter)
+#define ENUM_VE_REG_BMV_MONITOR_MODE(ENUM) \
+  ENUM(UNKNOWN, 0xFFFF)
+DECLARE_ENUM(ENUM_VE_REG_BMV_MONITOR_MODE, u_int16_t)
 
 #define ENUM_VE_REG_CHR_ERROR_CODE(ENUM) \
   ENUM(NO_ERROR, 0), ENUM(BATTERY_TEMPERATURE_HIGH, 1), ENUM(BATTERY_VOLTAGE_HIGH, 2), ENUM(REMOTE_TEMPERATURE_A, 3), \
@@ -114,6 +128,16 @@ DECLARE_ENUM(ENUM_VE_REG_DEVICE_OFF_REASON_2, u_int32_t)
   ENUM(STARTING_UP, 0xF5), ENUM(REPEATED_ABSORPTION, 0xF6), ENUM(AUTO_EQUALIZE, 0xF7), ENUM(BATTERY_SAFE, 0xF8), \
   ENUM(EXTERNAL_CONTROL, 0xFC), ENUM(UNKNOWN, 0xFF)
 DECLARE_ENUM(ENUM_VE_REG_DEVICE_STATE, u_int8_t)
+
+// definition unknown (currently appearing in Smart Lithium)
+#define ENUM_VE_REG_SMART_LITHIUM_ERROR_FLAGS(ENUM) \
+  ENUM(UNKNOWN, 0xFFFF)
+DECLARE_ENUM(ENUM_VE_REG_SMART_LITHIUM_ERROR_FLAGS, u_int16_t)
+
+// definition unknown (currently appearing in Lynx Smart BMS)
+#define ENUM_VE_REG_VEBUS_VEBUS_ERROR(ENUM) \
+  ENUM(UNKNOWN, 0xFF)
+DECLARE_ENUM(ENUM_VE_REG_VEBUS_VEBUS_ERROR, u_int8_t)
 
 // This is actually the same encoding as ENUM_VE_REG_ALARM_REASON
 typedef ENUM_VE_REG_ALARM_REASON ENUM_VE_REG_WARNING_REASON;

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <vector>
+#include <functional>
 
 #include "defines.h"
 #include "protocol.h"
@@ -18,6 +19,10 @@
 
 namespace esphome {
 namespace m3_victron_ble_ir {
+
+class VBITextSensor;
+class VBISensor;
+class VBIBinarySensor;
 
 #define MANAGER_ENTITY(type, name) \
  protected: \
@@ -108,6 +113,9 @@ class Manager : public Component {
 
   void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
 
+  VBIEntity *lookup_entity_type(VBIEntity::TYPE type);
+  VBITextSensor *lookup_text_sensor_type(VBIEntity::TYPE type);
+
  protected:
   uint64_t address_{};
   char address_str_[18] = {};
@@ -116,14 +124,17 @@ class Manager : public Component {
   esp_aes_context aes_ctx_;
 #endif
 
-  VBI_RECORD record_{};
-  CallbackManager<void(const VBI_RECORD *)> on_message_callback_{};
-
   std::vector<VBIEntity *> entities_;
+
+  bool init_entities_{true};
+  void init_(VBI_RECORD::HEADER::TYPE record_type);
 
   bool auto_create_entities_{false};
   VBI_RECORD::HEADER::TYPE auto_create_type_{VBI_RECORD::HEADER::TYPE::AUTO};
   void auto_create_(VBI_RECORD::HEADER::TYPE record_type);
+
+  VBI_RECORD record_{};
+  CallbackManager<void(const VBI_RECORD *)> on_message_callback_{};
 
   uint32_t link_connected_timeout_{};
   void timeout_link_connected_();

@@ -9,16 +9,18 @@ namespace m3_victron_ble_ir {
 
 class VBIBinarySensor : public VBIEntity, public binary_sensor::BinarySensor {
  public:
-  VBIBinarySensor(TYPE type);
+  VBIBinarySensor(Manager *const manager, TYPE type);
 
   void set_mask(u_int32_t mask) { this->mask_ = mask; }
 
-  void init(const RECORD_DEF *record_def) override;
-  void link_disconnected() override;
   bool is_binary_sensor() override { return true; }
+
+  void link_disconnected() override;
 
  protected:
   u_int32_t mask_{0xFFFFFFFF};
+
+  bool init_(const RECORD_DEF *record_def) override;
 
   template<typename T> static void parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_enum_t_(VBIEntity *entity, const VBI_RECORD *record);

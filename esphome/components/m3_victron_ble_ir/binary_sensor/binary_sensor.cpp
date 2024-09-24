@@ -4,47 +4,48 @@
 namespace esphome {
 namespace m3_victron_ble_ir {
 
-VBIBinarySensor::VBIBinarySensor(TYPE type) : VBIEntity(type) {
+VBIBinarySensor::VBIBinarySensor(Manager *const manager, TYPE type) : VBIEntity(manager, type) {
   this->set_name(this->def->label);
   this->set_object_id(this->calculate_object_id_());
 }
 
-void VBIBinarySensor::init(const RECORD_DEF *record_def) {
-  this->VBIEntity::init(record_def);
+void VBIBinarySensor::link_disconnected() {
+  // no way: BinarySensor cannot report unknown/disconnected
+}
+
+bool VBIBinarySensor::init_(const RECORD_DEF *record_def) {
+  this->VBIEntity::init_(record_def);
   switch (this->def->cls) {
     case CLASS::ENUM:
+    case CLASS::SELECTOR:
       if (this->data_shift_ == 0) {
         if (this->data_mask_ == 0xFF) {
-          this->set_parse_func_(parse_enum_t_<u_int8_t>);
-          break;
+          this->init_parse_func_(parse_enum_t_<u_int8_t>);
+          return true;
         }
         if (this->data_mask_ == 0xFFFF) {
-          this->set_parse_func_(parse_enum_t_<u_int16_t>);
-          break;
+          this->init_parse_func_(parse_enum_t_<u_int16_t>);
+          return true;
         }
       }
-      this->set_parse_func_(parse_enum_t_<u_int32_t>);
-      break;
+      this->init_parse_func_(parse_enum_t_<u_int32_t>);
+      return true;
     case CLASS::BITMASK:
       if (this->data_shift_ == 0) {
         if (this->data_mask_ == 0xFF) {
-          this->set_parse_func_(parse_bitmask_t_<u_int8_t>);
-          break;
+          this->init_parse_func_(parse_bitmask_t_<u_int8_t>);
+          return true;
         }
         if (this->data_mask_ == 0xFFFF) {
-          this->set_parse_func_(parse_bitmask_t_<u_int16_t>);
-          break;
+          this->init_parse_func_(parse_bitmask_t_<u_int16_t>);
+          return true;
         }
       }
-      this->set_parse_func_(parse_bitmask_t_<u_int32_t>);
-      break;
+      this->init_parse_func_(parse_bitmask_t_<u_int32_t>);
+      return true;
     default:
-      this->init_unsupported_();
+      return false;
   }
-}
-
-void VBIBinarySensor::link_disconnected() {
-  // no way: BinarySensor cannot report unknown/disconnected
 }
 
 template<typename T> void VBIBinarySensor::parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record) {

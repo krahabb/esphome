@@ -8,14 +8,28 @@ namespace m3_victron_ble_ir {
 
 class VBITextSensor : public VBIEntity, public text_sensor::TextSensor {
  public:
-  VBITextSensor(TYPE type);
+  VBITextSensor(Manager *const manager, TYPE type);
 
-  void init(const RECORD_DEF *record_def) override;
+  bool is_text_sensor() override { return true; }
+
   void link_disconnected() override;
 
+  void register_conditional_entity(VBIEntity *entity, u_int8_t selector_value) {
+    // play it safe
+    if (this->conditional_entities_) {
+      this->conditional_entities_[selector_value] = entity;
+    }
+    // else debug error ?
+  }
+
  protected:
+  VBIEntity **conditional_entities_{};
+
+  bool init_(const RECORD_DEF *record_def) override;
+
   template<typename T> static void parse_bitmask_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_enum_t_(VBIEntity *entity, const VBI_RECORD *record);
+  template<typename T> static void parse_selector_t_(VBIEntity *entity, const VBI_RECORD *record);
 };
 
 }  // namespace m3_victron_ble_ir

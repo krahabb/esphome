@@ -49,13 +49,13 @@ async def to_code(config: dict):
             )
             for entity_config_item in entity_config:
                 entity = await binary_sensor.new_binary_sensor(
-                    entity_config_item, VBIEntity_TYPE.enum(entity_key)
+                    entity_config_item, manager, VBIEntity_TYPE.enum(entity_key)
                 )
                 mask = entity_config_item[CONF_MASK]
                 if isinstance(mask, str):
                     mask = entity_enum_class.enum(mask)
                 cg.add(entity.set_mask(mask))
-                cg.add(manager.register_entity(entity))
+
         elif entity_key in PLATFORM_MANAGER_ENTITIES:
             entity = await binary_sensor.new_binary_sensor(entity_config)
             cg.add(getattr(manager, f"set_{entity_key}")(entity))

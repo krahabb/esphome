@@ -48,6 +48,75 @@ void Manager::loop() {
     else
       test_record.header.record_type = VBI_RECORD::HEADER::MULTI_RS;
     switch (test_record.header.record_type) {
+      case VBI_RECORD::HEADER::SOLAR_CHARGER:
+        switch (t % 3) {
+          case 0:
+            test_record.data.solar_charger.yield_today = 100;
+            test_record.data.solar_charger.pv_power = 1;
+            test_record.data.solar_charger.battery_current = -32768;
+            test_record.data.solar_charger.battery_voltage = 0;
+            test_record.data.solar_charger.device_state = VE_REG_DEVICE_STATE::ABSORPTION;
+            test_record.data.solar_charger.charger_error = VE_REG_CHR_ERROR_CODE::CALIBRATION_LOST;
+            test_record.data.solar_charger.load_current = 0;
+            break;
+          case 1:
+            test_record.data.solar_charger.yield_today = 0xfffe;
+            test_record.data.solar_charger.pv_power = 0xfffe;
+            test_record.data.solar_charger.battery_current = 32766;
+            test_record.data.solar_charger.battery_voltage = 32766;
+            test_record.data.solar_charger.device_state = VE_REG_DEVICE_STATE::BULK;
+            test_record.data.solar_charger.charger_error = VE_REG_CHR_ERROR_CODE::NO_ERROR;
+            test_record.data.solar_charger.load_current = 0x1fe;
+            break;
+          default:
+            test_record.data.solar_charger.yield_today = 0xffff;
+            test_record.data.solar_charger.pv_power = 0xffff;
+            test_record.data.solar_charger.battery_current = 0x7fff;
+            test_record.data.solar_charger.battery_voltage = 0x7fff;
+            test_record.data.solar_charger.device_state = VE_REG_DEVICE_STATE::NOT_AVAILABLE;
+            test_record.data.solar_charger.charger_error = VE_REG_CHR_ERROR_CODE::NOT_AVAILABLE;
+            test_record.data.solar_charger.load_current = 0x1ff;
+        }
+        break;
+      case VBI_RECORD::HEADER::BATTERY_MONITOR:
+        switch (t % 3) {
+          case 0:
+            test_record.data.battery_monitor.time_to_go = 100;
+            test_record.data.battery_monitor.state_of_charge = 1;
+            test_record.data.battery_monitor.consumed_ah = 1;
+            test_record.data.battery_monitor.battery_current = 1000;
+            test_record.data.battery_monitor.battery_voltage = 2400;
+            test_record.data.battery_monitor.aux_input_type = VE_REG_BMV_AUX_INPUT::VE_REG_BAT_TEMPERATURE;
+            test_record.data.battery_monitor.aux_input.temperature = 100;
+            break;
+          case 1:
+            test_record.data.battery_monitor.time_to_go = 1000;
+            test_record.data.battery_monitor.state_of_charge = 1;
+            test_record.data.battery_monitor.consumed_ah = 1;
+            test_record.data.battery_monitor.battery_current = 1000;
+            test_record.data.battery_monitor.battery_voltage = 4800;
+            test_record.data.battery_monitor.aux_input_type = VE_REG_BMV_AUX_INPUT::VE_REG_BATTERY_MID_POINT_VOLTAGE;
+            test_record.data.battery_monitor.aux_input.mid_voltage = 2400;
+            break;
+          case 2:
+            test_record.data.battery_monitor.time_to_go = 100;
+            test_record.data.battery_monitor.state_of_charge = 1;
+            test_record.data.battery_monitor.consumed_ah = 1;
+            test_record.data.battery_monitor.battery_current = 1000;
+            test_record.data.battery_monitor.battery_voltage = 2400;
+            test_record.data.battery_monitor.aux_input_type = VE_REG_BMV_AUX_INPUT::VE_REG_DC_CHANNEL2_VOLTAGE;
+            test_record.data.battery_monitor.aux_input.aux_voltage = 3600;
+            break;
+          default:
+            test_record.data.battery_monitor.time_to_go = -1;
+            test_record.data.battery_monitor.state_of_charge = -1;
+            test_record.data.battery_monitor.consumed_ah = -1;
+            test_record.data.battery_monitor.battery_current = -1;
+            test_record.data.battery_monitor.battery_voltage = -1;
+            test_record.data.battery_monitor.aux_input_type = VE_REG_BMV_AUX_INPUT::NONE;
+            test_record.data.battery_monitor.aux_input.temperature = -1;
+        }
+        break;
       case VBI_RECORD::HEADER::MULTI_RS:
         switch (t % 3) {
           case 0:
@@ -96,8 +165,8 @@ void Manager::loop() {
         break;
     }
 
-    if (this->auto_create_entities_) {
-      this->auto_create_(test_record.header.record_type);
+    if (this->init_entities_) {
+      this->init_(test_record.header.record_type);
     }
 
     for (auto entity : this->entities_) {
@@ -171,12 +240,12 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 
   memcpy(&this->record_.header, &victron_data->header, sizeof(VBI_RECORD::HEADER));
 
-  if (this->on_message_callback_.size()) {
-    this->defer("VictronBle0", [this]() { this->on_message_callback_.call(&this->record_); });
+  if (this->init_entities_) {
+    this->init_(victron_data->header.record_type);
   }
 
-  if (this->auto_create_entities_) {
-    this->auto_create_(this->record_.header.record_type);
+  if (this->on_message_callback_.size()) {
+    this->on_message_callback_.call(&this->record_);
   }
 
   for (auto entity : this->entities_) {
@@ -192,6 +261,66 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 }
 #endif
 
+VBIEntity *Manager::lookup_entity_type(VBIEntity::TYPE type) {
+  for (auto entity : this->entities_) {
+    // When checking for existing entities we exclude (eventual) BinarySensors
+    // since those can be mapped to individual BITMASKs or ENUMs and
+    // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
+    if ((entity->def->type == type) && !entity->is_binary_sensor())
+      return entity;
+  }
+  return nullptr;
+}
+
+VBITextSensor *Manager::lookup_text_sensor_type(VBIEntity::TYPE type) {
+  for (auto entity : this->entities_) {
+    // When checking for existing entities we exclude (eventual) BinarySensors
+    // since those can be mapped to individual BITMASKs or ENUMs and
+    // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
+    if ((entity->def->type == type) && entity->is_text_sensor())
+      return static_cast<VBITextSensor *>(entity);
+  }
+  return nullptr;
+}
+
+void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
+  this->init_entities_ = false;
+
+  if (this->auto_create_entities_) {
+    this->auto_create_(record_type);
+  }
+
+  auto &entities = this->entities_;
+  // setup a temp vector for 2 stage initialization
+  std::vector<VBIEntity *> conditional_entities;
+
+  for (auto entity : entities) {
+    if (entity->init(record_type)) {
+      if (entity->get_selector_type() != VBIEntity::TYPE::_COUNT) {
+        // this entity is available in the data record only according to the value of the
+        // configured entity TYPE in selector_type. We'll then need to evaluate that
+        // before proceeding to parsing
+        conditional_entities.push_back(entity);
+      }
+    }
+  }
+
+  for (auto conditional_entity : conditional_entities) {
+    const VBIEntity::RECORD_DEF *record_def = conditional_entity->get_record_def();
+    VBITextSensor *selector_entity = this->lookup_text_sensor_type(record_def->selector_type);
+    if (!selector_entity) {
+      // this will not be added to the App but we're ok since
+      // the configuration(yaml) didn't request it and so it just works
+      // as an internal entity
+      selector_entity = new VBITextSensor(this, record_def->selector_type);
+      selector_entity->set_internal(true);  // just to be safe
+      selector_entity->init(record_type);
+    }
+    selector_entity->register_conditional_entity(conditional_entity, record_def->selector_value);
+    entities.erase(std::remove(entities.begin(), entities.end(), conditional_entity), entities.end());
+  }
+}
+
 void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
   // disable calling again
   this->auto_create_entities_ = false;
@@ -204,17 +333,7 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
   // for every defined entity 'TYPE'
   for (auto &def : VBIEntity::DEFS) {
     // check if it was not already defined (yaml config)
-    bool existing = false;
-    for (auto entity : this->entities_) {
-      // When checking for existing entities we exclude (eventual) BinarySensors
-      // since those can be mapped to individual BITMASKs or ENUMs and
-      // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
-      if ((entity->def == &def) && !entity->is_binary_sensor()) {
-        existing = true;
-        break;
-      }
-    }
-    if (existing)
+    if (this->lookup_entity_type(def.type))
       continue;
     // scan the RECORD_DEFS looking for a matching 'record_type'
     for (const auto *record_def = def.record_types; record_def->record_type < VBI_RECORD::HEADER::_COUNT;
@@ -223,24 +342,21 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
         // entity 'TYPE' has a definition for incoming 'record_type'
         switch (def.cls) {
           case VBIEntity::CLASS::BITMASK:
-          case VBIEntity::CLASS::ENUM: {
-            auto text_sensor = new VBITextSensor(def.type);
-            text_sensor->init(record_def);
+          case VBIEntity::CLASS::ENUM:
+          case VBIEntity::CLASS::SELECTOR: {
+            auto text_sensor = new VBITextSensor(this, def.type);
             App.register_text_sensor(text_sensor);
             if (api_server)
               text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
                 api::global_api_server->on_text_sensor_update(text_sensor, state);
               });
-            this->register_entity(text_sensor);
           } break;
           default: {
-            auto sensor = new VBISensor(def.type);
-            sensor->init(record_def);
+            auto sensor = new VBISensor(this, def.type);
             App.register_sensor(sensor);
             if (api_server)
               sensor->add_on_state_callback(
                   [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
-            this->register_entity(sensor);
           }
         }
       }

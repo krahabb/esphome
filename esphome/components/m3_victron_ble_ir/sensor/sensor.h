@@ -11,17 +11,8 @@ namespace m3_victron_ble_ir {
 enum class VICTRON_SENSOR_TYPE {
   UNSET,
 
-  AUX_VOLTAGE,
-  ERROR,
-  INPUT_VOLTAGE,
-  LOAD_CURRENT,
-  MID_VOLTAGE,
-  OUTPUT_VOLTAGE,
-  TEMPERATURE,
-
   // SMART_LITHIUM
   BALANCER_STATUS,
-  BMS_FLAGS,
   CELL1,
   CELL2,
   CELL3,
@@ -34,12 +25,6 @@ enum class VICTRON_SENSOR_TYPE {
   // LYNX_SMART_BMS
   IO_STATUS,
   WARNINGS_ALARMS,
-
-  // VE_BUS
-  ALARM,
-
-  // DC_ENERGY_METER
-  BMV_MONITOR_MODE,
 
   // ORION_XS
   OUTPUT_CURRENT,
@@ -62,19 +47,21 @@ class VBISensor : public VBIEntity, public sensor::Sensor {
   static const char *DEVICE_CLASSES[];
   static const float DIGITS_TO_SCALE[];
 
-  VBISensor(TYPE type);
+  VBISensor(Manager *const manager, TYPE type);
 
-  void init(const RECORD_DEF *record_def) override;
   void link_disconnected() override;
 
  protected:
   float scale_;
   int32_t signed_offset_;
 
+  bool init_(const RECORD_DEF *record_def) override;
+
   template<typename T> static void parse_bitmask_enum_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_signed_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_unsigned_t_(VBIEntity *entity, const VBI_RECORD *record);
-  static void parse_temperature_(VBIEntity *entity, const VBI_RECORD *record);
+  static void parse_temperature_celsius_(VBIEntity *entity, const VBI_RECORD *record);
+  template<typename T> static void parse_temperature_kelvin_(VBIEntity *entity, const VBI_RECORD *record);
 };
 
 }  // namespace m3_victron_ble_ir
