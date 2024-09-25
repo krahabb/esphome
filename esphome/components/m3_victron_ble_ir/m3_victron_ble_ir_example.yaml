@@ -1,0 +1,72 @@
+# esp32_ble_tracker is needed to listen for BLE advertisements
+esp32_ble_tracker:
+
+m3_victron_ble_ir:
+  - id: victron_ble_ir_0
+    # recover from VictronConnect app
+    mac_address: 0123456789ab
+    # recover from VictronConnect app
+    bindkey: 0123456789abcdef
+    # Optional
+    auto_create_entities: MULTI_RS
+    # If set will automatically create all of the predefined entities for that device/record type.
+    # Can be any of:
+    # "SOLAR_CHARGER", "BATTERY_MONITOR", "INVERTER", "DCDC_CONVERTER", "SMART_LITHIUM", "INVERTER_RS",
+    # "GX_DEVICE", "AC_CHARGER", "SMART_BATTERY_PROTECT", "LYNX_SMART_BMS", "MULTI_RS", "VE_BUS",
+    # "DC_ENERGY_METER", "ORION_XS","AUTO".
+    # Setting "AUTO" will create the entities layout based off the first packet of incoming data
+    # You can still add your entities (and customized name/properties to the yaml if needed). These
+    # will take precedence over the auto created ones.
+    # When custom defining entities (see binary_sensor, sensor, text_sensor platforms) you have to add
+    # an entity 'key' (like DEVICE_STATE) representing the entity type. These keys match exactly to the
+    # official register names appearing in the record layout as documented in
+    # https://communityarchive.victronenergy.com/storage/attachments/48745-extra-manufacturer-data-2022-12-14.pdf
+    # For example, the key DEVICE_STATE matches the official register named as VE_REG_DEVICE_STATE.
+    # In general, registers carrying enumerations and/or bitmasks (as opposed to registers carrying
+    # signed/unsigned measures) can be implemented as both binary_sensors and text_sensors.
+    # Any register (enum/bitmask/measure) can be declared/implemented as (plain) sensor.
+    # For binary_sensors, you can add a 'mask' option so that the entity becomes 'on' when
+    # the register value matches the mask.
+
+binary_sensor:
+  - platform: m3_victron_ble_ir
+    victron_ble_ir_id: victron_ble_ir_0
+    link_connected:
+      name: "Victron BLE link"
+    DEVICE_STATE:
+      - mask: BULK
+        name: "Bulk charging"
+      - mask: OFF
+        name: "Device off"
+
+sensor:
+  - platform: m3_victron_ble_ir
+    victron_ble_ir_id: victron_ble_ir_0
+    #  AC_IN_1_REAL_POWER:
+    #    name: "AC(1) input power"
+    #  AC_IN_2_REAL_POWER:
+    #    name: "AC(2) input power"
+    #  AC_OUT_REAL_POWER:
+    #    name: "AC output power"
+    #  CHR_TODAY_YIELD:
+    #    name: "Yield today"
+    #  DC_CHANNEL1_CURRENT:
+    #    name: "Battery current"
+    #  DC_CHANNEL1_VOLTAGE:
+    #    name: "Battery voltage"
+    #  DC_INPUT_POWER:
+    #    name: "PV power"
+    #  DEVICE_STATE:
+    #    name: "Device state"
+    #  CHR_ERROR_CODE:
+    #    name: "Charger error"
+
+text_sensor:
+  - platform: m3_victron_ble_ir
+    victron_ble_ir_id: victron_ble_ir_0
+    AC_IN_ACTIVE:
+      name: "Active AC in (text)"
+    DEVICE_STATE:
+      name: "Device state (text)"
+    CHR_ERROR_CODE:
+      name: "Charger error (text)"
