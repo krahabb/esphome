@@ -191,7 +191,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_BINDKEY): bind_key_array,
             cv.Optional(CONF_AUTO_CREATE_ENTITIES): validate_auto_create_entities,
             cv.Optional(
-                CONF_LINK_CONNECTED_TIMEOUT, default="20s"
+                CONF_LINK_CONNECTED_TIMEOUT, default="30s"
             ): cv.positive_time_period_seconds,
             cv.Optional(CONF_ON_MESSAGE): automation.validate_automation(
                 {

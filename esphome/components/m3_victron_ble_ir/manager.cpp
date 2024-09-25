@@ -14,7 +14,10 @@ static const char *const TAG = "m3_victron_ble_ir";
 
 void Manager::dump_config() {
   ESP_LOGCONFIG(TAG, "Victron BLE:");
-  ESP_LOGCONFIG(TAG, "  Address: %s", this->address_str());
+  ESP_LOGCONFIG(TAG, "  address: %s", this->address_str());
+  ESP_LOGCONFIG(TAG, "  auto_create_entities: %s", TRUEFALSE(this->auto_create_entities_));
+  ESP_LOGCONFIG(TAG, "  auto_create_type: %i", this->auto_create_type_);
+  ESP_LOGCONFIG(TAG, "  link_connected_timeout: %i s", this->link_connected_timeout_ / 1000);
 }
 
 void Manager::setup() {
@@ -210,6 +213,11 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     return false;
   }
 
+  if (this->link_connected_) {
+    this->link_connected_->publish_state(true);
+    this->set_timeout("link_connected", this->link_connected_timeout_, [this]() { this->timeout_link_connected_(); });
+  }
+
   // Filter out duplicate messages
   if (victron_data->header.data_counter == this->record_.header.data_counter) {
     return false;
@@ -229,7 +237,7 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 
   auto status = esp_aes_crypt_ctr(&this->aes_ctx_, crypted_len, &nc_offset, nonce_counter, stream_block,
                                   victron_data->data.raw, this->record_.data.raw);
-  if (status != 0) {
+  if (status) {
     ESP_LOGE(TAG, "[%s] Error during esp_aes_crypt_ctr operation (%i).", this->address_str(), status);
     return false;
   }
@@ -249,11 +257,6 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
 
   for (auto entity : this->entities_) {
     entity->parse(&this->record_);
-  }
-
-  if (this->link_connected_) {
-    this->link_connected_->publish_state(true);
-    this->set_timeout("link_connected", this->link_connected_timeout_, [this]() { this->timeout_link_connected_(); });
   }
 
   return true;
