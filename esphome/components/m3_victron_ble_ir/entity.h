@@ -1,6 +1,9 @@
 #pragma once
 
+#include "esphome/components/sensor/sensor.h"
+
 #include "protocol.h"
+
 #include <unordered_map>
 
 namespace esphome {
@@ -9,38 +12,54 @@ namespace m3_victron_ble_ir {
 class Manager;
 
 #define VBIENTITIES(DEFINE_) \
-  DEFINE_(AC_IN_ACTIVE, "Active AC in", CLASS::SELECTOR, ENUM_VE_REG_AC_IN_ACTIVE::lookup) \
-  DEFINE_(AC_IN_REAL_POWER, "AC input power", CLASS::MEASURE, UNIT::W) \
-  DEFINE_(AC_OUT_CURRENT, "AC output current", CLASS::MEASURE, UNIT::A) \
-  DEFINE_(AC_OUT_VOLTAGE, "AC output voltage", CLASS::MEASURE, UNIT::V) \
-  DEFINE_(AC_OUT_APPARENT_POWER, "AC output apparent power", CLASS::MEASURE, UNIT::VA) \
-  DEFINE_(AC_OUT_REAL_POWER, "AC output power", CLASS::MEASURE, UNIT::W) \
-  DEFINE_(ALARM_NOTIFICATION, "Alarm", CLASS::ENUM, ENUM_VE_REG_ALARM_NOTIFICATION::lookup) \
-  DEFINE_(ALARM_REASON, "Alarm reason", CLASS::BITMASK, ENUM_VE_REG_ALARM_REASON::lookup) \
-  DEFINE_(BALANCER_STATUS, "Balancer status", CLASS::ENUM, ENUM_VE_REG_BALANCER_STATUS::lookup) \
-  DEFINE_(BAT_TEMPERATURE, "Battery temperature", CLASS::MEASURE, UNIT::CELSIUS) \
-  DEFINE_(BATTERY_MID_POINT_VOLTAGE, "Battery mid voltage", CLASS::MEASURE, UNIT::V) \
-  DEFINE_(BMS_ERROR, "BMS error", CLASS::ENUM, ENUM_VE_REG_BMS_ERROR::lookup) \
-  DEFINE_(BMS_FLAGS, "BMS flags", CLASS::BITMASK, BITMASK_VE_REG_BMS_FLAGS::lookup) \
-  DEFINE_(BMV_AUX_INPUT, "BMV aux input", CLASS::SELECTOR, ENUM_VE_REG_BMV_AUX_INPUT::lookup) \
-  DEFINE_(BMV_MONITOR_MODE, "BMV monitor mode", CLASS::ENUM, ENUM_VE_REG_BMV_MONITOR_MODE::lookup) \
-  DEFINE_(CAH, "Consumed AH", CLASS::MEASURE_TOTAL, UNIT::Ah) \
-  DEFINE_(CHR_ERROR_CODE, "Charger error", CLASS::ENUM, ENUM_VE_REG_CHR_ERROR_CODE::lookup) \
-  DEFINE_(CHR_TODAY_YIELD, "Yield today", CLASS::MEASURE_INCREASING, UNIT::kWh) \
-  DEFINE_(DC_CHANNEL1_CURRENT, "Battery current", CLASS::MEASURE, UNIT::A) \
-  DEFINE_(DC_CHANNEL1_VOLTAGE, "Battery voltage", CLASS::MEASURE, UNIT::V) \
-  DEFINE_(DC_CHANNEL2_VOLTAGE, "Aux voltage", CLASS::MEASURE, UNIT::V) \
-  DEFINE_(DC_INPUT_VOLTAGE, "Input voltage", CLASS::MEASURE, UNIT::V) \
-  DEFINE_(DC_INPUT_POWER, "PV power", CLASS::MEASURE, UNIT::W) \
-  DEFINE_(DC_OUTPUT_CURRENT, "Output current", CLASS::MEASURE, UNIT::A) \
-  DEFINE_(DC_OUTPUT_STATUS, "Output state", CLASS::ENUM, ENUM_VE_REG_DC_OUTPUT_STATUS::lookup) \
-  DEFINE_(DEVICE_OFF_REASON_2, "Off reason", CLASS::BITMASK, ENUM_VE_REG_DEVICE_OFF_REASON_2::lookup) \
-  DEFINE_(DEVICE_STATE, "Device state", CLASS::ENUM, ENUM_VE_REG_DEVICE_STATE::lookup) \
-  DEFINE_(SMART_LITHIUM_ERROR_FLAGS, "Error", CLASS::BITMASK, ENUM_VE_REG_SMART_LITHIUM_ERROR_FLAGS::lookup) \
-  DEFINE_(SOC, "State of charge", CLASS::MEASURE, UNIT::SOC_PERCENTAGE) \
-  DEFINE_(TTG, "Time to go", CLASS::MEASURE, UNIT::minute) \
-  DEFINE_(VEBUS_VEBUS_ERROR, "VEBUS error", CLASS::ENUM, ENUM_VE_REG_VEBUS_VEBUS_ERROR::lookup) \
-  DEFINE_(WARNING_REASON, "Warning reason", CLASS::BITMASK, ENUM_VE_REG_WARNING_REASON::lookup)
+  DEFINE_(AC_IN_ACTIVE, "Active AC in", SUBCLASS::SELECTOR, ENUM_VE_REG_AC_IN_ACTIVE::lookup) \
+  DEFINE_(AC_IN_REAL_POWER, "AC input power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(AC_IN_1_REAL_POWER, "AC(1) input power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(AC_IN_2_REAL_POWER, "AC(2) input power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(AC_OUT_CURRENT, "AC output current", SUBCLASS::MEASURE, UNIT::A) \
+  DEFINE_(AC_OUT_VOLTAGE, "AC output voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(AC_OUT_APPARENT_POWER, "AC output apparent power", SUBCLASS::MEASURE, UNIT::VA) \
+  DEFINE_(AC_OUT_REAL_POWER, "AC output power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(ALARM_NOTIFICATION, "Alarm", SUBCLASS::ENUM, ENUM_VE_REG_ALARM_NOTIFICATION::lookup) \
+  DEFINE_(ALARM_REASON, "Alarm reason", SUBCLASS::BITMASK, ENUM_VE_REG_ALARM_REASON::lookup) \
+  DEFINE_(BALANCER_STATUS, "Balancer status", SUBCLASS::ENUM, ENUM_VE_REG_BALANCER_STATUS::lookup) \
+  DEFINE_(BAT_TEMPERATURE, "Battery temperature", SUBCLASS::TEMPERATURE, UNIT::CELSIUS) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_1, "Cell(1) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_2, "Cell(2) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_3, "Cell(3) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_4, "Cell(4) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_5, "Cell(5) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_6, "Cell(6) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_7, "Cell(7) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_CELL_VOLTAGE_8, "Cell(8) voltage", SUBCLASS::CELLVOLTAGE, UNIT::V) \
+  DEFINE_(BATTERY_MID_POINT_VOLTAGE, "Battery mid voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(BMS_ERROR, "BMS error", SUBCLASS::ENUM, ENUM_VE_REG_BMS_ERROR::lookup) \
+  DEFINE_(BMS_FLAGS, "BMS flags", SUBCLASS::BITMASK, BITMASK_VE_REG_BMS_FLAGS::lookup) \
+  DEFINE_(BMV_AUX_INPUT, "BMV aux input", SUBCLASS::SELECTOR, ENUM_VE_REG_BMV_AUX_INPUT::lookup) \
+  DEFINE_(BMV_MONITOR_MODE, "BMV monitor mode", SUBCLASS::ENUM, ENUM_VE_REG_BMV_MONITOR_MODE::lookup) \
+  DEFINE_(CAH, "Consumed AH", SUBCLASS::MEASURE, UNIT::Ah, sensor::StateClass::STATE_CLASS_TOTAL) \
+  DEFINE_(CHR_ERROR_CODE, "Charger error", SUBCLASS::ENUM, ENUM_VE_REG_CHR_ERROR_CODE::lookup) \
+  DEFINE_(CHR_TODAY_YIELD, "Yield today", SUBCLASS::MEASURE, UNIT::kWh, \
+          sensor::StateClass::STATE_CLASS_TOTAL_INCREASING) \
+  DEFINE_(DC_CHANNEL1_CURRENT, "Battery current", SUBCLASS::MEASURE, UNIT::A) \
+  DEFINE_(DC_CHANNEL1_POWER, "Battery power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(DC_CHANNEL1_VOLTAGE, "Battery voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(DC_CHANNEL2_CURRENT, "Battery(2) current", SUBCLASS::MEASURE, UNIT::A) \
+  DEFINE_(DC_CHANNEL2_VOLTAGE, "Battery(2) voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(DC_CHANNEL3_CURRENT, "Battery(3) current", SUBCLASS::MEASURE, UNIT::A) \
+  DEFINE_(DC_CHANNEL3_VOLTAGE, "Battery(3) voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(DC_INPUT_VOLTAGE, "Input voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(DC_INPUT_POWER, "PV power", SUBCLASS::MEASURE, UNIT::W) \
+  DEFINE_(DC_OUTPUT_CURRENT, "Output current", SUBCLASS::MEASURE, UNIT::A) \
+  DEFINE_(DC_OUTPUT_STATUS, "Output state", SUBCLASS::ENUM, ENUM_VE_REG_DC_OUTPUT_STATUS::lookup) \
+  DEFINE_(DC_OUTPUT_VOLTAGE, "output voltage", SUBCLASS::MEASURE, UNIT::V) \
+  DEFINE_(DEVICE_OFF_REASON_2, "Off reason", SUBCLASS::BITMASK, ENUM_VE_REG_DEVICE_OFF_REASON_2::lookup) \
+  DEFINE_(DEVICE_STATE, "Device state", SUBCLASS::ENUM, ENUM_VE_REG_DEVICE_STATE::lookup) \
+  DEFINE_(SMART_LITHIUM_ERROR_FLAGS, "Error", SUBCLASS::BITMASK, ENUM_VE_REG_SMART_LITHIUM_ERROR_FLAGS::lookup) \
+  DEFINE_(SOC, "State of charge", SUBCLASS::MEASURE, UNIT::SOC_PERCENTAGE) \
+  DEFINE_(TTG, "Time to go", SUBCLASS::MEASURE, UNIT::minute) \
+  DEFINE_(VEBUS_VEBUS_ERROR, "VEBUS error", SUBCLASS::ENUM, ENUM_VE_REG_VEBUS_VEBUS_ERROR::lookup) \
+  DEFINE_(WARNING_REASON, "Warning reason", SUBCLASS::BITMASK, ENUM_VE_REG_WARNING_REASON::lookup)
 
 #define VBI_DECLARE_ENUM(name_, ...) name_,
 
@@ -52,13 +71,17 @@ class VBIEntity {
   typedef void (*parse_func_t)(VBIEntity *_this, const VBI_RECORD *record);
 
   enum CLASS : u_int8_t {
-    UNKNOWN = 0,
-    BITMASK,             // represents a set of bit flags
-    ENUM,                // represents a value among an enumeration
-    SELECTOR,            // same as ENUM but used to select conditional parsing
-    MEASURE,             // numeric data (either signed or unsigned)
-    MEASURE_INCREASING,  // numeric data representing an ever increasing accumulated value
-    MEASURE_TOTAL,       // numeric data representing an accumulated value
+    ENUMERATION,  // enumeration data or bitmask
+    MEASUREMENT,  // numeric data (either signed or unsigned)
+  };
+
+  enum SUBCLASS : u_int8_t {
+    BITMASK,   // represents a set of bit flags
+    ENUM,      // represents a value among an enumeration
+    SELECTOR,  // same as ENUM but used to select conditional parsing
+    MEASURE,
+    TEMPERATURE,
+    CELLVOLTAGE,
   };
 
   // configuration symbols for numeric sensors
@@ -86,8 +109,7 @@ class VBIEntity {
   /// @brief This descriptor carries the mapping between an entity
   /// @brief and its layout in a specific VBI_RECORD type.
   struct RECORD_DEF {
-    const VBI_RECORD::HEADER::TYPE record_type : 7;
-    const bool is_signed : 1;
+    const bool is_signed : 8;
     const u_int8_t bit_offset;
     const u_int8_t bit_size : 6;
     const DIGITS decimal_digits : 2;
@@ -102,32 +124,59 @@ class VBIEntity {
   /// @brief and their layout related to the entity
   struct DEF {
     const TYPE type;
-    const CLASS cls;
     const char *label;
-    const RECORD_DEF *const record_types;
+    const char *default_name;
+    const CLASS cls : 2;
+    const SUBCLASS subcls : 6;
     union {
+      // additional cfg for enum style entities
       EnumBase::lookup_func_t enum_lookup_func;
-      const UNIT unit;
+      // additional cfg for numeric entities
+      struct {
+        const UNIT unit;
+        const sensor::StateClass state_class;
+      };
+
     } __attribute__((packed));
 
-    DEF(TYPE type, const RECORD_DEF *record_types, const char *label, CLASS cls, EnumBase::lookup_func_t lookup_func)
-        : type(type), cls(cls), label(label), record_types(record_types), enum_lookup_func(lookup_func) {}
+    DEF(TYPE type, const char *label, const char *default_name, SUBCLASS subcls, EnumBase::lookup_func_t lookup_func)
+        : type(type),
+          label(label),
+          default_name(default_name),
+          cls(CLASS::ENUMERATION),
+          subcls(subcls),
+          enum_lookup_func(lookup_func) {}
 
-    DEF(TYPE type, const RECORD_DEF *record_types, const char *label, CLASS cls, UNIT unit)
-        : type(type), cls(cls), label(label), record_types(record_types), unit(unit) {}
+    DEF(TYPE type, const char *label, const char *default_name, SUBCLASS subcls, UNIT unit,
+        sensor::StateClass state_class = sensor::StateClass::STATE_CLASS_MEASUREMENT)
+        : type(type),
+          label(label),
+          default_name(default_name),
+          cls(CLASS::MEASUREMENT),
+          subcls(subcls),
+          unit(unit),
+          state_class(state_class) {}
   };
 
-  // no need to expose these:
-  // VBIENTITIES(VBI_DECLARE_RECORD_DEFS)
+  // Static list of defined entity TYPE(s) properties (struct DEF)
   static const DEF DEFS[TYPE::_COUNT];
-  /*
+
+  // Dictionary (unordered_map) of struct RECORD_DEF(s) indexed by record_type/TYPE
   typedef std::unordered_map<VBIEntity::TYPE, VBIEntity::RECORD_DEF> record_def_map_t;
   typedef std::unordered_map<VBI_RECORD::HEADER::TYPE, record_def_map_t> entity_def_map_t;
-
   static const entity_def_map_t RECORD_DEFS;
-  */
+  /// @brief Returns a dictionary (indexed by TYPE) of RECORD_DEF(s) associated to record_type
+  /// @param record_type
+  /// @return nullptr if no dictionary defined for provided record_type
+  static const record_def_map_t *get_record_defs(VBI_RECORD::HEADER::TYPE record_type) {
+    const auto record_defs = VBIEntity::RECORD_DEFS.find(record_type);
+    if (record_defs != VBIEntity::RECORD_DEFS.end()) {
+      return &record_defs->second;
+    }
+    return nullptr;
+  }
 
-  const DEF *const def;
+  const DEF &def;
 
   VBIEntity(Manager *const manager, TYPE type);
 
@@ -141,9 +190,9 @@ class VBIEntity {
 
   /// @brief to be called when record_type is known in order to
   /// @brief fix pointers to data record and setup proper parse_func
-  /// @param record_type
-  /// @return false if record_type doesn't have a definition for this entity::TYPE
-  bool init(VBI_RECORD::HEADER::TYPE record_type);
+  /// @param record_defs: dictionary of RECORD_DEF structs (indexed by entity::TYPE) to lookup
+  /// @return false if record_defs doesn't have a definition for this entity::TYPE
+  bool init(const record_def_map_t &record_defs);
 
   void parse(const VBI_RECORD *record) { this->parse_func_(this, record); }
 

@@ -36,10 +36,9 @@ void Manager::setup() {
 #endif
 }
 
+#ifdef DEBUG_VBIENTITY
 void Manager::loop() {
   uint32_t t = millis();
-#ifdef DEBUG_VBIENTITY
-
   if ((t - this->time_loop_) > 2000) {
     VBI_RECORD test_record;
 
@@ -108,13 +107,13 @@ void Manager::loop() {
             test_record.data.battery_monitor.aux_input.aux_voltage = 3600;
             break;
           default:
-            test_record.data.battery_monitor.time_to_go = -1;
-            test_record.data.battery_monitor.state_of_charge = -1;
-            test_record.data.battery_monitor.consumed_ah = -1;
-            test_record.data.battery_monitor.battery_current = -1;
-            test_record.data.battery_monitor.battery_voltage = -1;
+            test_record.data.battery_monitor.time_to_go = 0xffff;
+            test_record.data.battery_monitor.state_of_charge = 0x3ff;
+            test_record.data.battery_monitor.consumed_ah = 0xfffff;
+            test_record.data.battery_monitor.battery_current = 0x3FFFFF;
+            test_record.data.battery_monitor.battery_voltage = 0x7FFF;
             test_record.data.battery_monitor.aux_input_type = VE_REG_BMV_AUX_INPUT::NONE;
-            test_record.data.battery_monitor.aux_input.temperature = -1;
+            test_record.data.battery_monitor.aux_input.temperature = 0xffff;
         }
         break;
       case VBI_RECORD::HEADER::MULTI_RS:
@@ -175,8 +174,8 @@ void Manager::loop() {
 
     this->time_loop_ = t;
   }
-#endif
 }
+#endif
 /**
  * Parse all incoming BLE payloads to see if it is a Victron BLE advertisement.
  */
@@ -266,7 +265,7 @@ VBIEntity *Manager::lookup_entity_type(VBIEntity::TYPE type) {
     // When checking for existing entities we exclude (eventual) BinarySensors
     // since those can be mapped to individual BITMASKs or ENUMs and
     // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
-    if ((entity->def->type == type) && !entity->is_binary_sensor())
+    if ((entity->def.type == type) && !entity->is_binary_sensor())
       return entity;
   }
   return nullptr;
@@ -277,7 +276,7 @@ VBITextSensor *Manager::lookup_text_sensor_type(VBIEntity::TYPE type) {
     // When checking for existing entities we exclude (eventual) BinarySensors
     // since those can be mapped to individual BITMASKs or ENUMs and
     // we want (always?) instead create a plain Text/Sensor for the 'raw' data field
-    if ((entity->def->type == type) && entity->is_text_sensor())
+    if ((entity->def.type == type) && entity->is_text_sensor())
       return static_cast<VBITextSensor *>(entity);
   }
   return nullptr;
@@ -285,6 +284,12 @@ VBITextSensor *Manager::lookup_text_sensor_type(VBIEntity::TYPE type) {
 
 void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
   this->init_entities_ = false;
+
+  const auto record_defs = VBIEntity::get_record_defs(record_type);
+  if (!record_defs) {
+    ESP_LOGE(TAG, "[init_entities] no matching entity definitions for record_type: %i", record_type);
+    return;
+  }
 
   if (this->auto_create_entities_) {
     this->auto_create_(record_type);
@@ -295,7 +300,7 @@ void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
   std::vector<VBIEntity *> conditional_entities;
 
   for (auto entity : entities) {
-    if (entity->init(record_type)) {
+    if (entity->init(*record_defs)) {
       if (entity->get_selector_type() != VBIEntity::TYPE::_COUNT) {
         // this entity is available in the data record only according to the value of the
         // configured entity TYPE in selector_type. We'll then need to evaluate that
@@ -314,10 +319,16 @@ void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
       // as an internal entity
       selector_entity = new VBITextSensor(this, record_def->selector_type);
       selector_entity->set_internal(true);  // just to be safe
-      selector_entity->init(record_type);
+      selector_entity->init(*record_defs);
     }
-    selector_entity->register_conditional_entity(conditional_entity, record_def->selector_value);
-    entities.erase(std::remove(entities.begin(), entities.end(), conditional_entity), entities.end());
+    if (selector_entity->register_conditional_entity(conditional_entity, record_def->selector_value)) {
+      entities.erase(std::remove(entities.begin(), entities.end(), conditional_entity), entities.end());
+    } else {
+      // in case the selector entity is not properly setup we just leave the conditional_entity in
+      // the list of entities to be parsed 'unconditionally'
+      ESP_LOGE(TAG, "[init_entities] error setting up selector [%s] for conditional entity [%s]",
+               selector_entity->def.label, conditional_entity->def.label);
+    }
   }
 }
 
@@ -325,40 +336,39 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
   // disable calling again
   this->auto_create_entities_ = false;
 
+  const auto record_defs = VBIEntity::get_record_defs(record_type);
+  if (!record_defs) {
+    ESP_LOGE(TAG, "[auto_create_entities] no matching entity definitions for record_type: %i", record_type);
+    return;
+  }
+
   api::APIServer *api_server = api::global_api_server;
   if (api_server && (api_server->get_component_state() == COMPONENT_STATE_CONSTRUCTION))
     // api_server eventually not initialized yet
     api_server = nullptr;
 
-  // for every defined entity 'TYPE'
-  for (auto &def : VBIEntity::DEFS) {
+  for (const auto &record_def : *record_defs) {
+    // record_def.first -> VBIEntity::TYPE
+    // record_def.second -> VBIEntity::RECORD_DEF
     // check if it was not already defined (yaml config)
-    if (this->lookup_entity_type(def.type))
+    if (this->lookup_entity_type(record_def.first))
       continue;
-    // scan the RECORD_DEFS looking for a matching 'record_type'
-    for (const auto *record_def = def.record_types; record_def->record_type < VBI_RECORD::HEADER::_COUNT;
-         ++record_def) {
-      if (record_def->record_type == record_type) {
-        // entity 'TYPE' has a definition for incoming 'record_type'
-        switch (def.cls) {
-          case VBIEntity::CLASS::BITMASK:
-          case VBIEntity::CLASS::ENUM:
-          case VBIEntity::CLASS::SELECTOR: {
-            auto text_sensor = new VBITextSensor(this, def.type);
-            App.register_text_sensor(text_sensor);
-            if (api_server)
-              text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
-                api::global_api_server->on_text_sensor_update(text_sensor, state);
-              });
-          } break;
-          default: {
-            auto sensor = new VBISensor(this, def.type);
-            App.register_sensor(sensor);
-            if (api_server)
-              sensor->add_on_state_callback(
-                  [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
-          }
-        }
+
+    switch (VBIEntity::DEFS[record_def.first].cls) {
+      case VBIEntity::CLASS::ENUMERATION: {
+        auto text_sensor = new VBITextSensor(this, record_def.first);
+        App.register_text_sensor(text_sensor);
+        if (api_server)
+          text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
+            api::global_api_server->on_text_sensor_update(text_sensor, state);
+          });
+      } break;
+      default: {
+        auto sensor = new VBISensor(this, record_def.first);
+        App.register_sensor(sensor);
+        if (api_server)
+          sensor->add_on_state_callback(
+              [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
       }
     }
   }

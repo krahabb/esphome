@@ -14,12 +14,14 @@ class VBITextSensor : public VBIEntity, public text_sensor::TextSensor {
 
   void link_disconnected() override;
 
-  void register_conditional_entity(VBIEntity *entity, u_int8_t selector_value) {
-    // play it safe
+  bool register_conditional_entity(VBIEntity *entity, u_int8_t selector_value) {
+    // play it safe since the entity might not be (correctly) initialized
     if (this->conditional_entities_) {
+      // no check on index bounds here..
       this->conditional_entities_[selector_value] = entity;
+      return true;
     }
-    // else debug error ?
+    return false;
   }
 
  protected:

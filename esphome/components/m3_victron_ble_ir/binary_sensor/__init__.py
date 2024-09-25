@@ -6,7 +6,6 @@ import esphome.const as ec
 from .. import (
     CONF_VICTRON_BLE_IR_ID,
     VBIEntity,
-    VBIEntity_CLASS_BITMASK,
     VBIEntity_CLASS_ENUM,
     VBIEntity_TYPE,
     VBIEntity_TYPES,
@@ -27,7 +26,7 @@ _vbibinarysensor_schema = binary_sensor.binary_sensor_schema(VBIBinarySensor).ex
 PLATFORM_VBI_ENTITIES = {
     _type: cv.ensure_list(_vbibinarysensor_schema)
     for _type, _class in VBIEntity_TYPES.items()
-    if _class in (VBIEntity_CLASS_BITMASK, VBIEntity_CLASS_ENUM)
+    if _class is VBIEntity_CLASS_ENUM
 }
 PLATFORM_MANAGER_ENTITIES = {
     cv.Optional("link_connected"): binary_sensor.binary_sensor_schema(

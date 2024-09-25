@@ -8,39 +8,6 @@
 namespace esphome {
 namespace m3_victron_ble_ir {
 
-enum class VICTRON_SENSOR_TYPE {
-  UNSET,
-
-  // SMART_LITHIUM
-  BALANCER_STATUS,
-  CELL1,
-  CELL2,
-  CELL3,
-  CELL4,
-  CELL5,
-  CELL6,
-  CELL7,
-  CELL8,
-
-  // LYNX_SMART_BMS
-  IO_STATUS,
-  WARNINGS_ALARMS,
-
-  // ORION_XS
-  OUTPUT_CURRENT,
-  INPUT_CURRENT,
-};
-
-class VictronSensor : public Component, public sensor::Sensor, public Parented<Manager> {
- public:
-  void setup() override;
-
-  void set_type(VICTRON_SENSOR_TYPE val) { this->type_ = val; }
-
- protected:
-  VICTRON_SENSOR_TYPE type_;
-};
-
 class VBISensor : public VBIEntity, public sensor::Sensor {
  public:
   static const char *UNITS[];
@@ -60,6 +27,7 @@ class VBISensor : public VBIEntity, public sensor::Sensor {
   template<typename T> static void parse_bitmask_enum_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_signed_t_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_unsigned_t_(VBIEntity *entity, const VBI_RECORD *record);
+  static void parse_cell_voltage_(VBIEntity *entity, const VBI_RECORD *record);
   static void parse_temperature_celsius_(VBIEntity *entity, const VBI_RECORD *record);
   template<typename T> static void parse_temperature_kelvin_(VBIEntity *entity, const VBI_RECORD *record);
 };

@@ -5,9 +5,8 @@
 namespace esphome {
 namespace m3_victron_ble_ir {
 
-// static const char *const TAG = "m3_victron_ble_ir.text_sensor";
 VBITextSensor::VBITextSensor(Manager *const manager, TYPE type) : VBIEntity(manager, type) {
-  this->set_name(this->def->label);
+  this->set_name(this->def.default_name);
   this->set_object_id(this->calculate_object_id_());
 }
 
@@ -20,8 +19,8 @@ void VBITextSensor::link_disconnected() {
 
 bool VBITextSensor::init_(const RECORD_DEF *record_def) {
   this->VBIEntity::init_(record_def);
-  switch (this->def->cls) {
-    case CLASS::BITMASK:
+  switch (this->def.subcls) {
+    case SUBCLASS::BITMASK:
       if (this->data_shift_ == 0) {
         if (this->data_mask_ == 0xFF) {
           this->init_parse_func_(parse_bitmask_t_<u_int8_t>);
@@ -34,7 +33,7 @@ bool VBITextSensor::init_(const RECORD_DEF *record_def) {
       }
       this->init_parse_func_(parse_bitmask_t_<u_int32_t>);
       return true;
-    case CLASS::ENUM:
+    case SUBCLASS::ENUM:
       if (this->data_shift_ == 0) {
         if (this->data_mask_ == 0xFF) {
           this->init_parse_func_(parse_enum_t_<u_int8_t>);
@@ -47,7 +46,7 @@ bool VBITextSensor::init_(const RECORD_DEF *record_def) {
       }
       this->init_parse_func_(parse_enum_t_<u_int32_t>);
       return true;
-    case CLASS::SELECTOR:
+    case SUBCLASS::SELECTOR:
       this->conditional_entities_ = new VBIEntity *[this->data_mask_ + 1] {};
       if (this->data_shift_ == 0) {
         if (this->data_mask_ == 0xFF) {
@@ -73,12 +72,12 @@ template<typename T> void VBITextSensor::parse_bitmask_t_(VBIEntity *entity, con
     if (value) {
       for (u_int32_t i = 1;; i = i << 1) {
         if (value & i) {
-          static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(i));
+          static_cast<VBITextSensor *>(entity)->publish_state(entity->def.enum_lookup_func(i));
           break;
         }
       }
     } else {
-      static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(0));
+      static_cast<VBITextSensor *>(entity)->publish_state(entity->def.enum_lookup_func(0));
     }
   }
 }
@@ -87,7 +86,7 @@ template<typename T> void VBITextSensor::parse_enum_t_(VBIEntity *entity, const 
   T value = entity->read_record_t_<T>(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
-    static_cast<VBITextSensor *>(entity)->publish_state(entity->def->enum_lookup_func(value));
+    static_cast<VBITextSensor *>(entity)->publish_state(entity->def.enum_lookup_func(value));
   }
 }
 
@@ -99,7 +98,7 @@ template<typename T> void VBITextSensor::parse_selector_t_(VBIEntity *entity, co
     selected_entity->parse(record);
   if (value != entity->raw_value_) {
     entity->raw_value_ = value;
-    textsensor->publish_state(entity->def->enum_lookup_func(value));
+    textsensor->publish_state(entity->def.enum_lookup_func(value));
   }
 }
 

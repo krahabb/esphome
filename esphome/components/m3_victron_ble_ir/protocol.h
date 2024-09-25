@@ -282,53 +282,6 @@ enum class VICTRON_PRODUCT_ID : u_int16_t {
   SMART_BUCKBOOST_12V_12V_50A = 0xA3F0,
 };
 
-/* REMOVE
-enum class VICTRON_MANUFACTURER_RECORD_TYPE : u_int8_t {
-  PRODUCT_ADVERTISEMENT = 0x10,
-};
-
-struct VICTRON_BLE_MANUFACTURER_DATA {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
-  VICTRON_MANUFACTURER_RECORD_TYPE manufacturer_record_type;
-  u_int8_t manufacturer_record_length;
-  VICTRON_PRODUCT_ID product_id;
-} __attribute__((packed));
-
-// source:
-// - extra-manufacturer-data-2022-12-14.pdf
-enum class VICTRON_BLE_RECORD_TYPE : u_int8_t {
-  // VICTRON_BLE_RECORD_TEST
-  TEST_RECORD = 0x00,
-  // VICTRON_BLE_RECORD_SOLAR_CHARGER
-  SOLAR_CHARGER = 0x01,
-  // VICTRON_BLE_RECORD_BATTERY_MONITOR
-  BATTERY_MONITOR = 0x02,
-  // VICTRON_BLE_RECORD_INVERTER
-  INVERTER = 0x03,
-  // VICTRON_BLE_RECORD_DCDC_CONVERTER
-  DCDC_CONVERTER = 0x04,
-  // VICTRON_BLE_RECORD_SMART_LITHIUM
-  SMART_LITHIUM = 0x05,
-  // VICTRON_BLE_RECORD_INVERTER_RS
-  INVERTER_RS = 0x06,
-  // Not defined
-  GX_DEVICE = 0x07,
-  // Not defined
-  AC_CHARGER = 0x08,
-  // VICTRON_BLE_RECORD_SMART_BATTERY_PROTECT
-  SMART_BATTERY_PROTECT = 0x09,
-  // VICTRON_BLE_RECORD_LYNX_SMART_BMS
-  LYNX_SMART_BMS = 0x0A,
-  // VICTRON_BLE_RECORD_MULTI_RS
-  MULTI_RS = 0x0B,
-  // VICTRON_BLE_RECORD_VE_BUS
-  VE_BUS = 0x0C,
-  // VICTRON_BLE_RECORD_DC_ENERGY_METER
-  DC_ENERGY_METER = 0x0D,
-  // VICTRON_BLE_RECORD_ORION_XS
-  ORION_XS = 0x0F,
-};
-*/
-
 struct VICTRON_BLE_RECORD_TEST {  // NOLINT(readability-identifier-naming,altera-struct-pack-align)
   // 1 s, 0 .. 34 year
   u_int32_t uptime : 30;
