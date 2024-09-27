@@ -89,12 +89,20 @@ PLATFORM_ENTITIES = {
         ),
     },
     # miscellaneous/diagnostic entities
-    "battery_energy": {
+    "battery_energy_in": {
         PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
             unit_of_measurement=ec.UNIT_WATT_HOURS,
             accuracy_decimals=0,
-            device_class=ec.DEVICE_CLASS_ENERGY_STORAGE,
-            state_class=ec.STATE_CLASS_TOTAL,
+            device_class=ec.DEVICE_CLASS_ENERGY,
+            state_class=ec.STATE_CLASS_TOTAL_INCREASING,
+        ),
+    },
+    "battery_energy_out": {
+        PLATFORM_ENTITY_SCHEMA: sensor.sensor_schema(
+            unit_of_measurement=ec.UNIT_WATT_HOURS,
+            accuracy_decimals=0,
+            device_class=ec.DEVICE_CLASS_ENERGY,
+            state_class=ec.STATE_CLASS_TOTAL_INCREASING,
         ),
     },
     "memory_free": {

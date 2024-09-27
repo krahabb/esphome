@@ -168,6 +168,16 @@ void AntBms::setup() {
   if (this->memory_free_) {
     this->set_interval("free_heap_check_", FREE_HEAP_CHECK_TIMEOUT_MS, [this]() { this->free_heap_check_(); });
   }
+  if (this->battery_energy_in_ || this->battery_energy_out_) {
+    // if any of the 2 defined then ensure the other is too.
+    if (!this->battery_energy_in_) {
+      this->battery_energy_in_ = new sensor::Sensor();
+      this->battery_energy_in_->set_internal(true);
+    } else if (!this->battery_energy_out_) {
+      this->battery_energy_out_ = new sensor::Sensor();
+      this->battery_energy_out_->set_internal(true);
+    }
+  }
 }
 void AntBms::dump_config() {}
 void AntBms::update() {
@@ -201,15 +211,27 @@ void AntBms::read_poll_frame_() {
 
   if (this->read_array(frame.bytes, sizeof(frame.bytes))) {
     if (frame.checksum_ok()) {
-      if (this->battery_energy_) {
+      if (this->battery_energy_in_) {
+        // both will be available (see ::setup())
         float battery_power = frame.battery_power.to_le();
-        uint32_t time = micros();
+        uint32_t time = millis();
         if (this->battery_energy_last_time) {
           uint32_t dt = time - this->battery_energy_last_time;
-          this->battery_energy_value += (this->battery_energy_last_power + battery_power) * dt / 7200000000.f;
-          float battery_energy_value_rounded = (int) this->battery_energy_value;
-          if (battery_energy_value_rounded != this->battery_energy_->get_raw_state()) {
-            this->battery_energy_->publish_state(battery_energy_value_rounded);
+          // 'de' should be divided by 7200000.f to get Wh but we avoid accumulating
+          // division rounding errors. The value(s) will be scaled on publishing.
+          float de = (this->battery_energy_last_power + battery_power) * dt;
+          sensor::Sensor battery_energy_sensor;
+          if (de >= 0) {
+            // round down so we only send 1 Wh updates
+            float value = (int) ((this->battery_energy_out_value += de) / 7200000.f);
+            if (value != this->battery_energy_out_->get_raw_state()) {
+              this->battery_energy_out_->publish_state(value);
+            }
+          } else {
+            float value = (int) ((this->battery_energy_in_value -= de) / 7200000.f);
+            if (value != this->battery_energy_in_->get_raw_state()) {
+              this->battery_energy_in_->publish_state(value);
+            }
           }
         }
         this->battery_energy_last_time = time;
