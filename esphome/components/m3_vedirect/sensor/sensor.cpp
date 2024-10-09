@@ -1,9 +1,19 @@
 #include "sensor.h"
+#include "esphome/core/application.h"
+#include "esphome/components/api/api_server.h"
+#include "../manager.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-void Sensor::dynamic_register() {
+void HFSensor::dynamic_register() {
+  char *object_id = new char[7];
+  sprintf(object_id, "0x%04X", (int) this->id);
+  char *name = new char[16];
+  sprintf(name, "Register %s", object_id);
+  // name and object_id should likely need to be freed
+  this->manager->setup_entity_name_id(this, name, object_id);
+
   App.register_sensor(this);
   if (api::global_api_server)
     add_on_state_callback([this](float state) { api::global_api_server->on_sensor_update(this, state); });
@@ -68,48 +78,30 @@ void Sensor::parse_hex_value(const HexFrame *hexframe) {
 };
 */
 
-struct TFSensorDef {
-  struct TFEntityDef base;
-  const char *const unit_of_measurement;
-  const int accuracy_decimals;
-  const float scale;
-};
-static const TFSensorDef TFSENSORS_DEF[] = {
-    {"AC_OUT_I", "AC output current", "A", 1, 10},
-    {"AC_OUT_S", "AC output apparent power", "VA", 0, 1},
-    {"AC_OUT_V", "AC output voltage", "V", 2, 100},
-    {"H19", "Yield total", "kWh", 2, 100},
-    {"H20", "Yield today", "kWh", 2, 100},
-    {"H21", "Maximum power today", "W", 0, 1},
-    {"H22", "Yield yesterday", "kWh", 2, 100},
-    {"H23", "Maximum power yesterday", "W", 0, 1},
-    {"I", "Battery current", "A", 3, 1000},
-    {"IL", "Load current", "A", 3, 1000},
-    {"PPV", "PV power", "W", 0, 1},
-    {"V", "Battery voltage", "V", 3, 1000},
-    {"VPV", "PV voltage", "V", 3, 1000},
-};
-
-TFSensor::TFSensor(Manager *manager, const char *label) : TFEntity(manager, label) {
-  set_object_id(label);
-  for (const TFSensorDef &_def : TFSENSORS_DEF) {
-    int _strcmp = strcmp(label, _def.base.label);
-    if (_strcmp == 0) {
-      set_name(_def.base.description);
-      set_unit_of_measurement(_def.unit_of_measurement);
-      set_accuracy_decimals(_def.accuracy_decimals);
-      set_scale(_def.scale);
-      break;
-    } else if (_strcmp < 0) {
-      break;
-    }
+TFSensor::TFSensor(Manager *manager, const char *label, const DEF *def) : TFEntity(manager, label, def) {
+  if (def) {
+    this->set_unit_of_measurement(UNITS[def->unit]);
+    this->set_accuracy_decimals(def->digits);
+    this->set_device_class(DEVICE_CLASSES[def->unit]);
+    this->set_state_class(STATE_CLASSES[def->unit]);
+    this->set_scale(DIGITS_TO_SCALE[def->digits]);
   }
+  manager->setup_entity_name_id(this, def ? def->description : label, label);
 }
+
+void TFSensor::dynamic_register() {
+  App.register_sensor(this);
+  if (api::global_api_server)
+    add_on_state_callback([this](float state) { api::global_api_server->on_sensor_update(this, state); });
+}
+
 void TFSensor::parse_text_value(const char *text_value) {
   char *endptr;
-  state = strtof(text_value, &endptr) / this->scale_;
-  if (state != this->raw_state)
-    publish_state(state);
+  float value = strtof(text_value, &endptr) * this->scale_;
+  if (*endptr != 0)
+    value = NAN;
+  if (value != this->raw_state)
+    publish_state(value);
 }
 
 }  // namespace m3_vedirect

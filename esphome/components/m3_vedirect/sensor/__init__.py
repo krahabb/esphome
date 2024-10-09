@@ -1,5 +1,7 @@
-import esphome.config_validation as cv
 from esphome.components import sensor
+import esphome.config_validation as cv
+import esphome.const as ec
+
 from .. import (
     CONF_HEXFRAME,
     CONF_TEXTFRAME,
@@ -36,6 +38,11 @@ TFSENSOR_SCHEMA = (
 PLATFORM_ENTITIES = {
     CONF_HEXFRAME: cv.ensure_list(HFSENSOR_SCHEMA),
     CONF_TEXTFRAME: cv.ensure_list(TFSENSOR_SCHEMA),
+    "run_time": sensor.sensor_schema(
+        entity_category="diagnostic",
+        device_class=ec.DEVICE_CLASS_DURATION,
+        unit_of_measurement=ec.UNIT_SECOND,
+    ),
 }
 
 CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)

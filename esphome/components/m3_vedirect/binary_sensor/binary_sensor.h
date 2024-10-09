@@ -6,13 +6,10 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class BinarySensor : public esphome::binary_sensor::BinarySensor, public VEDirectEntity {
+class HFBinarySensor : public esphome::binary_sensor::BinarySensor, public HFEntity {
  public:
   void dynamic_register() override;
-};
 
-class HFBinarySensor : public BinarySensor, public HFEntity {
- public:
   void parse_hex_value(const HexFrame *hexframe) override {
     if (hexframe->data_size() == sizeof(uint8_t)) {
       publish_state(hexframe->data_u8());
@@ -20,9 +17,12 @@ class HFBinarySensor : public BinarySensor, public HFEntity {
   };
 };
 
-class TFBinarySensor : public BinarySensor, public TFEntity {
+class TFBinarySensor : public esphome::binary_sensor::BinarySensor, public TFEntity {
  public:
-  TFBinarySensor(Manager *manager, const char *label);
+  TFBinarySensor(Manager *manager, const char *label, const DEF *def);
+  TFBinarySensor(Manager *manager, const char *label) : TFBinarySensor(manager, label, TFEntity::get_def(label)) {}
+
+  void dynamic_register() override;
 
   void parse_text_value(const char *text_value) override { publish_state(!strcasecmp(text_value, "ON")); }
 };

@@ -6,12 +6,7 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class TextSensor : public esphome::text_sensor::TextSensor, public VEDirectEntity {
- public:
-  void dynamic_register() override;
-};
-
-class HFTextSensor : public TextSensor, public HFEntity {
+class HFTextSensor : public esphome::text_sensor::TextSensor, public HFEntity {
  public:
   /// @brief Builds a text sensor from a static definition
   /// @param def
@@ -20,12 +15,17 @@ class HFTextSensor : public TextSensor, public HFEntity {
   /// @param text_name
   HFTextSensor(Manager *manager, register_id_t id) : HFEntity(manager, id) {}
 
+  void dynamic_register() override;
+
   void parse_hex_value(const HexFrame *hexframe) override;
 };
 
-class TFTextSensor : public TextSensor, public TFEntity {
+class TFTextSensor : public esphome::text_sensor::TextSensor, public TFEntity {
  public:
-  TFTextSensor(Manager *manager, const char *label);
+  TFTextSensor(Manager *manager, const char *label, const DEF *def);
+  TFTextSensor(Manager *manager, const char *label) : TFTextSensor(manager, label, TFEntity::get_def(label)) {}
+
+  void dynamic_register() override;
 
   void parse_text_value(const char *text_value) override;
 };

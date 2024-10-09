@@ -6,40 +6,7 @@
 namespace esphome {
 namespace m3_vedirect {
 
-/*
-static const VEDirectEntityDef ENTITIES_DEF[] = {
-    {"V", 0, "Battery voltage", entity_builder<Sensor>, false, "V", 3, 1000},
-    {"VPV", 0, "PV voltage", entity_builder<Sensor>, false, "V", 3, 1000},
-    {"PPV", 0, "PV power", entity_builder<Sensor>, false, "W", 0, 1},
-    {"I", 0, "Battery current", entity_builder<Sensor>, false, "A", 3, 1000},
-    {"IL", 0, "Load current", entity_builder<Sensor>, false, "A", 3, 1000},
-    {"LOAD", 0, "Output state", entity_builder<BinarySensor>, false},
-    {"Alarm", 0, "Alarm", entity_builder<BinarySensor>, false},
-    {"Relay", 0, "Relay state", entity_builder<TextSensor>, false},
-    {"AR", 0, "Alarm reason", entity_builder<TextSensor>, false},
-    {"OR", 0, "Off reason", entity_builder<TextSensor>, false},
-    {"H19", 0, "Yield total", entity_builder<Sensor>, true, "kWh", 2, 100},
-    {"H20", 0, "Yield today", entity_builder<Sensor>, false, "kWh", 2, 100},
-    {"H21", 0, "Maximum power today", entity_builder<Sensor>, false, "W", 0, 1},
-    {"H22", 0, "Yield yesterday", entity_builder<Sensor>, true, "kWh", 2, 100},
-    {"H23", 0, "Maximum power yesterday", entity_builder<Sensor>, true, "W", 0, 1},
-    {"ERR", 0, "Error code", entity_builder<TextSensor>, false},
-    {"CS", 0, "State of operation", entity_builder<TextSensor>, false},
-    {"FW", 0, "Firmware version (FW)", entity_builder<TextSensor>, true},
-    {"FWE", 0, "Firmware version (FWE)", entity_builder<TextSensor>, true},
-    {"PID", 0, "Product Id", entity_builder<TextSensor>, true},
-    {"SER#", 0, "Serial number", entity_builder<TextSensor>, true},
-    {"MODE", 0, "Device mode", entity_builder<TextSensor>, false},
-    {"AC_OUT_V", 0, "AC output voltage", entity_builder<Sensor>, false, "V", 2, 100},
-    {"AC_OUT_I", 0, "AC output current", entity_builder<Sensor>, false, "A", 1, 10},
-    {"AC_OUT_S", 0, "AC output apparent power", entity_builder<Sensor>, false, "VA", 0, 1},
-    {"WARN", 0, "Warning reason", entity_builder<TextSensor>, false},
-    {"MPPT", 0, "Tracker operation mode", entity_builder<TextSensor>, false},
-    {nullptr, 0xEDA8, "Load output state", entity_builder<BinarySensor>, false},
-    {nullptr, 0xEDA9, "Load voltage", entity_builder<HexSensor<uint16_t>>, false, "V", 2, 100},
-    };
-*/
-
+/*REMOVE
 template<typename T> TFEntity *entity_builder(Manager *manager, const char *label) { return new T(manager, label); }
 typedef TFEntity *(*entity_initializer_func)(Manager *manager, const char *label);
 struct TFEntityInit {
@@ -65,7 +32,7 @@ static const TFEntityInit TFENTITIES_INIT[] = {
     {"WARN", entity_builder<TFTextSensor>, false},
 };
 
-/*static*/ TFEntity *Factory::build_entity(Manager *manager, const char *label) {
+TFEntity *Factory::build_entity(Manager *manager, const char *label) {
   for (const TFEntityInit &_def : TFENTITIES_INIT) {
     int _strcmp = strcmp(label, _def.label);
     if (_strcmp == 0) {
@@ -79,10 +46,10 @@ static const TFEntityInit TFENTITIES_INIT[] = {
   // We allocate a copy for text_name since the param is 'volatile'
   label = strdup(label);
   auto entity = new TFTextSensor(manager, label);
-  entity->set_name(label);
   entity->set_disabled_by_default(true);
   return entity;
 }
+*/
 
 struct HexRegisterDef;
 
@@ -117,10 +84,6 @@ static const HexRegisterDef REGISTERS_DEF[] = {
 
   // else build a raw text sensor
   auto entity = new HFTextSensor(manager, id);
-  char *object_id = new char[7];
-  sprintf(object_id, "0x%04X", (int) id);
-  entity->set_object_id(object_id);
-  entity->set_name(object_id);
   entity->set_disabled_by_default(true);
   return entity;
 }

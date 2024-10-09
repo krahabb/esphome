@@ -1,25 +1,27 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
-from esphome.const import (
-    CONF_ID,
-    CONF_PAYLOAD,
-    CONF_TRIGGER_ID,
-)
-from esphome.components import uart
 from esphome import automation
+import esphome.codegen as cg
+from esphome.components import uart
+import esphome.config_validation as cv
+from esphome.const import CONF_ID, CONF_NAME, CONF_PAYLOAD, CONF_TRIGGER_ID
 
-DEPENDENCIES = ["uart", "binary_sensor", "sensor"]
 CODEOWNERS = ["@krahabb"]
+DEPENDENCIES = [
+    "uart",
+    "binary_sensor",
+    "sensor",
+    "text_sensor",
+]
 AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 MULTI_CONF = True
 
 m3_vedirect_ns = cg.esphome_ns.namespace("m3_vedirect")
 Manager = m3_vedirect_ns.class_("Manager", uart.UARTDevice, cg.Component)
 HexFrame = m3_vedirect_ns.class_("HexFrame")
-HexFrameTrigger = m3_vedirect_ns.class_(
-    "HexFrameTrigger", automation.Trigger.template(cg.std_string, cg.bool_)
-)
+HexFrame_const_ref = HexFrame.operator("const").operator("ref")
 
+HexFrameTrigger = m3_vedirect_ns.class_(
+    "HexFrameTrigger", automation.Trigger.template(HexFrame_const_ref)
+)
 
 CONF_VEDIRECT_ID = "vedirect_id"
 CONF_TEXTFRAME = "textframe"
@@ -134,6 +136,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Manager),
+            cv.Optional(CONF_NAME): cv.string_strict,
             cv.Optional(CONF_TEXTFRAME): cv.Schema(
                 {
                     cv.Optional(CONF_AUTO_CREATE_ENTITIES, default=True): cv.boolean,
@@ -167,6 +170,7 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config: dict):
     var = cg.new_Pvariable(config[CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
+    cg.add(var.set_vedirect_name(config.get(CONF_NAME, str(var.base))))
     if config_textframe := config.get(CONF_TEXTFRAME):
         cg.add(
             var.set_auto_create_text_entities(
@@ -181,7 +185,7 @@ async def to_code(config: dict):
         for conf in config_hexframe.get(CONF_ON_FRAME_RECEIVED, []):
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
             await automation.build_automation(
-                trigger, [(cg.std_string, "payload"), (cg.bool_, "valid")], conf
+                trigger, [(HexFrame_const_ref, "hexframe")], conf
             )
 
     await cg.register_component(var, config)
@@ -189,7 +193,9 @@ async def to_code(config: dict):
 
 
 # ACTIONS
-HexFrameSendAction = m3_vedirect_ns.class_("HexFrameSendAction", automation.Action)
+HexFrameSendRawAction = m3_vedirect_ns.class_(
+    "HexFrameSendRawAction", automation.Action
+)
 HEXFRAME_SEND_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_PAYLOAD): cv.templatable(cv.string),
@@ -199,7 +205,7 @@ HEXFRAME_SEND_SCHEMA = cv.Schema(
 
 
 @automation.register_action(
-    "m3_vedirect.hexframe_send", HexFrameSendAction, HEXFRAME_SEND_SCHEMA
+    "m3_vedirect.hexframe_send_raw", HexFrameSendRawAction, HEXFRAME_SEND_SCHEMA
 )
 async def m3_vedirect_hexframe_send_to_code(config, action_id, template_args, args):
     var = cg.new_Pvariable(action_id, template_args)

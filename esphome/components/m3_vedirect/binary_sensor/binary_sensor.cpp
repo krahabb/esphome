@@ -1,33 +1,33 @@
 #include "binary_sensor.h"
+#include "esphome/core/application.h"
+#include "esphome/components/api/api_server.h"
+#include "../manager.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-void BinarySensor::dynamic_register() {
+void HFBinarySensor::dynamic_register() {
+  char *object_id = new char[7];
+  sprintf(object_id, "0x%04X", (int) this->id);
+  char *name = new char[16];
+  sprintf(name, "Register %s", object_id);
+  // name and object_id should likely need to be freed
+  this->manager->setup_entity_name_id(this, name, object_id);
+
   App.register_binary_sensor(this);
   if (api::global_api_server) {
     add_on_state_callback([this](bool state) { api::global_api_server->on_binary_sensor_update(this, state); });
   }
 }
 
-struct TFBinarySensorDef {
-  struct TFEntityDef base;
-};
-static const TFBinarySensorDef TFBINARYSENSORS_DEF[] = {
-    {"Alarm", "Alarm"},
-    {"LOAD", "Output state"},
-};
+TFBinarySensor::TFBinarySensor(Manager *manager, const char *label, const DEF *def) : TFEntity(manager, label, def) {
+  manager->setup_entity_name_id(this, def ? def->description : label, label);
+}
 
-TFBinarySensor::TFBinarySensor(Manager *manager, const char *label) : TFEntity(manager, label) {
-  set_object_id(label);
-  for (const TFBinarySensorDef &_def : TFBINARYSENSORS_DEF) {
-    int _strcmp = strcmp(label, _def.base.label);
-    if (_strcmp == 0) {
-      set_name(_def.base.description);
-      break;
-    } else if (_strcmp < 0) {
-      break;
-    }
+void TFBinarySensor::dynamic_register() {
+  App.register_binary_sensor(this);
+  if (api::global_api_server) {
+    add_on_state_callback([this](bool state) { api::global_api_server->on_binary_sensor_update(this, state); });
   }
 }
 

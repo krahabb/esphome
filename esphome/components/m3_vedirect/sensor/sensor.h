@@ -6,14 +6,11 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Sensor : public esphome::sensor::Sensor, public VEDirectEntity {
- public:
-  void dynamic_register() override;
-};
-
-class HFSensor : public Sensor, public HFEntity {
+class HFSensor : public esphome::sensor::Sensor, public HFEntity {
  public:
   HFSensor(Manager *manager, register_id_t id) : HFEntity(manager, id) {}
+
+  void dynamic_register() override;
 
   void set_hex_data_type(HexFrame::DataType hex_data_type) { this->hex_data_type_ = hex_data_type; }
 
@@ -39,9 +36,12 @@ template<typename T> class HexSensor : public Sensor {
 };
 */
 
-class TFSensor : public Sensor, public TFEntity {
+class TFSensor : public esphome::sensor::Sensor, public TFEntity {
  public:
-  TFSensor(Manager *manager, const char *label);
+  TFSensor(Manager *manager, const char *label, const DEF *def);
+  TFSensor(Manager *manager, const char *label) : TFSensor(manager, label, TFEntity::get_def(label)) {}
+
+  void dynamic_register() override;
 
   void set_scale(float scale) { scale_ = scale; }
 
