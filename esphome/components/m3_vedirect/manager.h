@@ -46,11 +46,77 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void loop() override;
   void dump_config() override;
 
+  static Manager *get_manager(const std::string &vedirect_id);
+
   void setup_entity_name_id(EntityBase *entity, const char *name, const char *object_id);
 
   void send_hexframe(const HexFrame &hexframe);
-  void send_hexframe(const char *hexdigits, bool addchecksum);
-  static void send_hexframe(const std::string &vedirect_id, const std::string &payload);
+  void send_hexframe(const char *rawframe, bool addchecksum = true);
+  void send_hexframe(const std::string &rawframe, bool addchecksum = true) {
+    this->send_hexframe(rawframe.c_str(), addchecksum);
+  }
+  void send_command(HexFrame::Command command) { this->send_hexframe(HexFrame_Command(command)); }
+  void send_register_get(register_id_t register_id) { this->send_hexframe(HexFrame_Get(register_id)); }
+  template<typename DataType> void send_register_set(register_id_t register_id, DataType data) {
+    this->send_hexframe(HexFrame_Set(register_id, data));
+  }
+
+  class HexFrameTrigger : public Trigger<const HexFrame &> {
+   public:
+    explicit HexFrameTrigger(Manager *vedirect) {
+      vedirect->add_on_frame_callback([this](const HexFrame &hexframe) { this->trigger(hexframe); });
+    }
+  };
+
+  template<typename... Ts> class BaseAction : public Action<Ts...> {
+   public:
+    TEMPLATABLE_VALUE(std::string, vedirect_id)
+  };
+
+  template<typename... Ts> class Action_send_hexframe : public BaseAction<Ts...> {
+   public:
+    TEMPLATABLE_VALUE(std::string, payload)
+
+    void play(Ts... x) {
+      auto manager = Manager::get_manager(this->vedirect_id_.value(x...));
+      if (manager)
+        manager->send_hexframe(this->payload_.value(x...));
+    }
+  };
+  template<typename... Ts> class Action_send_command : public BaseAction<Ts...> {
+   public:
+    TEMPLATABLE_VALUE(uint8_t, command)
+    TEMPLATABLE_VALUE(register_id_t, register_id)
+    TEMPLATABLE_VALUE(uint32_t, data)
+    TEMPLATABLE_VALUE(uint8_t, data_size)
+
+    void play(Ts... x) {
+      auto manager = Manager::get_manager(this->vedirect_id_.value(x...));
+      if (manager) {
+        HexFrame::Command command = (HexFrame::Command) this->command_.value(x...);
+        switch (command) {
+          case HexFrame::Command::Get:
+            manager->send_register_get(this->register_id_.value(x...));
+            break;
+          case HexFrame::Command::Set:
+            switch (this->data_size_.value(x...)) {
+              case 1:
+                manager->send_register_set(this->register_id_.value(x...), (uint8_t) this->data_.value(x...));
+                break;
+              case 2:
+                manager->send_register_set(this->register_id_.value(x...), (uint16_t) this->data_.value(x...));
+                break;
+              default:
+                manager->send_register_set(this->register_id_.value(x...), this->data_.value(x...));
+                break;
+            }
+            break;
+          default:
+            manager->send_command(command);
+        }
+      }
+    }
+  };
 
  protected:
   // component config
@@ -93,24 +159,6 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   }
 
   static std::vector<Manager *> managers_;
-};
-
-class HexFrameTrigger : public Trigger<const HexFrame &> {
- public:
-  explicit HexFrameTrigger(Manager *vedirect) {
-    vedirect->add_on_frame_callback([this](const HexFrame &hexframe) { this->trigger(hexframe); });
-  }
-};
-
-template<typename... Ts> class HexFrameSendRawAction : public Action<Ts...> {
- public:
-  HexFrameSendRawAction() {}
-  TEMPLATABLE_VALUE(std::string, vedirect_id)
-  TEMPLATABLE_VALUE(std::string, payload)
-
-  void play(Ts... x) { Manager::send_hexframe(this->vedirect_id_.value(x...), this->payload_.value(x...)); }
-
- protected:
 };
 
 }  // namespace m3_vedirect

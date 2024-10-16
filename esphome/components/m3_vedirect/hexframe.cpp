@@ -206,5 +206,14 @@ handle_state:
   }
 }
 
+/*
+static_assert(sizeof(HexFrame::Record) == 8, "HexFrame::Record size failure");
+static_assert(sizeof(HexFrame) == 20, "HexFrame size failure = ");
+static_assert(sizeof(HexFrame_Get) == 40, "HexFrame_Get size failure = ");
+
+auto _a = HexFrame_Set(0, 1);
+static_assert(sizeof(_a) == 52, "HexFrame_Set size failure = ");
+*/
+
 }  // namespace m3_vedirect
 }  // namespace esphome

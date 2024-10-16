@@ -55,12 +55,25 @@ void Manager::loop() {
   }
 
   if (this->ping_retry_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_retry_timeout_)) {
-    this->send_hexframe(HexCommandFrame(HexFrame::Ping));
+    this->send_hexframe(HexFrame_Command(HexFrame::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
   }
 }
 
 void Manager::dump_config() { ESP_LOGCONFIG(this->logtag_, "VEDirect:"); }
+
+Manager *Manager::get_manager(const std::string &vedirect_id) {
+  if (vedirect_id.empty()) {
+    return managers_.front();
+  } else {
+    for (auto manager : managers_) {
+      if (manager->vedirect_id_ == vedirect_id) {
+        return manager;
+      }
+    }
+  }
+  return nullptr;
+}
 
 void Manager::setup_entity_name_id(EntityBase *entity, const char *name, const char *object_id) {
   // set_name before set_object_id else it will fckup object_id generation
@@ -83,16 +96,16 @@ void Manager::send_hexframe(const HexFrame &hexframe) {
   ESP_LOGD(this->logtag_, "HEX FRAME: sent %s", hexframe.encoded());
 }
 
-void Manager::send_hexframe(const char *hexdigits, bool addchecksum) {
+void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
   HexFrameT<VEDIRECT_HEXFRAME_SIZE> hexframe;
-  if (HexFrame::DecodeResult::Valid == hexframe.decode(hexdigits, addchecksum)) {
+  if (HexFrame::DecodeResult::Valid == hexframe.decode(rawframe, addchecksum)) {
     this->send_hexframe(hexframe);
   } else {
-    ESP_LOGE(this->logtag_, "HEX FRAME: wrong encoding on request to send %s", hexdigits);
+    ESP_LOGE(this->logtag_, "HEX FRAME: wrong encoding on request to send %s", rawframe);
   }
 }
 
-/*static*/ void Manager::send_hexframe(const std::string &vedirect_id, const std::string &payload) {
+/* void Manager::send_hexframe(const std::string &vedirect_id, const std::string &payload) {
   if (vedirect_id.empty()) {
     managers_.front()->send_hexframe(payload.c_str(), false);
   } else {
@@ -103,7 +116,7 @@ void Manager::send_hexframe(const char *hexdigits, bool addchecksum) {
       }
     }
   }
-}
+}*/
 
 void Manager::on_connected_() {
   ESP_LOGD(this->logtag_, "LINK: connected");
@@ -112,7 +125,7 @@ void Manager::on_connected_() {
     link_connected->publish_state(true);
   }
   if (this->auto_create_hex_entities_ || this->hex_registers_.size()) {
-    this->send_hexframe(HexCommandFrame(HexFrame::Ping));
+    this->send_hexframe(HexFrame_Command(HexFrame::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
   }
 }

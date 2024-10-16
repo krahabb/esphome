@@ -1,3 +1,5 @@
+from functools import partial
+
 from esphome import automation
 import esphome.codegen as cg
 from esphome.components import uart
@@ -19,7 +21,7 @@ Manager = m3_vedirect_ns.class_("Manager", uart.UARTDevice, cg.Component)
 HexFrame = m3_vedirect_ns.class_("HexFrame")
 HexFrame_const_ref = HexFrame.operator("const").operator("ref")
 
-HexFrameTrigger = m3_vedirect_ns.class_(
+HexFrameTrigger = Manager.class_(
     "HexFrameTrigger", automation.Trigger.template(HexFrame_const_ref)
 )
 
@@ -193,24 +195,53 @@ async def to_code(config: dict):
 
 
 # ACTIONS
-HexFrameSendRawAction = m3_vedirect_ns.class_(
-    "HexFrameSendRawAction", automation.Action
-)
-HEXFRAME_SEND_SCHEMA = cv.Schema(
-    {
-        cv.Required(CONF_PAYLOAD): cv.templatable(cv.string),
-        cv.Optional(CONF_VEDIRECT_ID, default=""): cv.templatable(cv.string),
-    }
-)
+
+_CTYPE_VALIDATOR_MAP = {
+    cv.string: cg.std_string,
+    cv.int_: cg.int_,
+    validate_register_id: cg.uint16,
+}
 
 
-@automation.register_action(
-    "m3_vedirect.hexframe_send_raw", HexFrameSendRawAction, HEXFRAME_SEND_SCHEMA
-)
-async def m3_vedirect_hexframe_send_to_code(config, action_id, template_args, args):
+async def action_to_code(
+    schema_def: dict[cv.Optional, object], config, action_id, template_args, args
+):
     var = cg.new_Pvariable(action_id, template_args)
-    template_ = await cg.templatable(config[CONF_PAYLOAD], args, cg.std_string)
-    cg.add(var.set_payload(template_))
-    template_ = await cg.templatable(config[CONF_VEDIRECT_ID], args, cg.std_string)
-    cg.add(var.set_vedirect_id(template_))
+    for _schema_key, _ctype in schema_def.items():
+        _key_name = _schema_key.schema
+        if _key_name in config:
+            template_ = await cg.templatable(
+                config[_key_name], args, _CTYPE_VALIDATOR_MAP[_ctype]
+            )
+            cg.add(getattr(var, f"set_{_key_name}")(template_))
     return var
+
+
+CONF_COMMAND = "command"
+CONF_DATA = "data"
+CONF_DATA_SIZE = "data_size"
+MANAGER_ACTIONS = {
+    "send_hexframe": {
+        cv.Optional(CONF_VEDIRECT_ID, default=""): cv.string,
+        cv.Required(CONF_PAYLOAD): cv.string,
+    },
+    "send_command": {
+        cv.Optional(CONF_VEDIRECT_ID, default=""): cv.string,
+        cv.Required(CONF_COMMAND): cv.int_,
+        cv.Optional(CONF_REGISTER_ID): validate_register_id,
+        cv.Optional(CONF_DATA): cv.int_,
+        cv.Optional(CONF_DATA_SIZE): cv.int_,
+    },
+}
+
+for _action_name, _schema_def in MANAGER_ACTIONS.items():
+    _action = Manager.class_(f"Action_{_action_name}", automation.Action)
+    _schema = cv.Schema(
+        {
+            _schema_key: cv.templatable(_ctype)
+            for _schema_key, _ctype in _schema_def.items()
+        }
+    )
+    automation.register_action(f"m3_vedirect.{_action_name}", _action, _schema)(
+        partial(action_to_code, _schema_def)
+    )

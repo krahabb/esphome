@@ -43,6 +43,26 @@ struct HexFrame {
     Async = 0xA,
   };
 
+#pragma pack(push, 1)
+  struct Record {
+    Command command;
+    union {
+      uint8_t rawdata[0];
+      struct {
+        register_id_t register_id;
+        uint8_t flags;
+        union {
+          uint8_t data_u8;
+          int16_t data_i16;
+          uint16_t data_u16;
+          uint32_t data_u32;
+          uint8_t data[0];
+        };
+      };
+    };
+  };
+#pragma pack(pop)
+
   /// @brief Represents the format (numeric) of the data payload
   enum DataType : int8_t {
     unknown = 0,
@@ -70,9 +90,9 @@ struct HexFrame {
   };
 
   // Generic (raw) data accessors
+  inline Record *record() { return (Record *) this->rawframe_begin_; }
   inline const uint8_t *begin() const { return this->rawframe_begin_; }
   inline const uint8_t *end() const { return this->rawframe_end_; }
-
   inline int capacity() const { return end_of_storage() - this->rawframe_begin_; }
   inline int size() const { return this->rawframe_end_ - this->rawframe_begin_; }
 
@@ -115,9 +135,30 @@ struct HexFrame {
   // Frame 'builders' methods
   DecodeResult decode(const char *hexdigits, bool addchecksum);
 
-  inline void set_command(Command command) {
+  /// @brief Builds a plain command frame payload
+  /// @param command
+  inline void command(Command command) {
     this->rawframe_begin_[0] = command;
     this->rawframe_end_ = this->rawframe_begin_ + 1;
+    this->encode_();
+  }
+  /// @brief Builds a command GET register frame
+  /// @param register_id
+  inline void command_get(register_id_t register_id) {
+    auto record = this->record();
+    record->command = Command::Get;
+    record->register_id = register_id;
+    record->flags = 0;
+    this->rawframe_end_ = this->rawframe_begin_ + 4;
+    this->encode_();
+  }
+  template<typename DataType> void command_set(register_id_t register_id, DataType data) {
+    auto record = this->record();
+    record->command = Command::Set;
+    record->register_id = register_id;
+    record->flags = 0;
+    *(DataType *) record->data = data;
+    this->rawframe_end_ = this->rawframe_begin_ + 4 + sizeof(DataType);
     this->encode_();
   }
 
@@ -166,9 +207,27 @@ template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
 };
 
 /// @brief Helper constructor for plain 'command' frames (no payload)
-struct HexCommandFrame : public HexFrameT<0> {
+struct HexFrame_Command : public HexFrameT<0> {
  public:
-  HexCommandFrame(Command command) { this->set_command(command); }
+  HexFrame_Command(Command command) { this->command(command); }
+};
+
+/// @brief Helper constructor for plain 'command' frames (no payload)
+struct HexFrame_Get : public HexFrameT<3> {
+ public:
+  HexFrame_Get(register_id_t register_id) { this->command_get(register_id); }
+};
+
+/// @brief Helper constructor for plain 'command' frames (no payload)
+/*template <typename DataType> struct HexFrame_Set : public HexFrameT<3 + sizeof(DataType)> {
+ public:
+  HexFrame_Set(register_id_t register_id, DataType data) { this->command_set(register_id, data); }
+};*/
+struct HexFrame_Set : public HexFrameT<7> {
+ public:
+  template<typename DataType> HexFrame_Set(register_id_t register_id, DataType data) {
+    this->command_set(register_id, data);
+  }
 };
 
 class HexFrameDecoder {
