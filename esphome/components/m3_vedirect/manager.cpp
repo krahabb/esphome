@@ -1,16 +1,6 @@
 #include "manager.h"
 #include "esphome/core/log.h"
-#include "esphome/components/wifi/wifi_component.h"
-#include "esphome/components/uart/uart_component.h"
-// #include <esphome/components/deep_sleep/deep_sleep_component.h>
 
-#ifdef USE_ESP32
-#include "esp_pm.h"
-#include <esp_sleep.h>
-#include <esp_wifi.h>
-#endif
-
-#include "factory.h"
 #include "entity.h"
 #include "hexframe.h"
 
@@ -54,7 +44,7 @@ void Manager::loop() {
     this->decode(frame_buf, frame_buf + available);
   }
 
-  if (this->ping_retry_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_retry_timeout_)) {
+  if (this->ping_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_timeout_)) {
     this->send_hexframe(HexFrame_Command(HexFrame::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
   }
@@ -163,8 +153,7 @@ void Manager::on_frame_hex_(const HexFrame &hexframe) {
         if (entity_iter == this->hex_registers_.end()) {
           if (this->auto_create_hex_entities_) {
             ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct hex register: %04X", (int) hex_id);
-            auto hex_register = Factory::build_register(this, hex_id);
-            hex_register->dynamic_register();
+            auto hex_register = VEDirectEntity::build(this, hex_id);
             hex_register->parse_hex_value(&hexframe);
           }
         } else {
@@ -206,8 +195,7 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
     if (entity_iter == this->text_entities_.end()) {
       if (this->auto_create_text_entities_) {
         ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct text field: %s", text_record->name);
-        auto entity = TFEntity::build(this, text_record->name);
-        entity->dynamic_register();
+        auto entity = VEDirectEntity::build(this, text_record->name);
         entity->parse_text_value(text_record->value);
       }
     } else {

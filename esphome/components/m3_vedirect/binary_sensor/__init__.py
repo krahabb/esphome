@@ -1,11 +1,11 @@
-import esphome.config_validation as cv
 from esphome.components import binary_sensor
+import esphome.config_validation as cv
+
 from .. import (
-    CONF_HEXFRAME,
-    CONF_TEXTFRAME,
-    HEX_ENTITY_SCHEMA,
-    TEXT_ENTITY_SCHEMA,
+    CONF_VEDIRECT_ENTITIES,
+    VEDIRECT_ENTITY_SCHEMA,
     m3_vedirect_ns,
+    new_vedirect_entity,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -16,29 +16,29 @@ _diagnostic_binary_sensor_schema = binary_sensor.binary_sensor_schema(
 )
 
 # m3_vedirect::BinarySensor mapped to HEX/TEXT data
-HFBinarySensor = m3_vedirect_ns.class_("HFBinarySensor", binary_sensor.BinarySensor)
-TFBinarySensor = m3_vedirect_ns.class_("TFBinarySensor", binary_sensor.BinarySensor)
-HFBINARYSENSOR_SCHEMA = binary_sensor.binary_sensor_schema(HFBinarySensor).extend(
-    HEX_ENTITY_SCHEMA
-)
-TFBINARYSENSOR_SCHEMA = binary_sensor.binary_sensor_schema(TFBinarySensor).extend(
-    TEXT_ENTITY_SCHEMA
-)
+VEDirectBinarySensor = m3_vedirect_ns.class_("BinarySensor", binary_sensor.BinarySensor)
+VEDIRECT_BINARY_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
+    VEDirectBinarySensor
+).extend(VEDIRECT_ENTITY_SCHEMA)
 
 PLATFORM_ENTITIES = {
-    CONF_HEXFRAME: cv.ensure_list(HFBINARYSENSOR_SCHEMA),
-    CONF_TEXTFRAME: cv.ensure_list(TFBINARYSENSOR_SCHEMA),
+    CONF_VEDIRECT_ENTITIES: cv.ensure_list(VEDIRECT_BINARY_SENSOR_SCHEMA),
     "link_connected": _diagnostic_binary_sensor_schema,
 }
 
 CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 
+async def new_vedirect_binary_sensor(config, *args):
+    var = await new_vedirect_entity(config, *args)
+    await binary_sensor.register_binary_sensor(var, config)
+    return var
+
+
 async def to_code(config: dict):
     await vedirect_platform_to_code(
         config,
         PLATFORM_ENTITIES,
-        binary_sensor.new_binary_sensor,
-        binary_sensor.new_binary_sensor,
+        new_vedirect_binary_sensor,
         binary_sensor.new_binary_sensor,
     )

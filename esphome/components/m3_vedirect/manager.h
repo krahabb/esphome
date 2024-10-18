@@ -16,8 +16,7 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class HexRegister;
-class TFEntity;
+class VEDirectEntity;
 
 #define MANAGER_ENTITY_(type, name) \
  protected: \
@@ -41,6 +40,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void set_vedirect_name(const char *vedirect_name) { this->vedirect_name_ = vedirect_name; }
   void set_auto_create_text_entities(bool value) { this->auto_create_text_entities_ = value; }
   void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
+  void set_ping_timeout(uint32_t seconds) { this->ping_timeout_ = seconds * 1000; }
 
   void setup() override;
   void loop() override;
@@ -124,9 +124,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   std::string vedirect_id_;
   std::string vedirect_name_;
   bool auto_create_text_entities_{true};
-  bool auto_create_hex_entities_{true};
+  bool auto_create_hex_entities_{false};
 
-  uint32_t ping_retry_timeout_{60000};
+  uint32_t ping_timeout_{0};
 
   // component state
   bool connected_{false};
@@ -147,10 +147,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // These will provide 'map' access either by text record name (text_entities_)
   // or by HEX register id (hex_entities_). Since some HEX registers are also
   // published in TEXT frames we're also trying to map these to the same entity.
-  friend class TFEntity;
-  std::unordered_map<const char *, TFEntity *, cstring_hash, cstring_eq> text_entities_;
-  friend class HexRegister;
-  std::unordered_map<uint16_t, HexRegister *> hex_registers_;
+  friend class VEDirectEntity;
+  std::unordered_map<const char *, VEDirectEntity *, cstring_hash, cstring_eq> text_entities_;
+  std::unordered_map<uint16_t, VEDirectEntity *> hex_registers_;
 
   friend class HexFrameTrigger;
   CallbackManager<void(const HexFrame &)> hexframe_callback_;

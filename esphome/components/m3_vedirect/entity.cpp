@@ -13,10 +13,6 @@ namespace m3_vedirect {
 
 static const char *const TAG = "m3_vedirect.entity";
 
-HexRegister::HexRegister(Manager *manager, register_id_t id) : manager(manager), id(id) {
-  manager->hex_registers_.emplace(id, this);
-}
-
 const char *VEDirectEntity::UNITS[] = {
     "A", "V", "VA", "W", "Ah", "kWh", "%", "min", "°C",
 };
@@ -33,30 +29,26 @@ const sensor::StateClass VEDirectEntity::STATE_CLASSES[UNIT::_COUNT] = {
 const float VEDirectEntity::DIGITS_TO_SCALE[] = {1.f, .1f, .01f, .001f};
 
 #define DEF_TFBINARYSENSOR(name, disabled) \
-  { name, entity_builder<TFBinarySensor>, disabled }
+  { name, VEDirectEntity::CLASS::BOOLEAN, VEDirectEntity::SUBCLASS::ENUM, disabled }
 #define DEF_TFSENSOR(name, disabled, unit, digits) \
-  { name, entity_builder<TFSensor>, disabled, unit, digits }
+  { name, VEDirectEntity::CLASS::MEASUREMENT, VEDirectEntity::SUBCLASS::MEASURE, disabled, unit, digits }
 #define DEF_TFTEXTSENSOR(name, disabled) \
-  { name, entity_builder<TFTextSensor>, disabled }
+  { name, VEDirectEntity::CLASS::ENUMERATION, VEDirectEntity::SUBCLASS::ENUM, disabled }
 
-template<typename T> TFEntity *entity_builder(Manager *manager, const char *label, const TFEntity::DEF *def) {
-  return new T(manager, label, def);
-}
-
-const TFEntity::def_map_t TFEntity::DEFS{
-    {"AC_OUT_I", DEF_TFSENSOR("AC output current", false, TFEntity::UNIT::A, TFEntity::DIGITS::D_1)},
-    {"AC_OUT_S", DEF_TFSENSOR("AC output apparent power", false, TFEntity::UNIT::VA, TFEntity::DIGITS::D_0)},
-    {"AC_OUT_V", DEF_TFSENSOR("AC output voltage", false, TFEntity::UNIT::V, TFEntity::DIGITS::D_2)},
-    {"H19", DEF_TFSENSOR("Yield total", false, TFEntity::UNIT::kWh, TFEntity::DIGITS::D_2)},
-    {"H20", DEF_TFSENSOR("Yield today", false, TFEntity::UNIT::kWh, TFEntity::DIGITS::D_2)},
-    {"H21", DEF_TFSENSOR("Maximum power today", false, TFEntity::UNIT::W, TFEntity::DIGITS::D_0)},
-    {"H22", DEF_TFSENSOR("Yield yesterday", true, TFEntity::UNIT::kWh, TFEntity::DIGITS::D_2)},
-    {"H23", DEF_TFSENSOR("Maximum power yesterday", true, TFEntity::UNIT::W, TFEntity::DIGITS::D_0)},
-    {"I", DEF_TFSENSOR("Battery current", false, TFEntity::UNIT::A, TFEntity::DIGITS::D_3)},
-    {"IL", DEF_TFSENSOR("Load current", false, TFEntity::UNIT::A, TFEntity::DIGITS::D_3)},
-    {"PPV", DEF_TFSENSOR("PV power", false, TFEntity::UNIT::W, TFEntity::DIGITS::D_0)},
-    {"V", DEF_TFSENSOR("Battery voltage", false, TFEntity::UNIT::V, TFEntity::DIGITS::D_3)},
-    {"VPV", DEF_TFSENSOR("PV voltage", false, TFEntity::UNIT::V, TFEntity::DIGITS::D_3)},
+const VEDirectEntity::text_def_map_t VEDirectEntity::TEXT_DEFS{
+    {"AC_OUT_I", DEF_TFSENSOR("AC output current", false, UNIT::A, DIGITS::D_1)},
+    {"AC_OUT_S", DEF_TFSENSOR("AC output apparent power", false, UNIT::VA, DIGITS::D_0)},
+    {"AC_OUT_V", DEF_TFSENSOR("AC output voltage", false, UNIT::V, DIGITS::D_2)},
+    {"H19", DEF_TFSENSOR("Yield total", false, UNIT::kWh, DIGITS::D_2)},
+    {"H20", DEF_TFSENSOR("Yield today", false, UNIT::kWh, DIGITS::D_2)},
+    {"H21", DEF_TFSENSOR("Maximum power today", false, UNIT::W, DIGITS::D_0)},
+    {"H22", DEF_TFSENSOR("Yield yesterday", true, UNIT::kWh, DIGITS::D_2)},
+    {"H23", DEF_TFSENSOR("Maximum power yesterday", true, UNIT::W, DIGITS::D_0)},
+    {"I", DEF_TFSENSOR("Battery current", false, UNIT::A, DIGITS::D_3)},
+    {"IL", DEF_TFSENSOR("Load current", false, UNIT::A, DIGITS::D_3)},
+    {"PPV", DEF_TFSENSOR("PV power", false, UNIT::W, DIGITS::D_0)},
+    {"V", DEF_TFSENSOR("Battery voltage", false, UNIT::V, DIGITS::D_3)},
+    {"VPV", DEF_TFSENSOR("PV voltage", false, UNIT::V, DIGITS::D_3)},
 
     {"AR", DEF_TFTEXTSENSOR("Alarm reason", false)},
     {"CS", DEF_TFTEXTSENSOR("State of operation", false)},
@@ -76,22 +68,73 @@ const TFEntity::def_map_t TFEntity::DEFS{
 
 };
 
-TFEntity *TFEntity::build(Manager *manager, const char *label) {
-  auto entity_def = DEFS.find(label);
-  if (entity_def == DEFS.end()) {
+VEDirectEntity *VEDirectEntity::build(Manager *manager, const char *label) {
+  VEDirectEntity *entity;
+  auto text_def_it = TEXT_DEFS.find(label);
+  if (text_def_it == TEXT_DEFS.end()) {
     // ENTITIES_DEF lacks the definition for this parameter so
-    // we return a disabled (TextSensor) entity.
+    // we return a plain TextSensor entity.
     // We allocate a copy since the label param is 'volatile'
-    auto entity = new TFTextSensor(manager, strdup(label), nullptr);
-    entity->set_disabled_by_default(true);
-    return entity;
+    label = strdup(label);
+    entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, label, label);
   } else {
-    return entity_def->second.init(manager, entity_def->first, &entity_def->second);
+    label = text_def_it->first;
+    auto &text_def = text_def_it->second;
+    switch (text_def.cls) {
+      case CLASS::MEASUREMENT:
+        // pass our 'static' copy of the label (param is volatile)
+        entity = VEDirectEntity::dynamic_build_entity_<Sensor>(manager, text_def.description, label);
+        break;
+      case CLASS::BOOLEAN:
+        entity = VEDirectEntity::dynamic_build_entity_<BinarySensor>(manager, text_def.description, label);
+        break;
+      default:
+        entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, text_def.description, label);
+    }
+    entity->init_text_def_(&text_def);
   }
+  manager->text_entities_.emplace(label, entity);
+  entity->dynamic_register();
+  return entity;
 }
 
-TFEntity::TFEntity(Manager *manager, const char *label, const DEF *def) : label(label), def(def) {
-  manager->text_entities_.emplace(label, this);
+VEDirectEntity *VEDirectEntity::build(Manager *manager, register_id_t register_id) {
+  // check if we have a 'structured' parser or any other special behavior
+  /*for (const HexRegisterDef &_def : REGISTERS_DEF) {
+    if (_def.id == id)
+      return _def.init(manager, _def);
+  }*/
+
+  // else build a raw text sensor
+  char *object_id = new char[7];
+  sprintf(object_id, "0x%04X", (int) register_id);
+  char *name = new char[16];
+  sprintf(name, "Register %s", object_id);
+
+  auto entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, name, object_id);
+  entity->set_disabled_by_default(true);
+  entity->set_register_id(register_id);
+  entity->dynamic_register();
+  return entity;
+}
+
+void VEDirectEntity::set_text_label(const char *label) {
+  auto text_def_it = TEXT_DEFS.find(label);
+  if (text_def_it != TEXT_DEFS.end())
+    this->init_text_def_(&text_def_it->second);
+  this->manager->text_entities_.emplace(label, this);
+}
+
+void VEDirectEntity::set_register_id(register_id_t register_id) {
+  this->register_id_ = register_id;
+  this->manager->hex_registers_.emplace(register_id, this);
+}
+
+template<typename TEntity>
+TEntity *VEDirectEntity::dynamic_build_entity_(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new TEntity(manager);
+  manager->setup_entity_name_id(entity, name, object_id);
+  return entity;
 }
 
 }  // namespace m3_vedirect

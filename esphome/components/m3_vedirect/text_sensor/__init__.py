@@ -1,12 +1,11 @@
-import esphome.config_validation as cv
 from esphome.components import text_sensor
+import esphome.config_validation as cv
 
 from .. import (
-    CONF_HEXFRAME,
-    CONF_TEXTFRAME,
-    HEX_ENTITY_SCHEMA,
-    TEXT_ENTITY_SCHEMA,
+    CONF_VEDIRECT_ENTITIES,
+    VEDIRECT_ENTITY_SCHEMA,
     m3_vedirect_ns,
+    new_vedirect_entity,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -17,18 +16,13 @@ _diagnostic_text_sensor_schema = text_sensor.text_sensor_schema(
 )
 
 # m3_vedirect::TextSensor mapped to HEX/TEXT data
-HFTextSensor = m3_vedirect_ns.class_("HFTextSensor", text_sensor.TextSensor)
-TFTextSensor = m3_vedirect_ns.class_("TFTextSensor", text_sensor.TextSensor)
-HEXTEXTSENSOR_SCHEMA = text_sensor.text_sensor_schema(HFTextSensor).extend(
-    HEX_ENTITY_SCHEMA
-)
-TEXTTEXTSENSOR_SCHEMA = text_sensor.text_sensor_schema(TFTextSensor).extend(
-    TEXT_ENTITY_SCHEMA
+VEDirectTextSensor = m3_vedirect_ns.class_("TextSensor", text_sensor.TextSensor)
+VEDIRECT_TEXT_SENSOR_SCHEMA = text_sensor.text_sensor_schema(VEDirectTextSensor).extend(
+    VEDIRECT_ENTITY_SCHEMA
 )
 
 PLATFORM_ENTITIES = {
-    CONF_HEXFRAME: cv.ensure_list(HEXTEXTSENSOR_SCHEMA),
-    CONF_TEXTFRAME: cv.ensure_list(TEXTTEXTSENSOR_SCHEMA),
+    CONF_VEDIRECT_ENTITIES: cv.ensure_list(VEDIRECT_TEXT_SENSOR_SCHEMA),
     "rawhexframe": _diagnostic_text_sensor_schema,
     "rawtextframe": _diagnostic_text_sensor_schema,
 }
@@ -36,11 +30,16 @@ PLATFORM_ENTITIES = {
 CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 
+async def new_vedirect_text_sensor(config, *args):
+    var = await new_vedirect_entity(config, *args)
+    await text_sensor.register_text_sensor(var, config)
+    return var
+
+
 async def to_code(config: dict):
     await vedirect_platform_to_code(
         config,
         PLATFORM_ENTITIES,
-        text_sensor.new_text_sensor,
-        text_sensor.new_text_sensor,
+        new_vedirect_text_sensor,
         text_sensor.new_text_sensor,
     )

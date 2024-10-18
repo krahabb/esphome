@@ -12,30 +12,28 @@ namespace esphome {
 namespace m3_vedirect {
 
 #define NO_REGISTER_ID 0
-#define NO_TEXT_NAME nullptr
 
 class Manager;
 
-/// @brief Provides an abstraction for an HEX register id. In case of simple registers
-/// @brief it also represents the associated entities while, for registers carrying
-/// @brief multiple data parameters, it takes the responsibility of splitting those data
-/// @brief and forwarding to the correct entity
-class HexRegister {
- public:
-  Manager *const manager;
-
-  register_id_t id;
-  HexRegister(Manager *manager, register_id_t id);
-
-  virtual void dynamic_register(){};
-
-  virtual void parse_hex_value(const HexFrame *hexframe){};
-
- protected:
-};
-
 class VEDirectEntity {
  public:
+  /// @brief Together with SUBCLASS defines the data semantics of this entity
+  enum CLASS : u_int8_t {
+    BOOLEAN,
+    ENUMERATION,  // enumeration data or bitmask
+    MEASUREMENT,  // numeric data (either signed or unsigned)
+  };
+
+  /// @brief Together with CLASS defines the data semantics of this entity
+  enum SUBCLASS : u_int8_t {
+    BITMASK,   // represents a set of bit flags
+    ENUM,      // represents a value among an enumeration
+    SELECTOR,  // same as ENUM but used to select conditional parsing
+    MEASURE,
+    TEMPERATURE,
+    CELLVOLTAGE,
+  };
+
   // configuration symbols for numeric sensors
   enum UNIT : u_int8_t {
     A = 0,
@@ -61,24 +59,10 @@ class VEDirectEntity {
   };
   static const float DIGITS_TO_SCALE[4];
 
-  /// @brief Called when an entity is dynamically initialized by the Manager loop.
-  /// @brief This will in turn call the proper register function against App/api
-  virtual void dynamic_register(){};
-};
-
-class HFEntity : public HexRegister, public VEDirectEntity {
- public:
- protected:
-  HFEntity(Manager *manager, register_id_t id) : HexRegister(manager, id) {}
-};
-
-class TFEntity : public VEDirectEntity {
- public:
-  struct DEF;
-  typedef TFEntity *(*entity_initializer_func_t)(Manager *manager, const char *label, const DEF *def);
-  struct DEF {
+  struct TEXT_DEF {
     const char *description;
-    const entity_initializer_func_t init;
+    const CLASS cls : 2;
+    const SUBCLASS subcls : 6;
     const bool initially_disabled;
     // Optional entity 'class' definitions
     union {
@@ -90,27 +74,51 @@ class TFEntity : public VEDirectEntity {
     };
   } __attribute__((packed));
 
-  typedef std::unordered_map<const char *, const DEF, cstring_hash, cstring_eq> def_map_t;
-  static const def_map_t DEFS;
-  static const DEF *get_def(const char *label) {
-    auto entity_def = DEFS.find(label);
-    return entity_def == DEFS.end() ? nullptr : &entity_def->second;
+  typedef std::unordered_map<const char *, const TEXT_DEF, cstring_hash, cstring_eq> text_def_map_t;
+  static const text_def_map_t TEXT_DEFS;
+  static const TEXT_DEF *get_text_def(const char *label) {
+    auto entity_def = TEXT_DEFS.find(label);
+    return entity_def == TEXT_DEFS.end() ? nullptr : &entity_def->second;
   }
   /// @brief Class factory method to auto generate an entity based off the TEXT frame label
   /// @param manager
   /// @param label
   /// @return
-  static TFEntity *build(Manager *manager, const char *label);
+  static VEDirectEntity *build(Manager *manager, const char *label);
+  static VEDirectEntity *build(Manager *manager, register_id_t register_id);
 
-  const char *const label;
-  const DEF *const def;
+  Manager *const manager;
 
-  /// @brief store the current text value from VE.Direct TEXT frame
+  /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
+  /// will be automatically routed. This method is part of the public interface
+  /// called by yaml generaed code
+  /// @param label the name of the TEXT FRAME record to bind
+  void set_text_label(const char *label);
+  /// @brief Parse the current value from VE.Direct TEXT frame and update this entity
   /// @param value the raw data carried by VE.Direct
   virtual void parse_text_value(const char *text_value){};
 
+  void set_register_id(register_id_t register_id);
+  register_id_t get_register_id() { return this->register_id_; }
+  virtual void parse_hex_value(const HexFrame *hexframe){};
+
+  /// @brief Called when an entity is dynamically initialized by the Manager loop.
+  /// @brief This will in turn call the proper register function against App/api
+  virtual void dynamic_register(){};
+
  protected:
-  TFEntity(Manager *manager, const char *label, const DEF *def);
+  VEDirectEntity(Manager *manager) : manager(manager) {}
+
+  /// @brief Preset entity properties based off our TEXT_DEF. This is being called
+  /// automatically by VEDirectEntity methods when a proper definition is available.
+  /// @param def
+  virtual void init_text_def_(const TEXT_DEF *text_def) {}
+
+ private:
+  register_id_t register_id_{};
+
+  template<typename TEntity>
+  static TEntity *dynamic_build_entity_(Manager *manager, const char *name, const char *object_id);
 };
 
 }  // namespace m3_vedirect

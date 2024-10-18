@@ -26,6 +26,7 @@ HexFrameTrigger = Manager.class_(
 )
 
 CONF_VEDIRECT_ID = "vedirect_id"
+CONF_VEDIRECT_ENTITIES = "vedirect_entities"
 CONF_TEXTFRAME = "textframe"
 CONF_HEXFRAME = "hexframe"
 
@@ -38,6 +39,9 @@ def validate_register_id():
     return cv.hex_int_range(min=0, max=65535)
 
 
+CONF_TEXT_LABEL = "text_label"
+CONF_REGISTER_ID = "register_id"
+CONF_DATA_TYPE = "data_type"
 HexDataType = HexFrame.enum("DataType")
 DATA_TYPES = {
     "uint8": HexDataType.enum("u8"),
@@ -45,23 +49,14 @@ DATA_TYPES = {
     "int16": HexDataType.enum("i16"),
     "uint32": HexDataType.enum("u32"),
 }
-
-CONF_REGISTER_ID = "register_id"
-CONF_DATA_TYPE = "data_type"
-CONF_LABEL = "label"
-HEX_ENTITY_SCHEMA = cv.Schema(
-    {
-        # binds to the corresponding HEX register
-        cv.Required(CONF_REGISTER_ID): validate_register_id(),
-        # configures the format of the HEX register
-        cv.Optional(CONF_DATA_TYPE): cv.enum(DATA_TYPES),
-    }
-)
-
-TEXT_ENTITY_SCHEMA = cv.Schema(
+VEDIRECT_ENTITY_SCHEMA = cv.Schema(
     {
         # binds to the corresponding TEXT frame field
-        cv.Required(CONF_LABEL): cv.string,
+        cv.Optional(CONF_TEXT_LABEL): cv.string,
+        # binds to the corresponding HEX register
+        cv.Optional(CONF_REGISTER_ID): validate_register_id(),
+        # configures the format of the HEX register
+        cv.Optional(CONF_DATA_TYPE): cv.enum(DATA_TYPES),
     }
 )
 
@@ -81,78 +76,67 @@ def vedirect_platform_schema(
     )
 
 
+async def new_vedirect_entity(config, *args):
+    var = cg.new_Pvariable(config[CONF_ID], *args)
+    valid = False
+    if CONF_TEXT_LABEL in config:
+        valid = True
+        cg.add(var.set_text_label(config[CONF_TEXT_LABEL]))
+    if CONF_REGISTER_ID in config:
+        valid = True
+        cg.add(var.set_register_id(config[CONF_REGISTER_ID]))
+        if CONF_DATA_TYPE in config:
+            cg.add(var.set_hex_data_type(config[CONF_DATA_TYPE]))
+    assert valid, f"Either {CONF_TEXT_LABEL} or {CONF_REGISTER_ID} must be provided"
+    return var
+
+
 async def vedirect_platform_to_code(
     config: dict,
     platform_entities: dict[str, cv.Schema],
-    setup_entity_func,
-    setup_hfentity_func,
-    setup_tfentity_func,
+    new_vedirectentity_func,
+    new_entity_func,
 ):
     manager = await cg.get_variable(config[CONF_VEDIRECT_ID])
 
     for entity_key, entity_config in config.items():
-        if entity_key == CONF_HEXFRAME:
+        if entity_key == CONF_VEDIRECT_ENTITIES:
             for _entity_config in entity_config:
-                var = await setup_hfentity_func(
-                    _entity_config, manager, _entity_config[CONF_REGISTER_ID]
-                )
-                if CONF_DATA_TYPE in _entity_config:
-                    cg.add(var.set_hex_data_type(_entity_config[CONF_DATA_TYPE]))
-            continue
-        if entity_key == CONF_TEXTFRAME:
-            for _entity_config in entity_config:
-                var = await setup_tfentity_func(
-                    _entity_config, manager, _entity_config[CONF_LABEL]
-                )
+                await new_vedirectentity_func(_entity_config, manager)
             continue
         if entity_key in platform_entities:
-            var = await setup_entity_func(entity_config)
+            var = await new_entity_func(entity_config)
             cg.add(getattr(manager, f"set_{entity_key}")(var))
 
 
 # main component (Manager) schema
 CONF_AUTO_CREATE_ENTITIES = "auto_create_entities"
+CONF_PING_TIMEOUT = "ping_timeout"
 CONF_DEFAULT_ENTITIES = "default_entities"
 DEFAULT_ENTITIES_MAP = {
-    CONF_TEXTFRAME: {
-        "mppt": (),
-        "bmv60": (),
-        "bmv70": (),
-        "bmv71": (),
-        "inverter": (),
-        "charger": (),
-    },
-    CONF_HEXFRAME: {
-        "mppt": (),
-        "bmv60": (),
-        "bmv70": (),
-        "bmv71": (),
-        "inverter": (),
-        "charger": (),
-    },
+    "mppt": (),
+    "bmv60": (),
+    "bmv70": (),
+    "bmv71": (),
+    "inverter": (),
+    "charger": (),
 }
-
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
-
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Manager),
             cv.Optional(CONF_NAME): cv.string_strict,
+            cv.Optional(CONF_DEFAULT_ENTITIES): cv.one_of(*DEFAULT_ENTITIES_MAP),
             cv.Optional(CONF_TEXTFRAME): cv.Schema(
                 {
-                    cv.Optional(CONF_AUTO_CREATE_ENTITIES, default=True): cv.boolean,
-                    cv.Optional(CONF_DEFAULT_ENTITIES): cv.one_of(
-                        *DEFAULT_ENTITIES_MAP[CONF_TEXTFRAME]
-                    ),
+                    cv.Optional(CONF_AUTO_CREATE_ENTITIES): cv.boolean,
                 }
             ),
             cv.Optional(CONF_HEXFRAME): cv.Schema(
                 {
-                    cv.Optional(CONF_AUTO_CREATE_ENTITIES, default=True): cv.boolean,
-                    cv.Optional(CONF_DEFAULT_ENTITIES): cv.one_of(
-                        *DEFAULT_ENTITIES_MAP[CONF_HEXFRAME]
-                    ),
+                    cv.Optional(CONF_AUTO_CREATE_ENTITIES): cv.boolean,
+                    cv.Optional(CONF_PING_TIMEOUT): cv.positive_time_period_seconds,
                     cv.Optional(CONF_ON_FRAME_RECEIVED): automation.validate_automation(
                         {
                             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -174,16 +158,23 @@ async def to_code(config: dict):
     cg.add(var.set_vedirect_id(str(var.base)))
     cg.add(var.set_vedirect_name(config.get(CONF_NAME, str(var.base))))
     if config_textframe := config.get(CONF_TEXTFRAME):
-        cg.add(
-            var.set_auto_create_text_entities(
-                config_textframe[CONF_AUTO_CREATE_ENTITIES]
+        if CONF_AUTO_CREATE_ENTITIES in config_textframe:
+            cg.add(
+                var.set_auto_create_text_entities(
+                    config_textframe[CONF_AUTO_CREATE_ENTITIES]
+                )
             )
-        )
 
     if config_hexframe := config.get(CONF_HEXFRAME):
-        cg.add(
-            var.set_auto_create_hex_entities(config_hexframe[CONF_AUTO_CREATE_ENTITIES])
-        )
+        if CONF_AUTO_CREATE_ENTITIES in config_hexframe:
+            cg.add(
+                var.set_auto_create_hex_entities(
+                    config_hexframe[CONF_AUTO_CREATE_ENTITIES]
+                )
+            )
+        if CONF_PING_TIMEOUT in config_hexframe:
+            cg.add(var.set_ping_timeout(config_hexframe[CONF_PING_TIMEOUT]))
+
         for conf in config_hexframe.get(CONF_ON_FRAME_RECEIVED, []):
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
             await automation.build_automation(
