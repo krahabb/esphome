@@ -8,12 +8,13 @@ from esphome.const import CONF_ID, CONF_NAME, CONF_PAYLOAD, CONF_TRIGGER_ID
 
 CODEOWNERS = ["@krahabb"]
 DEPENDENCIES = [
-    "uart",
     "binary_sensor",
+    "select",
     "sensor",
     "text_sensor",
+    "uart",
 ]
-AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
+AUTO_LOAD = ["binary_sensor", "select", "sensor", "text_sensor"]
 MULTI_CONF = True
 
 m3_vedirect_ns = cg.esphome_ns.namespace("m3_vedirect")
@@ -87,7 +88,10 @@ async def new_vedirect_entity(config, *args):
         cg.add(var.set_register_id(config[CONF_REGISTER_ID]))
         if CONF_DATA_TYPE in config:
             cg.add(var.set_hex_data_type(config[CONF_DATA_TYPE]))
-    assert valid, f"Either {CONF_TEXT_LABEL} or {CONF_REGISTER_ID} must be provided"
+    if not valid:
+        raise cv.Invalid(
+            f"Either {CONF_TEXT_LABEL} or {CONF_REGISTER_ID} must be provided"
+        )
     return var
 
 

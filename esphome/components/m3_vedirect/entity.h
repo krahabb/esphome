@@ -17,52 +17,18 @@ class Manager;
 
 class VEDirectEntity {
  public:
-  /// @brief Together with SUBCLASS defines the data semantics of this entity
-  enum CLASS : u_int8_t {
-    BOOLEAN,
-    ENUMERATION,  // enumeration data or bitmask
-    MEASUREMENT,  // numeric data (either signed or unsigned)
-  };
-
-  /// @brief Together with CLASS defines the data semantics of this entity
-  enum SUBCLASS : u_int8_t {
-    BITMASK,   // represents a set of bit flags
-    ENUM,      // represents a value among an enumeration
-    SELECTOR,  // same as ENUM but used to select conditional parsing
-    MEASURE,
-    TEMPERATURE,
-    CELLVOLTAGE,
-  };
+  typedef REG_DEF::CLASS CLASS;
 
   // configuration symbols for numeric sensors
-  enum UNIT : u_int8_t {
-    A = 0,
-    V = 1,
-    VA = 2,
-    W = 3,
-    Ah = 4,
-    kWh = 5,
-    SOC_PERCENTAGE = 6,
-    minute = 7,
-    CELSIUS = 8,
-    _COUNT,
-  };
-  static const char *UNITS[UNIT::_COUNT];
-  static const char *DEVICE_CLASSES[UNIT::_COUNT];
-  static const sensor::StateClass STATE_CLASSES[UNIT::_COUNT];
+  typedef REG_DEF::UNIT UNIT;
+  static const char *UNIT_TO_DEVICE_CLASS[];
+  static const sensor::StateClass UNIT_TO_STATE_CLASS[];
 
-  enum DIGITS : u_int8_t {
-    D_0 = 0,
-    D_1 = 1,
-    D_2 = 2,
-    D_3 = 3,
-  };
-  static const float DIGITS_TO_SCALE[4];
+  typedef REG_DEF::DIGITS DIGITS;
 
   struct TEXT_DEF {
     const char *description;
     const CLASS cls : 2;
-    const SUBCLASS subcls : 6;
     const bool initially_disabled;
     // Optional entity 'class' definitions
     union {
@@ -100,7 +66,10 @@ class VEDirectEntity {
 
   void set_register_id(register_id_t register_id);
   register_id_t get_register_id() { return this->register_id_; }
-  virtual void parse_hex_value(const HexFrame *hexframe){};
+
+  typedef FrameHandler::RxHexFrame RxHexFrame;
+  typedef void (*parse_hex_func_t)(VEDirectEntity *entity, const RxHexFrame *hexframe);
+  inline parse_hex_func_t parse_hex() { return this->parse_hex_func_; }
 
   /// @brief Called when an entity is dynamically initialized by the Manager loop.
   /// @brief This will in turn call the proper register function against App/api
@@ -109,13 +78,24 @@ class VEDirectEntity {
  protected:
   VEDirectEntity(Manager *manager) : manager(manager) {}
 
+  /// @brief Preset entity properties based off our REG_DEF. This is being called
+  /// automatically by VEDirectEntity methods when a proper definition is available.
+  /// @param reg_def: the proper register definition if available or null to proceed
+  /// with some meaningful default initialization
+  virtual void init_reg_def_(const REG_DEF *reg_def) {}
+
   /// @brief Preset entity properties based off our TEXT_DEF. This is being called
   /// automatically by VEDirectEntity methods when a proper definition is available.
-  /// @param def
   virtual void init_text_def_(const TEXT_DEF *text_def) {}
 
- private:
+ protected:
   register_id_t register_id_{};
+
+  HexFrame::DataType hex_data_type_{HexFrame::DataType::unknown};
+  uint8_t hex_data_size_{};
+
+  parse_hex_func_t parse_hex_func_{parse_hex_empty_};
+  static void parse_hex_empty_(VEDirectEntity *entity, const RxHexFrame *hexframe) {}
 
   template<typename TEntity>
   static TEntity *dynamic_build_entity_(Manager *manager, const char *name, const char *object_id);

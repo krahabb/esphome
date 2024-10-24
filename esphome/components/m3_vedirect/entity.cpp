@@ -5,6 +5,7 @@
 
 #include "manager.h"
 #include "binary_sensor/binary_sensor.h"
+#include "select/select.h"
 #include "sensor/sensor.h"
 #include "text_sensor/text_sensor.h"
 
@@ -13,27 +14,23 @@ namespace m3_vedirect {
 
 static const char *const TAG = "m3_vedirect.entity";
 
-const char *VEDirectEntity::UNITS[] = {
-    "A", "V", "VA", "W", "Ah", "kWh", "%", "min", "°C",
-};
-const char *VEDirectEntity::DEVICE_CLASSES[] = {
+const char *VEDirectEntity::UNIT_TO_DEVICE_CLASS[] = {
     "current", "voltage", "apparent_power", "power", nullptr, "energy", "battery", "duration", "temperature",
 };
-const sensor::StateClass VEDirectEntity::STATE_CLASSES[UNIT::_COUNT] = {
+const sensor::StateClass VEDirectEntity::UNIT_TO_STATE_CLASS[] = {
     sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
     sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
     sensor::StateClass::STATE_CLASS_TOTAL,       sensor::StateClass::STATE_CLASS_TOTAL_INCREASING,
     sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
     sensor::StateClass::STATE_CLASS_MEASUREMENT,
 };
-const float VEDirectEntity::DIGITS_TO_SCALE[] = {1.f, .1f, .01f, .001f};
 
 #define DEF_TFBINARYSENSOR(name, disabled) \
-  { name, VEDirectEntity::CLASS::BOOLEAN, VEDirectEntity::SUBCLASS::ENUM, disabled }
+  { name, VEDirectEntity::CLASS::BOOLEAN, disabled, UNIT::NONE, DIGITS::D_0 }
 #define DEF_TFSENSOR(name, disabled, unit, digits) \
-  { name, VEDirectEntity::CLASS::MEASUREMENT, VEDirectEntity::SUBCLASS::MEASURE, disabled, unit, digits }
+  { name, VEDirectEntity::CLASS::NUMERIC, disabled, unit, digits }
 #define DEF_TFTEXTSENSOR(name, disabled) \
-  { name, VEDirectEntity::CLASS::ENUMERATION, VEDirectEntity::SUBCLASS::ENUM, disabled }
+  { name, VEDirectEntity::CLASS::ENUM, disabled, UNIT::NONE, DIGITS::D_0 }
 
 const VEDirectEntity::text_def_map_t VEDirectEntity::TEXT_DEFS{
     {"AC_OUT_I", DEF_TFSENSOR("AC output current", false, UNIT::A, DIGITS::D_1)},
@@ -81,7 +78,7 @@ VEDirectEntity *VEDirectEntity::build(Manager *manager, const char *label) {
     label = text_def_it->first;
     auto &text_def = text_def_it->second;
     switch (text_def.cls) {
-      case CLASS::MEASUREMENT:
+      case CLASS::NUMERIC:
         // pass our 'static' copy of the label (param is volatile)
         entity = VEDirectEntity::dynamic_build_entity_<Sensor>(manager, text_def.description, label);
         break;
@@ -99,21 +96,52 @@ VEDirectEntity *VEDirectEntity::build(Manager *manager, const char *label) {
 }
 
 VEDirectEntity *VEDirectEntity::build(Manager *manager, register_id_t register_id) {
-  // check if we have a 'structured' parser or any other special behavior
-  /*for (const HexRegisterDef &_def : REGISTERS_DEF) {
-    if (_def.id == id)
-      return _def.init(manager, _def);
-  }*/
-
-  // else build a raw text sensor
-  char *object_id = new char[7];
-  sprintf(object_id, "0x%04X", (int) register_id);
-  char *name = new char[16];
-  sprintf(name, "Register %s", object_id);
-
-  auto entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, name, object_id);
-  entity->set_disabled_by_default(true);
-  entity->set_register_id(register_id);
+  VEDirectEntity *entity;
+  auto reg_def = REG_DEF::find(register_id);
+  if (reg_def) {
+    switch (reg_def->cls) {
+      case CLASS::NUMERIC:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          entity = VEDirectEntity::dynamic_build_entity_<Sensor>(manager, reg_def->label, reg_def->label);
+        } else {
+          // TODO: build a number entity
+          entity = VEDirectEntity::dynamic_build_entity_<Sensor>(manager, reg_def->label, reg_def->label);
+        }
+        break;
+      case CLASS::BOOLEAN:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          entity = VEDirectEntity::dynamic_build_entity_<BinarySensor>(manager, reg_def->label, reg_def->label);
+        } else {
+          // TODO: build a switch entity
+          entity = VEDirectEntity::dynamic_build_entity_<BinarySensor>(manager, reg_def->label, reg_def->label);
+        }
+        break;
+      case CLASS::ENUM:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
+        } else {
+          // TODO: build a select entity
+          entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
+        }
+        break;
+      case CLASS::BITMASK:
+        // TODO: build individual binary_sensors/toggles ?
+        entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
+        break;
+      default:
+        entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
+    }
+  } else {
+    // else build a raw text sensor
+    char *object_id = new char[7];
+    sprintf(object_id, "0x%04X", (int) register_id);
+    char *name = new char[16];
+    sprintf(name, "Register %s", object_id);
+    entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, name, object_id);
+  }
+  entity->register_id_ = register_id;
+  entity->init_reg_def_(reg_def);
+  manager->hex_registers_.emplace(register_id, entity);
   entity->dynamic_register();
   return entity;
 }
@@ -127,6 +155,7 @@ void VEDirectEntity::set_text_label(const char *label) {
 
 void VEDirectEntity::set_register_id(register_id_t register_id) {
   this->register_id_ = register_id;
+  this->init_reg_def_(REG_DEF::find(register_id));
   this->manager->hex_registers_.emplace(register_id, this);
 }
 

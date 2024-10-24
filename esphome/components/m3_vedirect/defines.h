@@ -1,10 +1,12 @@
 #pragma once
-
+#include "ve_reg_defs.h"
 #include <stddef.h>
 #include <string.h>
 
 namespace esphome {
 namespace m3_vedirect {
+
+using namespace ve_reg;
 
 typedef unsigned char u_int8_t;
 typedef unsigned short u_int16_t;

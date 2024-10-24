@@ -11,13 +11,13 @@ class BinarySensor : public esphome::binary_sensor::BinarySensor, public VEDirec
   BinarySensor(Manager *manager) : VEDirectEntity(manager) {}
 
   void parse_text_value(const char *text_value) override { publish_state(!strcasecmp(text_value, "ON")); }
-  void parse_hex_value(const HexFrame *hexframe) override {
-    if (hexframe->data_size() == sizeof(uint8_t)) {
-      publish_state(hexframe->data_u8());
-    }
-  };
 
   void dynamic_register() override;
+
+ protected:
+  void init_reg_def_(const REG_DEF *reg_def) override;
+
+  static void parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe);
 };
 
 }  // namespace m3_vedirect

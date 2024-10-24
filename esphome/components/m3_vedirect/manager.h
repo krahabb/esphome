@@ -140,7 +140,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   inline void on_disconnected_();
 
   // override FrameHandler
-  void on_frame_hex_(const HexFrame &hexframe) override;
+  void on_frame_hex_(const RxHexFrame &hexframe) override;
   void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
   void on_frame_error_(const char *message) override;
 

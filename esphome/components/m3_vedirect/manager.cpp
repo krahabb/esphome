@@ -87,7 +87,7 @@ void Manager::send_hexframe(const HexFrame &hexframe) {
 }
 
 void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
-  HexFrameT<VEDIRECT_HEXFRAME_SIZE> hexframe;
+  HexFrameT<VEDIRECT_HEXFRAME_MAX_SIZE> hexframe;
   if (HexFrame::DecodeResult::Valid == hexframe.decode(rawframe, addchecksum)) {
     this->send_hexframe(hexframe);
   } else {
@@ -131,7 +131,7 @@ void Manager::on_disconnected_() {
   // we should set all entities state to HA 'unavailable' but
   // ESPHOME right now doesn't support it
 }
-void Manager::on_frame_hex_(const HexFrame &hexframe) {
+void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
   ESP_LOGD(this->logtag_, "HEX FRAME: received %s", hexframe.encoded());
 
   if (!this->connected_)
@@ -148,17 +148,19 @@ void Manager::on_frame_hex_(const HexFrame &hexframe) {
     case HexFrame::Command::Set:
     case HexFrame::Command::Async: {
       if (hexframe.data_size() > 0) {
-        register_id_t hex_id = hexframe.register_id();
-        auto entity_iter = this->hex_registers_.find(hex_id);
+        VEDirectEntity *entity;
+        auto entity_iter = this->hex_registers_.find(hexframe.register_id());
         if (entity_iter == this->hex_registers_.end()) {
           if (this->auto_create_hex_entities_) {
-            ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct hex register: %04X", (int) hex_id);
-            auto hex_register = VEDirectEntity::build(this, hex_id);
-            hex_register->parse_hex_value(&hexframe);
+            ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct hex register: %04X", (int) hexframe.register_id());
+            entity = VEDirectEntity::build(this, hexframe.register_id());
+          } else {
+            break;
           }
         } else {
-          entity_iter->second->parse_hex_value(&hexframe);
+          entity = entity_iter->second;
         }
+        entity->parse_hex()(entity, &hexframe);
       } else {
         ESP_LOGE(this->logtag_, "Inconsistent hex frame size: %s", hexframe.encoded());
       }

@@ -8,9 +8,12 @@ namespace m3_vedirect {
 #define VEDIRECT_NAME_LEN 9
 #define VEDIRECT_VALUE_LEN 33
 #define VEDIRECT_RECORDS_COUNT 22
+
 // Fix a (reasonable) limit to the maximum size (in raw frame bytes) of an incoming
 // HEX frame so that we abort pumping data into memory when something is likely wrong
-#define VEDIRECT_HEXFRAME_SIZE 64
+#ifndef VEDIRECT_HEXFRAME_MAX_SIZE
+#define VEDIRECT_HEXFRAME_MAX_SIZE 64
+#endif
 
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
@@ -192,6 +195,8 @@ struct HexFrame {
 
 /// @brief Provides a static storage implementation for HexFrame
 template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
+  static constexpr size_t ALLOCATED_DATA_SIZE = HF_DATA_SIZE;
+
   HexFrameT() : HexFrame(this->rawframe_, this->encoded_) {}
 
   const uint8_t *end_of_storage() const override { return this->rawframe_ + sizeof(this->rawframe_); }
@@ -326,6 +331,8 @@ class FrameHandler {
   static const char *ERR_TEXTFRAME_VALUE_OVERFLOW;
   static const char *ERR_TEXTFRAME_RECORD_OVERFLOW;
 
+  typedef HexFrameT<VEDIRECT_HEXFRAME_MAX_SIZE> RxHexFrame;
+
   enum FrameState {
     Idle,
     Name,
@@ -344,7 +351,7 @@ class FrameHandler {
 
  private:
   //
-  virtual void on_frame_hex_(const HexFrame &hexframe) {}
+  virtual void on_frame_hex_(const RxHexFrame &hexframe) {}
   virtual void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) {}
   virtual void on_frame_error_(const char *message) {}
 
@@ -376,11 +383,11 @@ class FrameHandler {
     this->text_record_write_end_ = this->text_record_write_ + sizeof(this->text_record_->value);
   }
 
-  HexFrameT<VEDIRECT_HEXFRAME_SIZE> hexframe_;
+  RxHexFrame hexframe_;
   HexFrameDecoder hexframe_decoder_;
 
   inline void frame_hex_start_() {
-    this->hexframe_decoder_.init(&hexframe_);
+    this->hexframe_decoder_.init(&this->hexframe_);
     this->frame_state_backup_ = this->frame_state_;
     this->frame_state_ = FrameState::Hex;
   }

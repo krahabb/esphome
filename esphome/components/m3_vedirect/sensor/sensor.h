@@ -11,11 +11,8 @@ class Sensor : public esphome::sensor::Sensor, public VEDirectEntity {
   Sensor(Manager *manager) : VEDirectEntity(manager) {}
 
   void set_text_scale(float scale) { this->text_scale_ = scale; }
-  void set_hex_scale(float scale) { this->hex_scale_ = scale; }
-  void set_hex_data_type(HexFrame::DataType hex_data_type) { this->hex_data_type_ = hex_data_type; }
 
   void parse_text_value(const char *text_value) override;
-  void parse_hex_value(const HexFrame *hexframe) override;
 
   void dynamic_register() override;
 
@@ -24,8 +21,11 @@ class Sensor : public esphome::sensor::Sensor, public VEDirectEntity {
 
   void init_text_def_(const TEXT_DEF *text_def) override;
 
-  float hex_scale_{1.};
-  HexFrame::DataType hex_data_type_{HexFrame::DataType::unknown};
+  REG_DEF::numeric_to_float_func_t numeric_to_float_;
+
+  void init_reg_def_(const REG_DEF *reg_def) override;
+  static void parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe);
+  static void parse_hex_numeric_(VEDirectEntity *entity, const RxHexFrame *hexframe);
 };
 
 }  // namespace m3_vedirect
