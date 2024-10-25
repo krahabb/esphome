@@ -1,23 +1,11 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "ve_reg.h"
 #include "ve_reg_enums.h"
 #include "ve_reg_registers.h"
 
-namespace ve_reg {
-
-typedef signed char int8_t;
-typedef unsigned char uint8_t;
-typedef signed short int16_t;
-typedef unsigned short uint16_t;
-typedef signed int int32_t;
-typedef unsigned int uint32_t;
-
-typedef unsigned short register_id_t;
-typedef unsigned char group_id_t;
-
-// Helper to get the number of elements in static arrays
-#define ARRAY_COUNT(_array) (sizeof(_array) / sizeof(_array[0]))
+namespace m3_ve_reg {
 
 // clang-format off
 
@@ -39,12 +27,40 @@ struct ENUM_DEF {
     bool operator<(const data_type &value) const { return this->value < value; }
   };
 
+  struct LOOKUP_RESULT {
+    int index;
+    LOOKUP_DEF *lookup_def;
+    bool added;
+  };
+
   typedef const char *(*lookup_func_t)(data_type value);
 
- protected:
+  std::vector<LOOKUP_DEF> LOOKUPS;
+
+  /// @brief Lookups the label associated with value in current definitions
+  /// @param value
+  /// @return nullptr if no label definition for value
+  const char *lookup_label(data_type value);
+  /// @brief Lookups a matching label in current definitions
+  /// @param label
+  /// @return nullptr if no lookup definition
+  const LOOKUP_DEF *lookup_value(const char *label);
+
+  /// @brief Lookups (eventually adding) the label associated with value in current definitions
+  /// @param value
+  /// @return the whole lookup definition with additional context in LOOKUP_RESULT
+  LOOKUP_RESULT get_lookup(data_type value);
+
+  /*
+  const char *lookup_label(data_type value) { return ENUM_DEF::lookup_label(value, LOOKUPS.begin(), LOOKUPS.end()); }
+  const LOOKUP_DEF* lookup_value(const char* label) const { return ENUM_DEF::lookup_value(label, LOOKUPS.begin(),
+  LOOKUPS.end()); }
+
   /// @brief Lookup the raw enum 'value' and returns the string description
   /// @brief according to the enum label definition.
-  static const char *lookup(data_type value, const LOOKUP_DEF *lookup, const LOOKUP_DEF *lookup_end);
+  static const char *lookup_label(data_type value, const LOOKUP_DEF *const lookup, const LOOKUP_DEF *const lookup_end);
+  static const LOOKUP_DEF* lookup_value(const char* label, const LOOKUP_DEF *lookup, const LOOKUP_DEF *lookup_end);
+  */
 };
 
 // declare the enum helpers structs for ENUM registers
@@ -54,10 +70,8 @@ struct ENUM_DEF {
   struct VE_REG_##label##_ENUM : public ENUM_DEF { \
    public: \
     enum : data_type { ENUM_##label(_ENUMS_ITEM) }; \
-    static const LOOKUP_DEF LOOKUP[]; \
-    static const LOOKUP_DEF *const LOOKUP_END; \
-    static const char *lookup(data_type value) { return ENUM_DEF::lookup(value, LOOKUP, LOOKUP_END); } \
-  };
+  }; \
+  extern ENUM_DEF VE_REG_##label##_ENUM_DEF;
 
 REGISTERS_COMMON(DECLARE_ENUMS)
 #undef DECLARE_ENUMS_ENUM
@@ -73,6 +87,7 @@ struct REG_DEF {
 
   /// @brief Together with SUBCLASS defines the data semantics of this entity
   enum CLASS : u_int8_t {
+    UNKNOWN,
     BOOLEAN,
     BITMASK,  // represents a set of bit flags
     ENUM,     // enumeration data
@@ -123,17 +138,17 @@ struct REG_DEF {
   };
 
   const register_id_t register_id;
-  const char *label;
+  const char *const label;
   const CLASS cls : 3;
   const ACCESS access : 1;
   const DATA_TYPE data_type : 4;
 
   union {
-    const ENUM_DEF::lookup_func_t enum_lookup;
+    ENUM_DEF *const enum_def;
     struct {
-      const numeric_to_float_func_t numeric_to_float;
-      DIGITS digits : 2;
-      UNIT unit : 4;
+      numeric_to_float_func_t const numeric_to_float;
+      DIGITS const digits : 2;
+      UNIT const unit : 4;
     };
   };
 
@@ -141,6 +156,8 @@ struct REG_DEF {
   bool operator<(const register_id_t register_id) const { return this->register_id < register_id; }
   static const REG_DEF *find(register_id_t register_id);
 
+  REG_DEF()
+      : register_id(0), label(nullptr), cls(CLASS::UNKNOWN), access(ACCESS::READ_ONLY), data_type(DATA_TYPE::STRING) {}
   /// @brief Constructor for NUMERIC registers definitions
   REG_DEF(register_id_t register_id, const char *label, ACCESS access, DATA_TYPE data_type, DIGITS digits, UNIT unit,
           numeric_to_float_func_t numeric_to_float)
@@ -154,13 +171,13 @@ struct REG_DEF {
         unit(unit) {}
 
   /// @brief Constructor for ENUM registers definitions
-  REG_DEF(register_id_t register_id, const char *label, ACCESS access, ENUM_DEF::lookup_func_t enum_lookup)
+  REG_DEF(register_id_t register_id, const char *label, ACCESS access, ENUM_DEF *enum_def)
       : register_id(register_id),
         label(label),
         cls(CLASS::ENUM),
         access(access),
         data_type(DATA_TYPE::U8),
-        enum_lookup(enum_lookup) {}
+        enum_def(enum_def) {}
 
  protected:
 };
@@ -174,4 +191,4 @@ template<> constexpr REG_DEF::DATA_TYPE REG_DEF::DATA_TYPE_OF<int32_t>() { retur
 
 #pragma pack(pop)
 
-}  // namespace ve_reg
+}  // namespace m3_ve_reg

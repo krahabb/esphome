@@ -30,19 +30,18 @@ void Sensor::init_text_def_(const TEXT_DEF *text_def) {
 }
 
 void Sensor::init_reg_def_(const REG_DEF *reg_def) {
-  if (reg_def) {
-    switch (reg_def->cls) {
-      case REG_DEF::CLASS::NUMERIC:
-        this->numeric_to_float_ = reg_def->numeric_to_float;
-        this->parse_hex_func_ = parse_hex_numeric_;
-        return;
-      default:
-        break;
-    }
+  switch (reg_def->cls) {
+    case REG_DEF::CLASS::NUMERIC:
+      this->numeric_to_float_ = reg_def->numeric_to_float;
+      this->parse_hex_func_ = parse_hex_numeric_;
+      break;
+    default:
+      // defaults if nothing better
+      this->parse_hex_func_ = parse_hex_default_;
+      break;
   }
-  // defaults if nothing better
-  this->parse_hex_func_ = parse_hex_default_;
 }
+
 void Sensor::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
   float value;
   switch (hexframe->data_size()) {
@@ -64,6 +63,7 @@ void Sensor::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexfra
     sensor->publish_state(value);
   }
 }
+
 void Sensor::parse_hex_numeric_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
   Sensor *sensor = static_cast<Sensor *>(entity);

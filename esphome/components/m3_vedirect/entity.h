@@ -6,7 +6,7 @@
 #include <unordered_map>
 
 #include "defines.h"
-#include "hexframe.h"
+#include "ve_hexframe.h"
 
 namespace esphome {
 namespace m3_vedirect {
@@ -28,8 +28,8 @@ class VEDirectEntity {
 
   struct TEXT_DEF {
     const char *description;
-    const CLASS cls : 2;
-    const bool initially_disabled;
+    const CLASS cls : 3;
+    const bool initially_disabled : 1;
     // Optional entity 'class' definitions
     union {
       // Sensor entity definitions
@@ -99,6 +99,8 @@ class VEDirectEntity {
 
   template<typename TEntity>
   static TEntity *dynamic_build_entity_(Manager *manager, const char *name, const char *object_id);
+
+  static const REG_DEF NULL_REG_DEF;
 };
 
 }  // namespace m3_vedirect

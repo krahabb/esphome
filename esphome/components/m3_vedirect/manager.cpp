@@ -2,7 +2,6 @@
 #include "esphome/core/log.h"
 
 #include "entity.h"
-#include "hexframe.h"
 
 namespace esphome {
 namespace m3_vedirect {

@@ -18,7 +18,7 @@ class Select : public esphome::select::Select, public VEDirectEntity {
 
  protected:
   ENUM_DEF::data_type enum_value_{0xFF};
-  ENUM_DEF::lookup_func_t enum_lookup_;
+  ENUM_DEF *enum_def_{};
 
   void init_reg_def_(const REG_DEF *reg_def) override;
   static void parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe);
@@ -36,6 +36,10 @@ class Select : public esphome::select::Select, public VEDirectEntity {
   };
 
   inline SelectTraits &traits_() { return reinterpret_cast<SelectTraits &>(this->traits); }
+
+  // 'optimized' publish_state bypassing index checks since we're mantaining our
+  // own 'source of truth' in enum_def_
+  void publish_state_(size_t index);
 };
 
 }  // namespace m3_vedirect

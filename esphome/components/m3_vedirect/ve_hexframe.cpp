@@ -1,8 +1,7 @@
-#include "hexframe.h"
+#include "ve_hexframe.h"
 #include <string.h>
 
-namespace esphome {
-namespace m3_vedirect {
+namespace m3_ve_reg {
 
 const char HEX_DIGITS_MAP[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -215,5 +214,4 @@ auto _a = HexFrame_Set(0, 1);
 static_assert(sizeof(_a) == 52, "HexFrame_Set size failure = ");
 */
 
-}  // namespace m3_vedirect
-}  // namespace esphome
+}  // namespace m3_ve_reg

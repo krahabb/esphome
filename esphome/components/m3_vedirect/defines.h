@@ -6,20 +6,11 @@
 namespace esphome {
 namespace m3_vedirect {
 
-using namespace ve_reg;
-
-typedef unsigned char u_int8_t;
-typedef unsigned short u_int16_t;
-typedef signed short int16_t;
-typedef unsigned int u_int32_t;
-typedef signed int int32_t;
+using namespace ::m3_ve_reg;
 
 // maximum amount of time (millis) without receiving data
 // after which we consider the vedirect link disconnected
 #define VEDIRECT_TIMEOUT_MILLIS 5000
-
-// Helper to get the number of elements in static arrays
-#define ARRAY_COUNT(_array) (sizeof(_array) / sizeof(_array[0]))
 
 // Helpers for unordered_map with const char* key
 #if __cpp_constexpr >= 201304L

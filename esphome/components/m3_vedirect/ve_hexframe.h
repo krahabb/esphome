@@ -1,9 +1,8 @@
 #pragma once
-
+#include "ve_reg.h"
 #include <string>
 
-namespace esphome {
-namespace m3_vedirect {
+namespace m3_ve_reg {
 
 #define VEDIRECT_NAME_LEN 9
 #define VEDIRECT_VALUE_LEN 33
@@ -14,16 +13,6 @@ namespace m3_vedirect {
 #ifndef VEDIRECT_HEXFRAME_MAX_SIZE
 #define VEDIRECT_HEXFRAME_MAX_SIZE 64
 #endif
-
-typedef signed char int8_t;
-typedef unsigned char uint8_t;
-typedef signed short int16_t;
-typedef unsigned short uint16_t;
-typedef signed int int32_t;
-typedef unsigned int uint32_t;
-
-typedef unsigned short register_id_t;
-typedef unsigned char group_id_t;
 
 /// @brief  Helper class to manage HEX frames. It allows building an internal
 /// binary representation and encoding/decoding
@@ -393,5 +382,4 @@ class FrameHandler {
   }
 };
 
-}  // namespace m3_vedirect
-}  // namespace esphome
+}  // namespace m3_ve_reg

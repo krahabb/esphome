@@ -42,43 +42,78 @@ void Select::dynamic_register() {
 }
 
 void Select::init_reg_def_(const REG_DEF *reg_def) {
-  if (reg_def) {
-    switch (reg_def->cls) {
-      case REG_DEF::CLASS::ENUM:
-        this->enum_lookup_ = reg_def->enum_lookup;
-        this->parse_hex_func_ = parse_hex_enum_;
-        return;
-      default:
-        break;
-    }
+  switch (reg_def->cls) {
+    case REG_DEF::CLASS::ENUM:
+      this->enum_def_ = reg_def->enum_def;
+      for (auto &lookup_def : this->enum_def_->LOOKUPS) {
+        this->traits_().options().push_back(std::string(lookup_def.label));
+      }
+      this->parse_hex_func_ = parse_hex_enum_;
+      break;
+    default:
+      // defaults if nothing better
+      this->parse_hex_func_ = parse_hex_default_;
+      break;
   }
-  // defaults if nothing better
-  this->parse_hex_func_ = parse_hex_default_;
 }
+
 void Select::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
   std::string hex_value;
   if (hexframe->data_to_hex(hex_value)) {
     Select *select = static_cast<Select *>(entity);
-    if (select->state != hex_value)
-      select->publish_state(hex_value);
+    if (select->state != hex_value) {
+      auto &options = select->traits_().options();
+      auto it = std::find(options.begin(), options.end(), hex_value);
+      auto index = std::distance(options.begin(), it);
+      if (it == options.end()) {
+        options.push_back(hex_value);
+      }
+      select->publish_state_(index);
+    }
   }
 }
+
 void Select::parse_hex_enum_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   Select *select = static_cast<Select *>(entity);
   ENUM_DEF::data_type enum_value = hexframe->data_u8();
   if (select->enum_value_ != enum_value) {
     select->enum_value_ = enum_value;
-    auto enum_label = select->enum_lookup_(enum_value);
-    if (enum_label)
-      select->publish_state(std::string(enum_label));
-    else
-      select->publish_state(std::to_string(enum_value));
+    // the select::traits implementation is so bad...
+    // it would be nice to have a data provider interface though but
+    // this is it and we'd rather not patch the official esphome core.
+    // Here we'll try to mantain sync between our enum_def and the select::options array
+    // This code is safe as far as the enum_def->LOOKUPS is not modified by other parts
+    // of the code
+    auto &options = select->traits_().options();
+    auto lookup_result = select->enum_def_->get_lookup(enum_value);
+    if (lookup_result.added) {
+      options.insert(options.begin() + lookup_result.index, std::string(lookup_result.lookup_def->label));
+    }
+    // Better safe than sorry..
+    if (options.size() != select->enum_def_->LOOKUPS.size()) {
+      options.clear();
+      for (auto &lookup_def : select->enum_def_->LOOKUPS) {
+        options.push_back(std::string(lookup_def.label));
+      }
+    }
+    select->publish_state_(lookup_result.index);
   }
 }
 
 void Select::control(const std::string &value) {
-  // this->manager->send_register_set(this->register_id_, )
+  if (this->enum_def_) {
+    auto lookup_def = this->enum_def_->lookup_value(value.c_str());
+    if (lookup_def)
+      this->manager->send_register_set(this->register_id_, lookup_def->value);
+  }
+}
+
+void Select::publish_state_(size_t index) {
+  this->has_state_ = true;
+  this->state = this->traits_().options()[index];
+  ESP_LOGD(TAG, "'%s': Sending state %s (index %zu)", this->get_name().c_str(), this->state.c_str(), index);
+  this->state_callback_.call(this->state, index);
 }
 
 }  // namespace m3_vedirect

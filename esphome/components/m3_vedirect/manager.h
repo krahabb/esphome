@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "defines.h"
-#include "hexframe.h"
+#include "ve_hexframe.h"
 
 namespace esphome {
 namespace m3_vedirect {

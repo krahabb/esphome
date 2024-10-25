@@ -14,6 +14,8 @@ namespace m3_vedirect {
 
 static const char *const TAG = "m3_vedirect.entity";
 
+const REG_DEF VEDirectEntity::NULL_REG_DEF;
+
 const char *VEDirectEntity::UNIT_TO_DEVICE_CLASS[] = {
     "current", "voltage", "apparent_power", "power", nullptr, "energy", "battery", "duration", "temperature",
 };
@@ -121,7 +123,7 @@ VEDirectEntity *VEDirectEntity::build(Manager *manager, register_id_t register_i
           entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
         } else {
           // TODO: build a select entity
-          entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, reg_def->label, reg_def->label);
+          entity = VEDirectEntity::dynamic_build_entity_<Select>(manager, reg_def->label, reg_def->label);
         }
         break;
       case CLASS::BITMASK:
@@ -138,6 +140,7 @@ VEDirectEntity *VEDirectEntity::build(Manager *manager, register_id_t register_i
     char *name = new char[16];
     sprintf(name, "Register %s", object_id);
     entity = VEDirectEntity::dynamic_build_entity_<TextSensor>(manager, name, object_id);
+    reg_def = &NULL_REG_DEF;
   }
   entity->register_id_ = register_id;
   entity->init_reg_def_(reg_def);
@@ -155,7 +158,8 @@ void VEDirectEntity::set_text_label(const char *label) {
 
 void VEDirectEntity::set_register_id(register_id_t register_id) {
   this->register_id_ = register_id;
-  this->init_reg_def_(REG_DEF::find(register_id));
+  auto reg_def = REG_DEF::find(register_id);
+  this->init_reg_def_(reg_def ? reg_def : &NULL_REG_DEF);
   this->manager->hex_registers_.emplace(register_id, this);
 }
 
