@@ -30,8 +30,8 @@ PLATFORM_ENTITIES = {
 CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 
-async def new_vedirect_text_sensor(config, *args):
-    var = await new_vedirect_entity(config, *args)
+async def new_vedirect_text_sensor(config, manager):
+    var = await new_vedirect_entity(config, manager)
     await text_sensor.register_text_sensor(var, config)
     return var
 

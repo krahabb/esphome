@@ -21,49 +21,6 @@ namespace m3_ve_reg {
 /// the correct (pre-reserved) storage to avoid usual container dynamic reallocations
 struct HexFrame {
  public:
-  enum Command : uint8_t {
-    Ping = 0x1,
-    Done = 0x1,  // response
-    AppVersion = 0x3,
-    Unknown = 0x3,  // response
-    ProductId = 0x4,
-    Error = 0x4,     // response
-    PingResp = 0x5,  // response
-    Restart = 0x6,
-    Get = 0x7,
-    Set = 0x8,
-    Async = 0xA,
-  };
-
-#pragma pack(push, 1)
-  struct Record {
-    Command command;
-    union {
-      uint8_t rawdata[0];
-      struct {
-        register_id_t register_id;
-        uint8_t flags;
-        union {
-          uint8_t data_u8;
-          int16_t data_i16;
-          uint16_t data_u16;
-          uint32_t data_u32;
-          uint8_t data[0];
-        };
-      };
-    };
-  };
-#pragma pack(pop)
-
-  /// @brief Represents the format (numeric) of the data payload
-  enum DataType : int8_t {
-    unknown = 0,
-    u8 = 1,
-    u16 = 2,
-    i16 = -2,
-    u32 = 4,
-  };
-
   enum DecodeResult : int8_t {
     /// @brief Decoder status ok, need more data to complete the frame
     Continue = 0,
@@ -82,7 +39,8 @@ struct HexFrame {
   };
 
   // Generic (raw) data accessors
-  inline Record *record() { return (Record *) this->rawframe_begin_; }
+  inline const HEXFRAME *record() const { return (HEXFRAME *) this->rawframe_begin_; }
+  inline HEXFRAME *record() { return (HEXFRAME *) this->rawframe_begin_; }
   inline const uint8_t *begin() const { return this->rawframe_begin_; }
   inline const uint8_t *end() const { return this->rawframe_end_; }
   inline int capacity() const { return end_of_storage() - this->rawframe_begin_; }
@@ -121,6 +79,8 @@ struct HexFrame {
   uint16_t data_u16() const { return *(uint16_t *) this->data_begin(); }
   int16_t data_i16() const { return *(int16_t *) this->data_begin(); }
   uint32_t data_u32() const { return *(uint32_t *) this->data_begin(); }
+  // unchecked (buffer overflow) cast to data type: be careful
+  template<typename T> T data() { return *(T *) this->data_begin(); }
   /// @brief Safely extracts the 'raw' payload (i.e. the data past the register id and flags)
   bool data_to_hex(std::string &hexdata) const;
 
@@ -129,7 +89,7 @@ struct HexFrame {
 
   /// @brief Builds a plain command frame payload
   /// @param command
-  inline void command(Command command) {
+  inline void command(HEXFRAME::COMMAND command) {
     this->rawframe_begin_[0] = command;
     this->rawframe_end_ = this->rawframe_begin_ + 1;
     this->encode_();
@@ -138,19 +98,19 @@ struct HexFrame {
   /// @param register_id
   inline void command_get(register_id_t register_id) {
     auto record = this->record();
-    record->command = Command::Get;
+    record->command = HEXFRAME::COMMAND::Get;
     record->register_id = register_id;
     record->flags = 0;
     this->rawframe_end_ = this->rawframe_begin_ + 4;
     this->encode_();
   }
-  template<typename DataType> void command_set(register_id_t register_id, DataType data) {
+  template<typename T> void command_set(register_id_t register_id, T data) {
     auto record = this->record();
-    record->command = Command::Set;
+    record->command = HEXFRAME::COMMAND::Set;
     record->register_id = register_id;
     record->flags = 0;
-    *(DataType *) record->data = data;
-    this->rawframe_end_ = this->rawframe_begin_ + 4 + sizeof(DataType);
+    *(T *) record->data = data;
+    this->rawframe_end_ = this->rawframe_begin_ + 4 + sizeof(T);
     this->encode_();
   }
 
@@ -203,7 +163,7 @@ template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
 /// @brief Helper constructor for plain 'command' frames (no payload)
 struct HexFrame_Command : public HexFrameT<0> {
  public:
-  HexFrame_Command(Command command) { this->command(command); }
+  HexFrame_Command(HEXFRAME::COMMAND command) { this->command(command); }
 };
 
 /// @brief Helper constructor for plain 'command' frames (no payload)
@@ -219,9 +179,7 @@ struct HexFrame_Get : public HexFrameT<3> {
 };*/
 struct HexFrame_Set : public HexFrameT<7> {
  public:
-  template<typename DataType> HexFrame_Set(register_id_t register_id, DataType data) {
-    this->command_set(register_id, data);
-  }
+  template<typename T> HexFrame_Set(register_id_t register_id, T data) { this->command_set(register_id, data); }
 };
 
 class HexFrameDecoder {

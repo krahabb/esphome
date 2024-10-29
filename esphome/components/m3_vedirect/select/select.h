@@ -6,23 +6,19 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Select : public esphome::select::Select, public VEDirectEntity {
+class Select : public ConfigEntity, public esphome::select::Select {
  public:
-  Select(Manager *manager) : VEDirectEntity(manager) {}
-
-  // interface VEDirectEntity
-
-  void parse_text_value(const char *text_value) override;
-
-  void dynamic_register() override;
+  Select(Manager *manager) : ConfigEntity(manager) {}
 
  protected:
-  ENUM_DEF::data_type enum_value_{0xFF};
-  ENUM_DEF *enum_def_{};
+  friend class Manager;
+  ENUM_DEF::enum_type enum_value_{0xFF};
 
-  void init_reg_def_(const REG_DEF *reg_def) override;
-  static void parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe);
-  static void parse_hex_enum_(VEDirectEntity *entity, const RxHexFrame *hexframe);
+  void dynamic_register_() override;
+  void init_reg_def_() override;
+
+  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
+  static void parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe);
 
   // interface esphome::select::Select
 

@@ -16,8 +16,6 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class VEDirectEntity;
-
 #define MANAGER_ENTITY_(type, name) \
  protected: \
   type *name##_{}; /* NOLINT */ \
@@ -46,18 +44,16 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void loop() override;
   void dump_config() override;
 
-  static Manager *get_manager(const std::string &vedirect_id);
-
-  void setup_entity_name_id(EntityBase *entity, const char *name, const char *object_id);
+  static std::vector<Manager *> get_managers(const std::string &vedirect_id);
 
   void send_hexframe(const HexFrame &hexframe);
   void send_hexframe(const char *rawframe, bool addchecksum = true);
   void send_hexframe(const std::string &rawframe, bool addchecksum = true) {
     this->send_hexframe(rawframe.c_str(), addchecksum);
   }
-  void send_command(HexFrame::Command command) { this->send_hexframe(HexFrame_Command(command)); }
+  void send_command(HEXFRAME::COMMAND command) { this->send_hexframe(HexFrame_Command(command)); }
   void send_register_get(register_id_t register_id) { this->send_hexframe(HexFrame_Get(register_id)); }
-  template<typename DataType> void send_register_set(register_id_t register_id, DataType data) {
+  template<typename T> void send_register_set(register_id_t register_id, T data) {
     this->send_hexframe(HexFrame_Set(register_id, data));
   }
 
@@ -78,8 +74,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     TEMPLATABLE_VALUE(std::string, payload)
 
     void play(Ts... x) {
-      auto manager = Manager::get_manager(this->vedirect_id_.value(x...));
-      if (manager)
+      for (auto manager : Manager::get_managers(this->vedirect_id_.value(x...)))
         manager->send_hexframe(this->payload_.value(x...));
     }
   };
@@ -91,14 +86,13 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     TEMPLATABLE_VALUE(uint8_t, data_size)
 
     void play(Ts... x) {
-      auto manager = Manager::get_manager(this->vedirect_id_.value(x...));
-      if (manager) {
-        HexFrame::Command command = (HexFrame::Command) this->command_.value(x...);
+      for (auto manager : Manager::get_managers(this->vedirect_id_.value(x...))) {
+        HEXFRAME::COMMAND command = (HEXFRAME::COMMAND) this->command_.value(x...);
         switch (command) {
-          case HexFrame::Command::Get:
+          case HEXFRAME::COMMAND::Get:
             manager->send_register_get(this->register_id_.value(x...));
             break;
-          case HexFrame::Command::Set:
+          case HEXFRAME::COMMAND::Set:
             switch (this->data_size_.value(x...)) {
               case 1:
                 manager->send_register_set(this->register_id_.value(x...), (uint8_t) this->data_.value(x...));
@@ -119,6 +113,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   };
 
  protected:
+  static std::vector<Manager *> managers_;
   // component config
   const char *logtag_;
   std::string vedirect_id_;
@@ -147,9 +142,10 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // These will provide 'map' access either by text record name (text_entities_)
   // or by HEX register id (hex_entities_). Since some HEX registers are also
   // published in TEXT frames we're also trying to map these to the same entity.
-  friend class VEDirectEntity;
-  std::unordered_map<const char *, VEDirectEntity *, cstring_hash, cstring_eq> text_entities_;
-  std::unordered_map<uint16_t, VEDirectEntity *> hex_registers_;
+  friend class Entity;
+  std::unordered_map<const char *, Entity *, cstring_hash, cstring_eq> text_entities_;
+  friend class HexRegister;
+  std::unordered_map<uint16_t, HexRegister *> hex_registers_;
 
   friend class HexFrameTrigger;
   CallbackManager<void(const HexFrame &)> hexframe_callback_;
@@ -157,7 +153,14 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     this->hexframe_callback_.add(std::move(callback));
   }
 
-  static std::vector<Manager *> managers_;
+  /// @brief Class factory method to auto generate an entity based off the TEXT frame label
+  /// @param manager
+  /// @param label
+  /// @return
+  Entity *build_text_entity_(const char *label);
+  HexRegister *build_hex_register_(register_id_t register_id);
+  template<typename TEntity> TEntity *dynamic_build_entity_(const char *name, const char *object_id);
+  void dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id);
 };
 
 }  // namespace m3_vedirect

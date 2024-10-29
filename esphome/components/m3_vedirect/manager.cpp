@@ -1,5 +1,9 @@
 #include "manager.h"
 #include "esphome/core/log.h"
+#include "binary_sensor/binary_sensor.h"
+#include "select/select.h"
+#include "sensor/sensor.h"
+#include "text_sensor/text_sensor.h"
 
 #include "entity.h"
 
@@ -44,39 +48,26 @@ void Manager::loop() {
   }
 
   if (this->ping_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_timeout_)) {
-    this->send_hexframe(HexFrame_Command(HexFrame::Ping));
+    this->send_hexframe(HexFrame_Command(HEXFRAME::COMMAND::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
   }
 }
 
 void Manager::dump_config() { ESP_LOGCONFIG(this->logtag_, "VEDirect:"); }
 
-Manager *Manager::get_manager(const std::string &vedirect_id) {
+std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
   if (vedirect_id.empty()) {
-    return managers_.front();
+    return {managers_.front()};
+  } else if (vedirect_id == "*") {
+    return managers_;
   } else {
     for (auto manager : managers_) {
       if (manager->vedirect_id_ == vedirect_id) {
-        return manager;
+        return {manager};
       }
     }
   }
-  return nullptr;
-}
-
-void Manager::setup_entity_name_id(EntityBase *entity, const char *name, const char *object_id) {
-  // set_name before set_object_id else it will fckup object_id generation
-  if (this->vedirect_name_.empty()) {
-    entity->set_name(name);
-  } else {
-    char *entity_name = new char[this->vedirect_name_.size() + strlen(name) + 2];
-    sprintf(entity_name, "%s.%s", this->vedirect_name_.c_str(), name);
-    entity->set_name(entity_name);
-  }
-
-  char *entity_object_id = new char[this->vedirect_id_.size() + strlen(object_id) + 2];
-  sprintf(entity_object_id, "%s.%s", this->vedirect_id_.c_str(), object_id);
-  entity->set_object_id(entity_object_id);
+  return {};
 }
 
 void Manager::send_hexframe(const HexFrame &hexframe) {
@@ -94,19 +85,6 @@ void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
   }
 }
 
-/* void Manager::send_hexframe(const std::string &vedirect_id, const std::string &payload) {
-  if (vedirect_id.empty()) {
-    managers_.front()->send_hexframe(payload.c_str(), false);
-  } else {
-    for (auto manager : managers_) {
-      if (manager->vedirect_id_ == vedirect_id) {
-        manager->send_hexframe(payload.c_str(), false);
-        break;
-      }
-    }
-  }
-}*/
-
 void Manager::on_connected_() {
   ESP_LOGD(this->logtag_, "LINK: connected");
   this->connected_ = true;
@@ -114,7 +92,7 @@ void Manager::on_connected_() {
     link_connected->publish_state(true);
   }
   if (this->auto_create_hex_entities_ || this->hex_registers_.size()) {
-    this->send_hexframe(HexFrame_Command(HexFrame::Ping));
+    this->send_hexframe(HexFrame_Command(HEXFRAME::COMMAND::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
   }
 }
@@ -127,8 +105,12 @@ void Manager::on_disconnected_() {
     link_connected->publish_state(false);
   }
 
-  // we should set all entities state to HA 'unavailable' but
-  // ESPHOME right now doesn't support it
+  for (auto &pair : this->text_entities_) {
+    pair.second->link_disconnected_();
+  }
+  for (auto &pair : this->hex_registers_) {
+    pair.second->link_disconnected_();
+  }
 }
 void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
   ESP_LOGD(this->logtag_, "HEX FRAME: received %s", hexframe.encoded());
@@ -143,23 +125,23 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
 
   this->millis_last_hexframe_rx_ = this->millis_last_rx_;
   switch (hexframe.command()) {
-    case HexFrame::Command::Get:
-    case HexFrame::Command::Set:
-    case HexFrame::Command::Async: {
+    case HEXFRAME::COMMAND::Get:
+    case HEXFRAME::COMMAND::Set:
+    case HEXFRAME::COMMAND::Async: {
       if (hexframe.data_size() > 0) {
-        VEDirectEntity *entity;
+        HexRegister *hexregister;
         auto entity_iter = this->hex_registers_.find(hexframe.register_id());
         if (entity_iter == this->hex_registers_.end()) {
           if (this->auto_create_hex_entities_) {
             ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct hex register: %04X", (int) hexframe.register_id());
-            entity = VEDirectEntity::build(this, hexframe.register_id());
+            hexregister = this->build_hex_register_(hexframe.register_id());
           } else {
             break;
           }
         } else {
-          entity = entity_iter->second;
+          hexregister = entity_iter->second;
         }
-        entity->parse_hex()(entity, &hexframe);
+        hexregister->parse_hex()(hexregister, &hexframe);
       } else {
         ESP_LOGE(this->logtag_, "Inconsistent hex frame size: %s", hexframe.encoded());
       }
@@ -196,16 +178,123 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
     if (entity_iter == this->text_entities_.end()) {
       if (this->auto_create_text_entities_) {
         ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct text field: %s", text_record->name);
-        auto entity = VEDirectEntity::build(this, text_record->name);
-        entity->parse_text_value(text_record->value);
+        auto entity = this->build_text_entity_(text_record->name);
+        entity->parse_text_(text_record->value);
       }
     } else {
-      entity_iter->second->parse_text_value(text_record->value);
+      entity_iter->second->parse_text_(text_record->value);
     }
   }
 }
 
 void Manager::on_frame_error_(const char *message) { ESP_LOGE(this->logtag_, message); }
+
+Entity *Manager::build_text_entity_(const char *label) {
+  Entity *entity;
+  auto text_def_it = Entity::TEXT_DEFS.find(label);
+  if (text_def_it == Entity::TEXT_DEFS.end()) {
+    // ENTITIES_DEF lacks the definition for this parameter so
+    // we return a plain TextSensor entity.
+    // We allocate a copy since the label param is 'volatile'
+    label = strdup(label);
+    entity = this->dynamic_build_entity_<TextSensor>(label, label);
+  } else {
+    label = text_def_it->first;
+    auto &text_def = text_def_it->second;
+    switch (text_def.cls) {
+      case REG_DEF::CLASS::NUMERIC:
+        // pass our 'static' copy of the label (param is volatile)
+        entity = this->dynamic_build_entity_<Sensor>(text_def.description, label);
+        break;
+      case REG_DEF::CLASS::BOOLEAN:
+        entity = this->dynamic_build_entity_<BinarySensor>(text_def.description, label);
+        break;
+      default:
+        entity = this->dynamic_build_entity_<TextSensor>(text_def.description, label);
+    }
+    entity->init_text_def_(&text_def);
+  }
+  this->text_entities_.emplace(label, entity);
+  return entity;
+}
+
+HexRegister *Manager::build_hex_register_(register_id_t register_id) {
+  HexRegister *hexregister;
+  auto reg_def = REG_DEF::find(register_id);
+  if (reg_def) {
+    switch (reg_def->cls) {
+      case REG_DEF::CLASS::NUMERIC:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          hexregister = this->dynamic_build_entity_<Sensor>(reg_def->label, reg_def->label);
+        } else {
+          // TODO: build a number entity
+          hexregister = this->dynamic_build_entity_<Sensor>(reg_def->label, reg_def->label);
+        }
+        break;
+      case REG_DEF::CLASS::BOOLEAN:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          hexregister = this->dynamic_build_entity_<BinarySensor>(reg_def->label, reg_def->label);
+        } else {
+          // TODO: build a switch entity
+          hexregister = this->dynamic_build_entity_<BinarySensor>(reg_def->label, reg_def->label);
+        }
+        break;
+      case REG_DEF::CLASS::ENUM:
+        if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
+          hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+        } else {
+          hexregister = this->dynamic_build_entity_<Select>(reg_def->label, reg_def->label);
+        }
+        break;
+      case REG_DEF::CLASS::BITMASK: {
+        /* example use of BitmaskHexRegister...still have to decide the next steps..
+        right now by default setup a TextSensor
+        BitmaskHexRegister *bitmask_hex_register = new BitmaskHexRegister();
+        hexregister = bitmask_hex_register;
+        auto text_sensor = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+        bitmask_hex_register->register_bitmask_parser(text_sensor);
+        auto binary_sensor = this->dynamic_build_entity_<BinarySensor>(reg_def->label, "aaaaa");
+        binary_sensor->set_mask(1 << VE_REG_DEVICE_OFF_REASON_2_BITMASK::NO_INPUT_POWER);
+        bitmask_hex_register->register_bitmask_parser(binary_sensor);*/
+        hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+      } break;
+      default:
+        hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+    }
+  } else {
+    // else build a raw text sensor
+    char *object_id = new char[7];
+    sprintf(object_id, "0x%04X", (int) register_id);
+    char *name = new char[16];
+    sprintf(name, "Register %s", object_id);
+    hexregister = this->dynamic_build_entity_<TextSensor>(name, object_id);
+    reg_def = new REG_DEF(register_id);
+  }
+  hexregister->set_reg_def(reg_def);
+  this->hex_registers_.emplace(register_id, hexregister);
+  return hexregister;
+}
+
+template<typename TEntity> TEntity *Manager::dynamic_build_entity_(const char *name, const char *object_id) {
+  auto entity = new TEntity(this);
+  this->dynamic_init_entity_(entity, name, object_id);
+  entity->dynamic_register_();
+  return entity;
+}
+
+void Manager::dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id) {
+  // 'inner' helper for dynamic_build_entity_ to avoid the template code duplication
+  if (this->vedirect_name_.empty()) {
+    entity->set_name(name);
+  } else {
+    char *entity_name = new char[this->vedirect_name_.size() + strlen(name) + 2];
+    sprintf(entity_name, "%s.%s", this->vedirect_name_.c_str(), name);
+    entity->set_name(entity_name);
+  }
+  char *entity_object_id = new char[this->vedirect_id_.size() + strlen(object_id) + 2];
+  sprintf(entity_object_id, "%s_%s", this->vedirect_id_.c_str(), object_id);
+  entity->set_object_id(entity_object_id);
+}
 
 }  // namespace m3_vedirect
 }  // namespace esphome

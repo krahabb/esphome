@@ -4,7 +4,7 @@
 
 namespace m3_ve_reg {
 
-const char *ENUM_DEF::lookup_label(data_type value) {
+const char *ENUM_DEF::lookup_label(enum_type value) {
   auto lookup_def_it = std::lower_bound(this->LOOKUPS.begin(), this->LOOKUPS.end(), value);
   return (lookup_def_it != this->LOOKUPS.end()) && (lookup_def_it->value == value) ? lookup_def_it->label : nullptr;
 }
@@ -17,7 +17,7 @@ const ENUM_DEF::LOOKUP_DEF *ENUM_DEF::lookup_value(const char *label) {
   return nullptr;
 }
 
-ENUM_DEF::LOOKUP_RESULT ENUM_DEF::get_lookup(data_type value) {
+ENUM_DEF::LOOKUP_RESULT ENUM_DEF::get_lookup(enum_type value) {
   LOOKUP_RESULT result;
   auto lookup_def_it = std::lower_bound(this->LOOKUPS.begin(), this->LOOKUPS.end(), value);
   result.index = lookup_def_it - this->LOOKUPS.begin();
@@ -34,22 +34,6 @@ ENUM_DEF::LOOKUP_RESULT ENUM_DEF::get_lookup(data_type value) {
   return result;
 }
 
-/*
-const char *ENUM_DEF::lookup_label(data_type value, const LOOKUP_DEF *lookup, const LOOKUP_DEF *lookup_end) {
-  lookup = std::lower_bound(lookup, lookup_end, value);
-  return (lookup != lookup_end) && (lookup->value == value) ? lookup->label : nullptr;
-}
-
-const ENUM_DEF::LOOKUP_DEF *ENUM_DEF::lookup_value(const char *label, const LOOKUP_DEF *lookup,
-                                                   const LOOKUP_DEF *lookup_end) {
-  for (; lookup < lookup_end; ++lookup) {
-    if (0 == strcmp(lookup->label, label))
-      return lookup;
-  }
-  return nullptr;
-}
-*/
-
 const char *REG_DEF::UNITS[] = {
     "", "A", "V", "VA", "W", "Ah", "kWh", "%", "min", "°C",
 };
@@ -58,18 +42,22 @@ const float REG_DEF::DIGITS_TO_SCALE[] = {1.f, .1f, .01f, .001f};
 // define the enum helpers structs for ENUM registers
 #define _ENUMS_LOOKUP_ITEM(enum, value) \
   { value, #enum }
+#define DEFINE_ENUMS_BITMASK(register_id, label, access, ...) \
+  BITMASK_DEF VE_REG_##label##_BITMASK_DEF = {{BITMASK_##label(_ENUMS_LOOKUP_ITEM)}};
 #define DEFINE_ENUMS_ENUM(register_id, label, access) \
   ENUM_DEF VE_REG_##label##_ENUM_DEF = {{ENUM_##label(_ENUMS_LOOKUP_ITEM)}};
 #define DEFINE_ENUMS_NUMERIC(...)
 REGISTERS_COMMON(DEFINE_ENUMS)
 
 // define the registers definitions (will be stored in REG_DEF::DEFS)
+#define DEFINE_DEFS_BITMASK(register_id, label, access, type) \
+  {register_id, #label, REG_DEF::access, HEXFRAME::DATA_TYPE_OF<type>(), &VE_REG_##label##_BITMASK_DEF},
 #define DEFINE_DEFS_ENUM(register_id, label, access) {register_id, #label, REG_DEF::access, &VE_REG_##label##_ENUM_DEF},
 #define DEFINE_DEFS_NUMERIC(register_id, label, access, type, digits, unit) \
   {register_id, \
    #label, \
    REG_DEF::access, \
-   REG_DEF::DATA_TYPE_OF<type>(), \
+   HEXFRAME::DATA_TYPE_OF<type>(), \
    REG_DEF::digits, \
    REG_DEF::unit, \
    REG_DEF::numeric_to_float_t<type, REG_DEF::digits>},

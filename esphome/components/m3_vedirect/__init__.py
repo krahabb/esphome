@@ -77,15 +77,15 @@ def vedirect_platform_schema(
     )
 
 
-async def new_vedirect_entity(config, *args):
-    var = cg.new_Pvariable(config[CONF_ID], *args)
+async def new_vedirect_entity(config, manager):
+    var = cg.new_Pvariable(config[CONF_ID], manager)
     valid = False
     if CONF_TEXT_LABEL in config:
         valid = True
-        cg.add(var.set_text_label(config[CONF_TEXT_LABEL]))
+        cg.add(var.set_text_label(manager, config[CONF_TEXT_LABEL]))
     if CONF_REGISTER_ID in config:
         valid = True
-        cg.add(var.set_register_id(config[CONF_REGISTER_ID]))
+        cg.add(var.set_register_id(manager, config[CONF_REGISTER_ID]))
         if CONF_DATA_TYPE in config:
             cg.add(var.set_hex_data_type(config[CONF_DATA_TYPE]))
     if not valid:

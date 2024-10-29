@@ -29,8 +29,8 @@ PLATFORM_ENTITIES = {
 CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 
-async def new_vedirect_binary_sensor(config, *args):
-    var = await new_vedirect_entity(config, *args)
+async def new_vedirect_binary_sensor(config, manager):
+    var = await new_vedirect_entity(config, manager)
     await binary_sensor.register_binary_sensor(var, config)
     return var
 

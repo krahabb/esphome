@@ -9,30 +9,7 @@ namespace m3_vedirect {
 
 static const char *const TAG = "select";
 
-void Select::parse_text_value(const char *text_value) {}
-/*
-void Select::parse_hex_value(const HexFrame *hexframe) {
-  std::string hex_value;
-  if (hexframe->data_to_hex(hex_value) && (this->state != hex_value)) {
-    // copied code from Select::publish_state to optimize some inner behaviors (dynamic options fill)
-    auto index = this->index_of(hex_value);
-    size_t index_;
-    if (index.has_value()) {
-      index_ = index.value();
-    } else {
-      size_t index_ = this->traits_().options().size();
-      this->traits_().options().push_back(hex_value);
-      // TODO: check the size is consistent among different hex_values
-      this->hex_data_size_ = hex_value.size() / 2;
-    }
-    this->has_state_ = true;
-    this->state = hex_value;
-    ESP_LOGD(TAG, "'%s': Sending state %s (index %zu)", this->get_name().c_str(), hex_value.c_str(), index_);
-    this->state_callback_.call(hex_value, index_);
-  }
-}
-*/
-void Select::dynamic_register() {
+void Select::dynamic_register_() {
   App.register_select(this);
   if (api::global_api_server) {
     add_on_state_callback([this](const std::string &state, size_t index) {
@@ -41,26 +18,25 @@ void Select::dynamic_register() {
   }
 }
 
-void Select::init_reg_def_(const REG_DEF *reg_def) {
-  switch (reg_def->cls) {
+void Select::init_reg_def_() {
+  switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::ENUM:
-      this->enum_def_ = reg_def->enum_def;
-      for (auto &lookup_def : this->enum_def_->LOOKUPS) {
+      for (auto &lookup_def : this->reg_def_->enum_def->LOOKUPS) {
         this->traits_().options().push_back(std::string(lookup_def.label));
       }
-      this->parse_hex_func_ = parse_hex_enum_;
+      this->parse_hex_ = parse_hex_enum_;
       break;
     default:
       // defaults if nothing better
-      this->parse_hex_func_ = parse_hex_default_;
+      this->parse_hex_ = parse_hex_default_;
       break;
   }
 }
 
-void Select::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
+void Select::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe) {
   std::string hex_value;
   if (hexframe->data_to_hex(hex_value)) {
-    Select *select = static_cast<Select *>(entity);
+    Select *select = static_cast<Select *>(hexregister);
     if (select->state != hex_value) {
       auto &options = select->traits_().options();
       auto it = std::find(options.begin(), options.end(), hex_value);
@@ -73,10 +49,10 @@ void Select::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexfra
   }
 }
 
-void Select::parse_hex_enum_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
+void Select::parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  Select *select = static_cast<Select *>(entity);
-  ENUM_DEF::data_type enum_value = hexframe->data_u8();
+  Select *select = static_cast<Select *>(hexregister);
+  ENUM_DEF::enum_type enum_value = hexframe->data_u8();
   if (select->enum_value_ != enum_value) {
     select->enum_value_ = enum_value;
     // the select::traits implementation is so bad...
@@ -86,14 +62,15 @@ void Select::parse_hex_enum_(VEDirectEntity *entity, const RxHexFrame *hexframe)
     // This code is safe as far as the enum_def->LOOKUPS is not modified by other parts
     // of the code
     auto &options = select->traits_().options();
-    auto lookup_result = select->enum_def_->get_lookup(enum_value);
+    auto enum_def = select->reg_def_->enum_def;
+    auto lookup_result = enum_def->get_lookup(enum_value);
     if (lookup_result.added) {
       options.insert(options.begin() + lookup_result.index, std::string(lookup_result.lookup_def->label));
     }
     // Better safe than sorry..
-    if (options.size() != select->enum_def_->LOOKUPS.size()) {
+    if (options.size() != enum_def->LOOKUPS.size()) {
       options.clear();
-      for (auto &lookup_def : select->enum_def_->LOOKUPS) {
+      for (auto &lookup_def : enum_def->LOOKUPS) {
         options.push_back(std::string(lookup_def.label));
       }
     }
@@ -102,10 +79,10 @@ void Select::parse_hex_enum_(VEDirectEntity *entity, const RxHexFrame *hexframe)
 }
 
 void Select::control(const std::string &value) {
-  if (this->enum_def_) {
-    auto lookup_def = this->enum_def_->lookup_value(value.c_str());
+  if (this->reg_def_) {
+    auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
     if (lookup_def)
-      this->manager->send_register_set(this->register_id_, lookup_def->value);
+      this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
   }
 }
 

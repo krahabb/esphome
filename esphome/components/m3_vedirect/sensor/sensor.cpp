@@ -6,43 +6,28 @@
 namespace esphome {
 namespace m3_vedirect {
 
-void Sensor::parse_text_value(const char *text_value) {
-  char *endptr;
-  float value = strtof(text_value, &endptr) * this->text_scale_;
-  if (*endptr != 0)
-    value = NAN;
-  if (value != this->raw_state)
-    publish_state(value);
-}
-
-void Sensor::dynamic_register() {
+void Sensor::dynamic_register_() {
   App.register_sensor(this);
   if (api::global_api_server)
     add_on_state_callback([this](float state) { api::global_api_server->on_sensor_update(this, state); });
 }
 
-void Sensor::init_text_def_(const TEXT_DEF *text_def) {
-  this->set_unit_of_measurement(REG_DEF::UNITS[text_def->unit]);
-  this->set_accuracy_decimals(text_def->digits);
-  this->set_device_class(UNIT_TO_DEVICE_CLASS[text_def->unit]);
-  this->set_state_class(UNIT_TO_STATE_CLASS[text_def->unit]);
-  this->set_text_scale(REG_DEF::DIGITS_TO_SCALE[text_def->digits]);
-}
+void Sensor::link_disconnected_() { this->publish_state(NAN); }
 
-void Sensor::init_reg_def_(const REG_DEF *reg_def) {
-  switch (reg_def->cls) {
+void Sensor::init_reg_def_() {
+  switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::NUMERIC:
-      this->numeric_to_float_ = reg_def->numeric_to_float;
-      this->parse_hex_func_ = parse_hex_numeric_;
+      this->numeric_to_float_ = this->reg_def_->numeric_to_float;
+      this->parse_hex_ = parse_hex_numeric_;
       break;
     default:
       // defaults if nothing better
-      this->parse_hex_func_ = parse_hex_default_;
+      this->parse_hex_ = parse_hex_default_;
       break;
   }
 }
 
-void Sensor::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
+void Sensor::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe) {
   float value;
   switch (hexframe->data_size()) {
     case 1:
@@ -58,19 +43,36 @@ void Sensor::parse_hex_default_(VEDirectEntity *entity, const RxHexFrame *hexfra
     default:
       return;
   }
-  Sensor *sensor = static_cast<Sensor *>(entity);
+  Sensor *sensor = static_cast<Sensor *>(hexregister);
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
   }
 }
 
-void Sensor::parse_hex_numeric_(VEDirectEntity *entity, const RxHexFrame *hexframe) {
+void Sensor::parse_hex_numeric_(HexRegister *hexregister, const RxHexFrame *hexframe) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  Sensor *sensor = static_cast<Sensor *>(entity);
+  Sensor *sensor = static_cast<Sensor *>(hexregister);
   float value = sensor->numeric_to_float_(hexframe->data_begin());
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
   }
+}
+
+void Sensor::init_text_def_(const TEXT_DEF *text_def) {
+  this->set_unit_of_measurement(REG_DEF::UNITS[text_def->unit]);
+  this->set_accuracy_decimals(text_def->digits);
+  this->set_device_class(UNIT_TO_DEVICE_CLASS[text_def->unit]);
+  this->set_state_class(UNIT_TO_STATE_CLASS[text_def->unit]);
+  this->set_text_scale(REG_DEF::DIGITS_TO_SCALE[text_def->digits]);
+}
+
+void Sensor::parse_text_(const char *text_value) {
+  char *endptr;
+  float value = strtof(text_value, &endptr) * this->text_scale_;
+  if (*endptr != 0)
+    value = NAN;
+  if (value != this->raw_state)
+    publish_state(value);
 }
 
 }  // namespace m3_vedirect
