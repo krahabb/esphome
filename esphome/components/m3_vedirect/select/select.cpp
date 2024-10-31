@@ -33,10 +33,10 @@ void Select::init_reg_def_() {
   }
 }
 
-void Select::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   std::string hex_value;
-  if (hexframe->data_to_hex(hex_value)) {
-    Select *select = static_cast<Select *>(hexregister);
+  if (hex_frame->data_to_hex(hex_value)) {
+    Select *select = static_cast<Select *>(hex_register);
     if (select->state != hex_value) {
       auto &options = select->traits_().options();
       auto it = std::find(options.begin(), options.end(), hex_value);
@@ -49,20 +49,41 @@ void Select::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexf
   }
 }
 
-void Select::parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  Select *select = static_cast<Select *>(hexregister);
-  ENUM_DEF::enum_type enum_value = hexframe->data_u8();
-  if (select->enum_value_ != enum_value) {
-    select->enum_value_ = enum_value;
+  static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_u8());
+}
+
+void Select::init_text_def_(const TEXT_DEF *text_def) {
+  switch (text_def->cls) {
+    // When installing a specialized parse_text ensure the correct 'reg_def_' is in place
+    case REG_DEF::CLASS::ENUM:
+      if ((this->reg_def_->cls == REG_DEF::CLASS::ENUM) && (this->reg_def_->enum_def))
+        this->parse_text_ = parse_text_enum_;
+      break;
+    default:
+      break;
+  }
+}
+
+void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
+  char *endptr;
+  ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
+  if (*endptr == 0)
+    static_cast<Select *>(hex_register)->parse_enum_(enum_value);
+}
+
+void Select::parse_enum_(ENUM_DEF::enum_t enum_value) {
+  if (this->enum_value_ != enum_value) {
+    this->enum_value_ = enum_value;
     // the select::traits implementation is so bad...
     // it would be nice to have a data provider interface though but
     // this is it and we'd rather not patch the official esphome core.
     // Here we'll try to mantain sync between our enum_def and the select::options array
     // This code is safe as far as the enum_def->LOOKUPS is not modified by other parts
     // of the code
-    auto &options = select->traits_().options();
-    auto enum_def = select->reg_def_->enum_def;
+    auto &options = this->traits_().options();
+    auto enum_def = this->reg_def_->enum_def;
     auto lookup_result = enum_def->get_lookup(enum_value);
     if (lookup_result.added) {
       options.insert(options.begin() + lookup_result.index, std::string(lookup_result.lookup_def->label));
@@ -74,7 +95,7 @@ void Select::parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexfram
         options.push_back(std::string(lookup_def.label));
       }
     }
-    select->publish_state_(lookup_result.index);
+    this->publish_state_(lookup_result.index);
   }
 }
 

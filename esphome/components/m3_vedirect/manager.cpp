@@ -104,7 +104,6 @@ void Manager::on_disconnected_() {
   if (auto link_connected = this->link_connected_) {
     link_connected->publish_state(false);
   }
-
   for (auto &pair : this->text_entities_) {
     pair.second->link_disconnected_();
   }
@@ -129,19 +128,9 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
     case HEXFRAME::COMMAND::Set:
     case HEXFRAME::COMMAND::Async: {
       if (hexframe.data_size() > 0) {
-        HexRegister *hexregister;
-        auto entity_iter = this->hex_registers_.find(hexframe.register_id());
-        if (entity_iter == this->hex_registers_.end()) {
-          if (this->auto_create_hex_entities_) {
-            ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct hex register: %04X", (int) hexframe.register_id());
-            hexregister = this->build_hex_register_(hexframe.register_id());
-          } else {
-            break;
-          }
-        } else {
-          hexregister = entity_iter->second;
-        }
-        hexregister->parse_hex()(hexregister, &hexframe);
+        HexRegister *hex_register = this->get_hex_register_(hexframe.register_id(), this->auto_create_hex_entities_);
+        if (hex_register)
+          hex_register->parse_hex(&hexframe);
       } else {
         ESP_LOGE(this->logtag_, "Inconsistent hex frame size: %s", hexframe.encoded());
       }
@@ -177,50 +166,69 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
     auto entity_iter = this->text_entities_.find(text_record->name);
     if (entity_iter == this->text_entities_.end()) {
       if (this->auto_create_text_entities_) {
-        ESP_LOGD(this->logtag_, "Looking-up entity for VE.Direct text field: %s", text_record->name);
+        ESP_LOGD(this->logtag_, "Auto-Creating entity for VE.Direct text field: %s", text_record->name);
         auto entity = this->build_text_entity_(text_record->name);
-        entity->parse_text_(text_record->value);
+        entity->parse_text(text_record->value);
       }
     } else {
-      entity_iter->second->parse_text_(text_record->value);
+      entity_iter->second->parse_text(text_record->value);
     }
   }
 }
 
 void Manager::on_frame_error_(const char *message) { ESP_LOGE(this->logtag_, message); }
 
-Entity *Manager::build_text_entity_(const char *label) {
-  Entity *entity;
-  auto text_def_it = Entity::TEXT_DEFS.find(label);
-  if (text_def_it == Entity::TEXT_DEFS.end()) {
+HexRegister *Manager::get_hex_register_(register_id_t register_id, bool create) {
+  auto entity_iter = this->hex_registers_.find(register_id);
+  if (entity_iter == this->hex_registers_.end()) {
+    if (create) {
+      ESP_LOGD(this->logtag_, "Auto-Creating entity for VE.Direct hex register: %04X", (int) register_id);
+      return this->build_hex_register_(register_id);
+    } else {
+      return nullptr;
+    }
+  } else {
+    return entity_iter->second;
+  }
+}
+
+HexRegister *Manager::build_text_entity_(const char *label) {
+  HexRegister *hex_register;
+  auto text_def = TEXT_DEF::find_label(label);
+  if (text_def) {
+    // check if we have an already defined matching register
+    auto reg_def = REG_DEF::find_type(text_def->register_type);
+    if (reg_def) {
+      hex_register = this->get_hex_register_(reg_def->register_id, true);
+    } else {
+      switch (text_def->cls) {
+        case REG_DEF::CLASS::NUMERIC:
+          hex_register = this->dynamic_build_entity_<Sensor>(text_def->description, text_def->label);
+          break;
+        case REG_DEF::CLASS::BOOLEAN:
+          hex_register = this->dynamic_build_entity_<BinarySensor>(text_def->description, text_def->label);
+          break;
+        default:
+          hex_register = this->dynamic_build_entity_<TextSensor>(text_def->description, text_def->label);
+      }
+    }
+
+  } else {
     // ENTITIES_DEF lacks the definition for this parameter so
     // we return a plain TextSensor entity.
     // We allocate a copy since the label param is 'volatile'
     label = strdup(label);
-    entity = this->dynamic_build_entity_<TextSensor>(label, label);
-  } else {
-    label = text_def_it->first;
-    auto &text_def = text_def_it->second;
-    switch (text_def.cls) {
-      case REG_DEF::CLASS::NUMERIC:
-        // pass our 'static' copy of the label (param is volatile)
-        entity = this->dynamic_build_entity_<Sensor>(text_def.description, label);
-        break;
-      case REG_DEF::CLASS::BOOLEAN:
-        entity = this->dynamic_build_entity_<BinarySensor>(text_def.description, label);
-        break;
-      default:
-        entity = this->dynamic_build_entity_<TextSensor>(text_def.description, label);
-    }
-    entity->init_text_def_(&text_def);
+    hex_register = this->dynamic_build_entity_<TextSensor>(label, label);
+    text_def = &HexRegister::TEXT_DEF_UNDEFINED;
   }
-  this->text_entities_.emplace(label, entity);
-  return entity;
+  hex_register->init_text_def_(text_def);
+  this->text_entities_.emplace(label, hex_register);
+  return hex_register;
 }
 
 HexRegister *Manager::build_hex_register_(register_id_t register_id) {
   HexRegister *hexregister;
-  auto reg_def = REG_DEF::find(register_id);
+  auto reg_def = REG_DEF::find_register_id(register_id);
   if (reg_def) {
     switch (reg_def->cls) {
       case REG_DEF::CLASS::NUMERIC:
@@ -270,8 +278,7 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
     hexregister = this->dynamic_build_entity_<TextSensor>(name, object_id);
     reg_def = new REG_DEF(register_id);
   }
-  hexregister->set_reg_def(reg_def);
-  this->hex_registers_.emplace(register_id, hexregister);
+  hexregister->set_reg_def(this, reg_def);
   return hexregister;
 }
 

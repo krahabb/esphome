@@ -64,15 +64,17 @@ void Sensor::init_text_def_(const TEXT_DEF *text_def) {
   this->set_device_class(UNIT_TO_DEVICE_CLASS[text_def->unit]);
   this->set_state_class(UNIT_TO_STATE_CLASS[text_def->unit]);
   this->set_text_scale(REG_DEF::DIGITS_TO_SCALE[text_def->digits]);
+  this->parse_text_ = parse_text_default_;
 }
 
-void Sensor::parse_text_(const char *text_value) {
+void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+  Sensor *sensor = static_cast<Sensor *>(hex_register);
   char *endptr;
-  float value = strtof(text_value, &endptr) * this->text_scale_;
+  float value = strtof(text_value, &endptr) * sensor->text_scale_;
   if (*endptr != 0)
     value = NAN;
-  if (value != this->raw_state)
-    publish_state(value);
+  if (sensor->raw_state != value)
+    sensor->publish_state(value);
 }
 
 }  // namespace m3_vedirect

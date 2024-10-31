@@ -6,7 +6,7 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Sensor : public Entity, public esphome::sensor::Sensor {
+class Sensor final : public Entity, public esphome::sensor::Sensor {
  public:
   Sensor(Manager *Manager) {}
   void set_text_scale(float scale) { this->text_scale_ = scale; }
@@ -21,11 +21,11 @@ class Sensor : public Entity, public esphome::sensor::Sensor {
   REG_DEF::numeric_to_float_func_t numeric_to_float_;
 
   void init_reg_def_() override;
-  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
-  static void parse_hex_numeric_(HexRegister *hexregister, const RxHexFrame *hexframe);
+  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_numeric_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 
   void init_text_def_(const TEXT_DEF *text_def) override;
-  void parse_text_(const char *text_value) override;
+  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
 };
 
 }  // namespace m3_vedirect

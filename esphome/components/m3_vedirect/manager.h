@@ -53,6 +53,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   }
   void send_command(HEXFRAME::COMMAND command) { this->send_hexframe(HexFrame_Command(command)); }
   void send_register_get(register_id_t register_id) { this->send_hexframe(HexFrame_Get(register_id)); }
+  void send_register_set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type) {
+    this->send_hexframe(HexFrame_Set(register_id, data, data_type));
+  }
   template<typename T> void send_register_set(register_id_t register_id, T data) {
     this->send_hexframe(HexFrame_Set(register_id, data));
   }
@@ -143,9 +146,11 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // or by HEX register id (hex_entities_). Since some HEX registers are also
   // published in TEXT frames we're also trying to map these to the same entity.
   friend class Entity;
-  std::unordered_map<const char *, Entity *, cstring_hash, cstring_eq> text_entities_;
+  std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_;
   friend class HexRegister;
   std::unordered_map<uint16_t, HexRegister *> hex_registers_;
+
+  HexRegister *get_hex_register_(register_id_t register_id, bool create);
 
   friend class HexFrameTrigger;
   CallbackManager<void(const HexFrame &)> hexframe_callback_;
@@ -157,7 +162,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// @param manager
   /// @param label
   /// @return
-  Entity *build_text_entity_(const char *label);
+  HexRegister *build_text_entity_(const char *label);
   HexRegister *build_hex_register_(register_id_t register_id);
   template<typename TEntity> TEntity *dynamic_build_entity_(const char *name, const char *object_id);
   void dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id);

@@ -1,6 +1,7 @@
 #pragma once
 #include "ve_reg.h"
 #include <string>
+#include <cstring>  // need memcpy
 
 namespace m3_ve_reg {
 
@@ -17,8 +18,8 @@ namespace m3_ve_reg {
 /// @brief  Helper class to manage HEX frames. It allows building an internal
 /// binary representation and encoding/decoding
 /// to the HEX format suitable for serial communication.
-/// HexFrameBase works as a base implementation and needs to be initialized with
-/// the correct (pre-reserved) storage to avoid usual container dynamic reallocations
+/// HexFrame works as a base implementation and needs to be overrided with
+/// the correct (pre-reserved) storage implementation to avoid usual container dynamic reallocations
 struct HexFrame {
  public:
   enum DecodeResult : int8_t {
@@ -84,8 +85,17 @@ struct HexFrame {
   /// @brief Safely extracts the 'raw' payload (i.e. the data past the register id and flags)
   bool data_to_hex(std::string &hexdata) const;
 
-  // Frame 'builders' methods
+  /// @brief Decode an HEXFRAME starting from a plain (encoded) HEX stream.
+  /// This can be used to decode raw HEX streams and/or to add the checksum
+  /// to partially encoded streams
+  /// @param hexdigits
+  /// @param addchecksum
+  /// @return
   DecodeResult decode(const char *hexdigits, bool addchecksum);
+
+  // Helper 'encoder' methods: beware these will not check storage access
+  // so that the caller has to be sure the allocated data size is enough to hold
+  // the 'pumped in' data.
 
   /// @brief Builds a plain command frame payload
   /// @param command
@@ -102,6 +112,15 @@ struct HexFrame {
     record->register_id = register_id;
     record->flags = 0;
     this->rawframe_end_ = this->rawframe_begin_ + 4;
+    this->encode_();
+  }
+  void command_set(register_id_t register_id, const void *data, size_t data_size) {
+    auto record = this->record();
+    record->command = HEXFRAME::COMMAND::Set;
+    record->register_id = register_id;
+    record->flags = 0;
+    memcpy(record->data, data, data_size);
+    this->rawframe_end_ = this->rawframe_begin_ + 4 + data_size;
     this->encode_();
   }
   template<typename T> void command_set(register_id_t register_id, T data) {
@@ -179,6 +198,9 @@ struct HexFrame_Get : public HexFrameT<3> {
 };*/
 struct HexFrame_Set : public HexFrameT<7> {
  public:
+  HexFrame_Set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type) {
+    this->command_set(register_id, data, HEXFRAME::DATA_TYPE_TO_SIZE[data_type]);
+  }
   template<typename T> HexFrame_Set(register_id_t register_id, T data) { this->command_set(register_id, data); }
 };
 

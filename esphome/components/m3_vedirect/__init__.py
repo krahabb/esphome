@@ -7,14 +7,8 @@ import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_NAME, CONF_PAYLOAD, CONF_TRIGGER_ID
 
 CODEOWNERS = ["@krahabb"]
-DEPENDENCIES = [
-    "binary_sensor",
-    "select",
-    "sensor",
-    "text_sensor",
-    "uart",
-]
-AUTO_LOAD = ["binary_sensor", "select", "sensor", "text_sensor"]
+DEPENDENCIES = ["binary_sensor", "select", "sensor", "switch", "text_sensor", "uart"]
+AUTO_LOAD = ["binary_sensor", "select", "sensor", "switch", "text_sensor"]
 MULTI_CONF = True
 
 m3_vedirect_ns = cg.esphome_ns.namespace("m3_vedirect")

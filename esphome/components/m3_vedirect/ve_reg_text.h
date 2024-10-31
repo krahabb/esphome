@@ -1,0 +1,41 @@
+#pragma once
+
+// clang-format off
+
+#define _REGISTER_TYPE_UNDEFINED _COUNT
+#define TEXTRECORDS(MACRO) \
+  MACRO##_NUMERIC("AC_OUT_I", _REGISTER_TYPE_UNDEFINED, "AC output current", A, D_1) \
+	MACRO##_NUMERIC("AC_OUT_S", _REGISTER_TYPE_UNDEFINED, "AC output apparent power", VA, D_0) \
+	MACRO##_NUMERIC("AC_OUT_V", _REGISTER_TYPE_UNDEFINED, "AC output voltage", V, D_2) \
+	MACRO##_BITMASK("AR", ALARM_REASON, "Alarm reason") \
+	MACRO##_BOOLEAN("Alarm", _REGISTER_TYPE_UNDEFINED, "Alarm") \
+	MACRO##_ENUM("CS", DEVICE_STATE, "State of operation") \
+	MACRO##_ENUM("ERR", CHR_ERROR_CODE, "Error code") \
+	MACRO##_STRING("FW", _REGISTER_TYPE_UNDEFINED, "Firmware version (FW)") \
+	MACRO##_STRING("FWE", _REGISTER_TYPE_UNDEFINED, "Firmware version (FWE)") \
+	MACRO##_NUMERIC("H19", _REGISTER_TYPE_UNDEFINED, "Yield total", kWh, D_2) \
+	MACRO##_NUMERIC("H20", _REGISTER_TYPE_UNDEFINED, "Yield today", kWh, D_2) \
+	MACRO##_NUMERIC("H21", _REGISTER_TYPE_UNDEFINED, "Maximum power today", W, D_0) \
+	MACRO##_NUMERIC("H22", _REGISTER_TYPE_UNDEFINED, "Yield yesterday", kWh, D_2) \
+	MACRO##_NUMERIC("H23", _REGISTER_TYPE_UNDEFINED, "Maximum power yesterday", W, D_0) \
+	MACRO##_NUMERIC("HSDS", _REGISTER_TYPE_UNDEFINED, "Day sequence number", NONE, D_0) \
+	MACRO##_NUMERIC("I", _REGISTER_TYPE_UNDEFINED, "Battery current", A, D_3) \
+	MACRO##_NUMERIC("IL", _REGISTER_TYPE_UNDEFINED, "Load current", A, D_3) \
+	MACRO##_BOOLEAN("LOAD", _REGISTER_TYPE_UNDEFINED, "Output state") \
+	MACRO##_ENUM("MODE", DEVICE_MODE, "Device mode") \
+	MACRO##_STRING("MON", _REGISTER_TYPE_UNDEFINED, "DC monitor mode") \
+	MACRO##_STRING("MPPT", _REGISTER_TYPE_UNDEFINED, "Tracker operation mode") \
+	MACRO##_BITMASK("OR", DEVICE_OFF_REASON_2, "Off reason") \
+	MACRO##_STRING("PID", _REGISTER_TYPE_UNDEFINED, "Product Id") \
+	MACRO##_NUMERIC("PPV", _REGISTER_TYPE_UNDEFINED, "PV power", W, D_0) \
+	MACRO##_BOOLEAN("Relay", _REGISTER_TYPE_UNDEFINED, "Relay state") \
+	MACRO##_STRING("SER#", _REGISTER_TYPE_UNDEFINED, "Serial number") \
+	MACRO##_NUMERIC("SOC", _REGISTER_TYPE_UNDEFINED, "SOC", SOC_PERCENTAGE, D_1) \
+	MACRO##_NUMERIC("T", _REGISTER_TYPE_UNDEFINED, "Battery temperature", CELSIUS, D_0) \
+	MACRO##_NUMERIC("TTG", _REGISTER_TYPE_UNDEFINED, "Time To Go", minute, D_0) \
+	MACRO##_NUMERIC("V", _REGISTER_TYPE_UNDEFINED, "Battery voltage", V, D_3) \
+	MACRO##_NUMERIC("VPV", _REGISTER_TYPE_UNDEFINED, "PV voltage", V, D_3) \
+	MACRO##_NUMERIC("W", _REGISTER_TYPE_UNDEFINED, "Battery power", W, D_0) \
+	MACRO##_BITMASK("WARN", WARNING_REASON, "Warning reason")
+
+// clang-format on

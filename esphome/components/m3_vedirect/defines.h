@@ -1,7 +1,7 @@
 #pragma once
 #include "ve_reg_defs.h"
 #include <stddef.h>
-#include <string.h>
+#include <cstring>
 
 namespace esphome {
 namespace m3_vedirect {

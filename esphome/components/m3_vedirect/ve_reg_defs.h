@@ -1,9 +1,11 @@
 #pragma once
-#include <string>
 #include <vector>
+#include <string>
+#include <cstring>
 #include "ve_reg.h"
 #include "ve_reg_enums.h"
 #include "ve_reg_registers.h"
+#include "ve_reg_text.h"
 
 namespace m3_ve_reg {
 
@@ -19,13 +21,13 @@ struct ENUM_DEF {
   // allow an easy parameterization of the underlying enum representation
   // we'll start with a believe of always being uint8 but we might need to templatize this struct
   // should some enum registers hold bigger data representations
-  typedef uint8_t enum_type;
-  static constexpr enum_type VALUE_UNKNOWN = 0xFF;
+  typedef uint8_t enum_t;
+  static constexpr enum_t VALUE_UNKNOWN = 0xFF;
 
   struct LOOKUP_DEF {
-    enum_type value;
+    enum_t value;
     const char *label;
-    bool operator<(const enum_type &value) const { return this->value < value; }
+    bool operator<(const enum_t &value) const { return this->value < value; }
   };
 
   struct LOOKUP_RESULT {
@@ -34,7 +36,7 @@ struct ENUM_DEF {
     bool added;
   };
 
-  typedef const char *(*lookup_func_t)(enum_type value);
+  typedef const char *(*lookup_func_t)(enum_t value);
 
   std::vector<LOOKUP_DEF> LOOKUPS;
   ENUM_DEF(std::initializer_list<LOOKUP_DEF> initializer_list) : LOOKUPS(initializer_list) {}
@@ -42,7 +44,7 @@ struct ENUM_DEF {
   /// @brief Lookups the label associated with value in current definitions
   /// @param value
   /// @return nullptr if no label definition for value
-  const char *lookup_label(enum_type value);
+  const char *lookup_label(enum_t value);
   /// @brief Lookups a matching label in current definitions
   /// @param label
   /// @return nullptr if no lookup definition
@@ -51,7 +53,7 @@ struct ENUM_DEF {
   /// @brief Lookups (eventually adding) the label associated with value in current definitions
   /// @param value
   /// @return the whole lookup definition with additional context in LOOKUP_RESULT
-  LOOKUP_RESULT get_lookup(enum_type value);
+  LOOKUP_RESULT get_lookup(enum_t value);
 };
 
 /// @brief Helper for registers carrying BITMASK class data. This is implemented mainly as an enumeration
@@ -65,44 +67,55 @@ struct BITMASK_DEF : public ENUM_DEF {
 
 // declare the enum helpers structs for ENUM registers
 #define _ENUMS_ITEM(enum, value) enum = value
-#define DECLARE_ENUMS_BITMASK(register_id, label, ...) \
+
+#define _DECLARE_ENUMS_BITMASK(register_id, label, ...) \
   struct VE_REG_##label##_BITMASK : public BITMASK_DEF { \
    public: \
-    enum : enum_type { BITMASK_##label(_ENUMS_ITEM) }; \
+    enum : enum_t { BITMASK_##label(_ENUMS_ITEM) }; \
   }; \
   extern BITMASK_DEF VE_REG_##label##_BITMASK_DEF;
-#define DECLARE_ENUMS_ENUM(register_id, label, ...) \
+
+#define _DECLARE_ENUMS_BITMASK_S(...)
+// This BITMASK is shared among different registers
+// we could just setup some typedefs and & but useless atm
+
+#define _DECLARE_ENUMS_ENUM(register_id, label, ...) \
   struct VE_REG_##label##_ENUM : public ENUM_DEF { \
    public: \
-    enum : enum_type { ENUM_##label(_ENUMS_ITEM) }; \
+    enum : enum_t { ENUM_##label(_ENUMS_ITEM) }; \
   }; \
   extern ENUM_DEF VE_REG_##label##_ENUM_DEF;
-#define DECLARE_ENUMS_NUMERIC(...)
-REGISTERS_COMMON(DECLARE_ENUMS)
-#undef DECLARE_ENUMS_BITMASK
-#undef DECLARE_ENUMS_ENUM
-#undef DECLARE_ENUMS_NUMERIC
+
+#define _DECLARE_ENUMS_NUMERIC(...)
+REGISTERS_COMMON(_DECLARE_ENUMS)
+#undef _DECLARE_ENUMS_BITMASK
+#undef _DECLARE_ENUMS_BITMASK_S
+#undef _DECLARE_ENUMS_ENUM
+#undef _DECLARE_ENUMS_NUMERIC
 #undef _ENUMS_ITEM
 
 struct REG_DEF {
 #define _DECLARE_REG_LABEL_BITMASK(register_id, label, ...) label,
+#define _DECLARE_REG_LABEL_BITMASK_S(register_id, label, ...) label,
 #define _DECLARE_REG_LABEL_ENUM(register_id, label, ...) label,
 #define _DECLARE_REG_LABEL_NUMERIC(register_id, label, ...) label,
-  enum LABEL : uint16_t { REGISTERS_COMMON(_DECLARE_REG_LABEL) };
+  enum TYPE : uint16_t { REGISTERS_COMMON(_DECLARE_REG_LABEL) _COUNT };
 #undef _DECLARE_REG_LABEL_BITMASK
+#undef _DECLARE_REG_LABEL_BITMASK_S
 #undef _DECLARE_REG_LABEL_ENUM
 #undef _DECLARE_REG_LABEL_NUMERIC
 
   /// @brief Together with SUBCLASS defines the data semantics of this entity
-  enum CLASS : u_int8_t {
+  enum CLASS : uint8_t {
     UNKNOWN,
     BITMASK,  // represents a set of bit flags
     BOOLEAN,
     ENUM,     // enumeration data
     NUMERIC,  // numeric data (either signed or unsigned)
+    STRING,
   };
 
-  enum ACCESS : u_int8_t {
+  enum ACCESS : uint8_t {
     READ_ONLY = 0,
     READ_WRITE = 1,
   };
@@ -110,7 +123,7 @@ struct REG_DEF {
   typedef HEXFRAME::DATA_TYPE DATA_TYPE;
 
   // configuration symbols for numeric sensors
-  enum UNIT : u_int8_t {
+  enum UNIT : uint8_t {
     NONE,
     A,
     V,
@@ -124,7 +137,7 @@ struct REG_DEF {
   };
   static const char *UNITS[];
 
-  enum DIGITS : u_int8_t {
+  enum DIGITS : uint8_t {
     D_0 = 0,
     D_1 = 1,
     D_2 = 2,
@@ -151,9 +164,10 @@ struct REG_DEF {
     };
   };
 
-  static const REG_DEF DEFS[];
+  static const REG_DEF DEFS[TYPE::_COUNT];
   bool operator<(const register_id_t register_id) const { return this->register_id < register_id; }
-  static const REG_DEF *find(register_id_t register_id);
+  static const REG_DEF *find_register_id(register_id_t register_id);
+  static const REG_DEF *find_type(TYPE type) { return (type < ARRAY_COUNT(DEFS)) ? DEFS + type : nullptr; }
 
   REG_DEF(register_id_t register_id)
       : register_id(register_id),
@@ -189,7 +203,68 @@ struct REG_DEF {
         digits(digits),
         unit(unit) {}
 
+  /// @brief get our symbolic name (TYPE) for this REG_DEF. Only
+  /// valid when the structure is peeked from our static DEFS
+  /// @return
+  TYPE get_type() const { return (TYPE) (this - DEFS); }
+
  protected:
+};
+
+/// @brief Descriptor struct for TEXT frame records
+struct TEXT_DEF {
+  const char *label;
+  const char *description;
+  const REG_DEF::TYPE register_type;
+  const REG_DEF::CLASS cls : 3;
+  // Optional entity 'class' definitions
+  union {
+    // Sensor entity definitions
+    struct {
+      const REG_DEF::UNIT unit : 4;
+      const REG_DEF::DIGITS digits : 2;
+    };
+  };
+
+  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type, REG_DEF::CLASS cls)
+      : label(label),
+        description(description),
+        register_type(register_type),
+        cls(cls),
+        unit(REG_DEF::UNIT::NONE),
+        digits(REG_DEF::DIGITS::D_0) {}
+
+  // Constructor used when we register_type is a valid mapping to a REG_DEF
+  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type)
+      : label(label),
+        description(description),
+        register_type(register_type),
+        cls(REG_DEF::DEFS[register_type].cls),
+        unit(REG_DEF::UNIT::NONE),
+        digits(REG_DEF::DIGITS::D_0) {}
+
+  // Constructor for numeric records
+  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type, REG_DEF::UNIT unit,
+           REG_DEF::DIGITS digits)
+      : label(label),
+        description(description),
+        register_type(register_type),
+        cls(REG_DEF::CLASS::NUMERIC),
+        unit(unit),
+        digits(digits) {}
+
+  // Constructor for default unknown/untyped field
+  TEXT_DEF()
+      : label(nullptr),
+        description(nullptr),
+        register_type(REG_DEF::TYPE::_COUNT),
+        cls(REG_DEF::CLASS::UNKNOWN),
+        unit(REG_DEF::UNIT::NONE),
+        digits(REG_DEF::DIGITS::D_0) {}
+
+  bool operator<(const char *label) const { return strcmp(this->label, label) < 0; }
+  static const TEXT_DEF DEFS[];
+  static const TEXT_DEF *find_label(const char *label);
 };
 
 #pragma pack(pop)
