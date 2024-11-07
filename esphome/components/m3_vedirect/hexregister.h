@@ -21,8 +21,12 @@ class HexRegister {
  protected:
   friend class Manager;
   static const REG_DEF REG_DEF_UNDEFINED;
-  const REG_DEF *reg_def_{&REG_DEF_UNDEFINED};
-  parse_hex_func_t parse_hex_{parse_hex_empty_};
+  const REG_DEF *reg_def_;
+  parse_hex_func_t parse_hex_;
+  parse_text_func_t parse_text_;
+
+  HexRegister(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)
+      : reg_def_(&REG_DEF_UNDEFINED), parse_hex_(parse_hex_func), parse_text_(parse_text_func) {}
 
   // called by the Manager when VEDirect timeouts (we'll send 'unknown' to APIServer)
   virtual void link_disconnected_(){};
@@ -32,12 +36,6 @@ class HexRegister {
   virtual void init_reg_def_(){};
 
   static void parse_hex_empty_(HexRegister *hex_register, const RxHexFrame *hexframe) {}
-
-  static const TEXT_DEF TEXT_DEF_UNDEFINED;
-  parse_text_func_t parse_text_{parse_text_empty_};
-  /// @brief Preset entity properties based off our TEXT_DEF. This is being called
-  /// automatically when a proper definition is available.
-  virtual void init_text_def_(const TEXT_DEF *text_def) {}
 
   static void parse_text_empty_(HexRegister *hex_register, const char *text_value) {}
 

@@ -8,7 +8,7 @@ namespace m3_vedirect {
 
 class TextSensor final : public Entity, esphome::text_sensor::TextSensor {
  public:
-  TextSensor(Manager *Manager) {}
+  TextSensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
 
  protected:
   friend class Manager;
@@ -22,7 +22,6 @@ class TextSensor final : public Entity, esphome::text_sensor::TextSensor {
   static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 
-  void init_text_def_(const TEXT_DEF *text_def) override;
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);

@@ -8,7 +8,7 @@ namespace m3_vedirect {
 
 class Select final : public ConfigEntity, public esphome::select::Select {
  public:
-  Select(Manager *manager) : ConfigEntity(manager) {}
+  Select(Manager *manager) : ConfigEntity(manager, parse_hex_default_, parse_text_default_) {}
 
  protected:
   friend class Manager;
@@ -20,10 +20,11 @@ class Select final : public ConfigEntity, public esphome::select::Select {
   static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
   static void parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe);
 
-  void init_text_def_(const TEXT_DEF *text_def) override;
+  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
 
   inline void parse_enum_(ENUM_DEF::enum_t enum_value) override;
+  inline void parse_string_(const char *string_value) override;
 
   // interface esphome::select::Select
 

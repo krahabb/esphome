@@ -65,51 +65,34 @@ struct BITMASK_DEF : public ENUM_DEF {
   BITMASK_DEF(std::initializer_list<LOOKUP_DEF> initializer_list) : ENUM_DEF(initializer_list) {}
 };
 
-// declare the enum helpers structs for ENUM registers
+// declare the enum helpers structs for BITMASK/ENUM registers
+#define _DEF_ENUM_BOOLEAN N
+#define _DEF_ENUM_BITMASK Y
+#define _DEF_ENUM_BITMASK_S N
+#define _DEF_ENUM_ENUM Y
+#define _DEF_ENUM_NUMERIC N
+#define _DEF_ENUM_STRING N
 #define _ENUMS_ITEM(enum, value) enum = value
-
-#define _DECLARE_ENUMS_BITMASK(register_id, label, ...) \
-  struct VE_REG_##label##_BITMASK : public BITMASK_DEF { \
+#define _DECLARE_ENUMS(cls, register_id, label, ...) \
+  struct VE_REG_##label##_##cls : public cls##_DEF { \
    public: \
-    enum : enum_t { BITMASK_##label(_ENUMS_ITEM) }; \
+    enum : enum_t { cls##_##label(_ENUMS_ITEM) }; \
   }; \
-  extern BITMASK_DEF VE_REG_##label##_BITMASK_DEF;
+  extern cls##_DEF VE_REG_##label##_##cls##_DEF;
+#define DECLARE_ENUMS(cls, register_id, label, ...) IF(_DEF_ENUM_##cls)(_DECLARE_ENUMS(cls, register_id, label, ...))
 
-#define _DECLARE_ENUMS_BITMASK_S(...)
-// This BITMASK is shared among different registers
-// we could just setup some typedefs and & but useless atm
-
-#define _DECLARE_ENUMS_ENUM(register_id, label, ...) \
-  struct VE_REG_##label##_ENUM : public ENUM_DEF { \
-   public: \
-    enum : enum_t { ENUM_##label(_ENUMS_ITEM) }; \
-  }; \
-  extern ENUM_DEF VE_REG_##label##_ENUM_DEF;
-
-#define _DECLARE_ENUMS_NUMERIC(...)
-REGISTERS_COMMON(_DECLARE_ENUMS)
-#undef _DECLARE_ENUMS_BITMASK
-#undef _DECLARE_ENUMS_BITMASK_S
-#undef _DECLARE_ENUMS_ENUM
-#undef _DECLARE_ENUMS_NUMERIC
-#undef _ENUMS_ITEM
+REGISTERS_COMMON(DECLARE_ENUMS)
 
 struct REG_DEF {
-#define _DECLARE_REG_LABEL_BITMASK(register_id, label, ...) label,
-#define _DECLARE_REG_LABEL_BITMASK_S(register_id, label, ...) label,
-#define _DECLARE_REG_LABEL_ENUM(register_id, label, ...) label,
-#define _DECLARE_REG_LABEL_NUMERIC(register_id, label, ...) label,
-  enum TYPE : uint16_t { REGISTERS_COMMON(_DECLARE_REG_LABEL) _COUNT };
-#undef _DECLARE_REG_LABEL_BITMASK
-#undef _DECLARE_REG_LABEL_BITMASK_S
-#undef _DECLARE_REG_LABEL_ENUM
-#undef _DECLARE_REG_LABEL_NUMERIC
+#define DECLARE_REG_LABEL(cls, register_id, label, ...) label,
+  enum TYPE : uint16_t { REGISTERS_COMMON(DECLARE_REG_LABEL) TYPE_COUNT };
+#undef DECLARE_REG_LABEL
 
-  /// @brief Together with SUBCLASS defines the data semantics of this entity
+  /// @brief Defines the data semantics of this register
   enum CLASS : uint8_t {
     UNKNOWN,
     BITMASK,  // represents a set of bit flags
-    BOOLEAN,
+    BOOLEAN,  // boolean state represented by 0 -> false, 1 -> true
     ENUM,     // enumeration data
     NUMERIC,  // numeric data (either signed or unsigned)
     STRING,
@@ -134,37 +117,38 @@ struct REG_DEF {
     SOC_PERCENTAGE,
     minute,
     CELSIUS,
+    UNIT_COUNT,
   };
-  static const char *UNITS[];
+  static const char *UNITS[UNIT::UNIT_COUNT];
 
-  enum DIGITS : uint8_t {
-    D_0 = 0,
-    D_1 = 1,
-    D_2 = 2,
-    D_3 = 3,
+  enum SCALE : uint8_t {
+    S_1,
+    S_0_1,
+    S_0_01,
+    S_0_001,
+    S_0_25,
+    SCALE_COUNT,
   };
-  static const float DIGITS_TO_SCALE[4];
-  typedef float (*numeric_to_float_func_t)(const uint8_t *rawdata);
-  template<typename T, DIGITS digits> inline static float numeric_to_float_t(const uint8_t *rawdata) {
-    return *(T *) (rawdata) *DIGITS_TO_SCALE[digits];
-  };
+  static const float SCALE_TO_SCALE[SCALE::SCALE_COUNT];
 
   const register_id_t register_id;
   const char *const label;
-  const CLASS cls : 3;
-  const ACCESS access : 1;
-  const DATA_TYPE data_type : 3;
-
+  CLASS cls : 3;
+  ACCESS access : 1;
+  DATA_TYPE data_type : 3;  // only relevant for BITMASK and NUMERIC (ENUM are UN8 though)
+  uint8_t _padding : 1;
   union {
-    ENUM_DEF *const enum_def;
     struct {
-      numeric_to_float_func_t const numeric_to_float;
-      DIGITS const digits : 2;
-      UNIT const unit : 4;
+      ENUM_DEF *enum_def;
+    };
+    struct {
+      UNIT unit : 4;
+      SCALE scale : 4;
+      SCALE text_scale : 4;
     };
   };
 
-  static const REG_DEF DEFS[TYPE::_COUNT];
+  static const REG_DEF DEFS[TYPE::TYPE_COUNT];
   bool operator<(const register_id_t register_id) const { return this->register_id < register_id; }
   static const REG_DEF *find_register_id(register_id_t register_id);
   static const REG_DEF *find_type(TYPE type) { return (type < ARRAY_COUNT(DEFS)) ? DEFS + type : nullptr; }
@@ -174,7 +158,16 @@ struct REG_DEF {
         label(nullptr),
         cls(CLASS::UNKNOWN),
         access(ACCESS::READ_ONLY),
-        data_type(DATA_TYPE::STRING) {}
+        data_type(DATA_TYPE::STRING),
+        enum_def(nullptr) {}
+  /// @brief Constructor for STRING or BOOLEAN register definitions
+  REG_DEF(register_id_t register_id, const char *label, CLASS cls, ACCESS access)
+      : register_id(register_id),
+        label(label),
+        cls(cls),
+        access(access),
+        data_type(cls == CLASS::BOOLEAN ? DATA_TYPE::UN8 : DATA_TYPE::STRING),
+        enum_def(nullptr) {}
   /// @brief Constructor for BITMASK registers definitions
   REG_DEF(register_id_t register_id, const char *label, ACCESS access, DATA_TYPE data_type, ENUM_DEF *enum_def)
       : register_id(register_id),
@@ -189,19 +182,19 @@ struct REG_DEF {
         label(label),
         cls(CLASS::ENUM),
         access(access),
-        data_type(DATA_TYPE::U8),
+        data_type(DATA_TYPE::UN8),
         enum_def(enum_def) {}
   /// @brief Constructor for NUMERIC registers definitions
-  REG_DEF(register_id_t register_id, const char *label, ACCESS access, DATA_TYPE data_type, DIGITS digits, UNIT unit,
-          numeric_to_float_func_t numeric_to_float)
+  REG_DEF(register_id_t register_id, const char *label, ACCESS access, DATA_TYPE data_type, UNIT unit, SCALE scale,
+          SCALE text_scale)
       : register_id(register_id),
         label(label),
         cls(CLASS::NUMERIC),
         access(access),
         data_type(data_type),
-        numeric_to_float(numeric_to_float),
-        digits(digits),
-        unit(unit) {}
+        unit(unit),
+        scale(scale),
+        text_scale(text_scale) {}
 
   /// @brief get our symbolic name (TYPE) for this REG_DEF. Only
   /// valid when the structure is peeked from our static DEFS
@@ -216,51 +209,16 @@ struct TEXT_DEF {
   const char *label;
   const char *description;
   const REG_DEF::TYPE register_type;
-  const REG_DEF::CLASS cls : 3;
-  // Optional entity 'class' definitions
-  union {
-    // Sensor entity definitions
-    struct {
-      const REG_DEF::UNIT unit : 4;
-      const REG_DEF::DIGITS digits : 2;
-    };
-  };
 
   TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type, REG_DEF::CLASS cls)
-      : label(label),
-        description(description),
-        register_type(register_type),
-        cls(cls),
-        unit(REG_DEF::UNIT::NONE),
-        digits(REG_DEF::DIGITS::D_0) {}
+      : label(label), description(description), register_type(register_type) {}
 
-  // Constructor used when we register_type is a valid mapping to a REG_DEF
+  // Constructor used when register_type is a valid mapping to a REG_DEF
   TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type)
-      : label(label),
-        description(description),
-        register_type(register_type),
-        cls(REG_DEF::DEFS[register_type].cls),
-        unit(REG_DEF::UNIT::NONE),
-        digits(REG_DEF::DIGITS::D_0) {}
-
-  // Constructor for numeric records
-  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type, REG_DEF::UNIT unit,
-           REG_DEF::DIGITS digits)
-      : label(label),
-        description(description),
-        register_type(register_type),
-        cls(REG_DEF::CLASS::NUMERIC),
-        unit(unit),
-        digits(digits) {}
+      : label(label), description(description), register_type(register_type) {}
 
   // Constructor for default unknown/untyped field
-  TEXT_DEF()
-      : label(nullptr),
-        description(nullptr),
-        register_type(REG_DEF::TYPE::_COUNT),
-        cls(REG_DEF::CLASS::UNKNOWN),
-        unit(REG_DEF::UNIT::NONE),
-        digits(REG_DEF::DIGITS::D_0) {}
+  TEXT_DEF() : label(nullptr), description(nullptr), register_type(REG_DEF::TYPE::TYPE_COUNT) {}
 
   bool operator<(const char *label) const { return strcmp(this->label, label) < 0; }
   static const TEXT_DEF DEFS[];

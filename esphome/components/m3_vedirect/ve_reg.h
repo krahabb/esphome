@@ -27,12 +27,12 @@ struct HEXFRAME {
 
   enum DATA_TYPE : uint8_t {
     STRING = 0,  // or unknown
-    U8 = 1,
-    U16 = 2,
-    U32 = 3,
-    I8 = 4,
-    I16 = 5,
-    I32 = 6,
+    UN8 = 1,
+    UN16 = 2,
+    UN32 = 3,
+    SN8 = 4,
+    SN16 = 5,
+    SN32 = 6,
     _COUNT = 7,
   };
   static const uint8_t DATA_TYPE_TO_SIZE[];
@@ -66,11 +66,11 @@ struct HEXFRAME {
 };
 #pragma pack(pop)
 
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint8_t>() { return DATA_TYPE::U8; }
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint16_t>() { return DATA_TYPE::U16; }
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint32_t>() { return DATA_TYPE::U32; }
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int8_t>() { return DATA_TYPE::I8; }
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int16_t>() { return DATA_TYPE::I16; }
-template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int32_t>() { return DATA_TYPE::I32; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint8_t>() { return DATA_TYPE::UN8; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint16_t>() { return DATA_TYPE::UN16; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<uint32_t>() { return DATA_TYPE::UN32; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int8_t>() { return DATA_TYPE::SN8; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int16_t>() { return DATA_TYPE::SN16; }
+template<> constexpr HEXFRAME::DATA_TYPE HEXFRAME::DATA_TYPE_OF<int32_t>() { return DATA_TYPE::SN32; }
 
 }  // namespace m3_ve_reg

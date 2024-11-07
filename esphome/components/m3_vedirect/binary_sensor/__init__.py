@@ -1,12 +1,13 @@
-import esphome.codegen as cg
 from esphome.components import binary_sensor
 import esphome.config_validation as cv
 
 from .. import (
+    CLASS,
     CONF_VEDIRECT_ENTITIES,
-    VEDIRECT_ENTITY_SCHEMA,
+    VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
     m3_vedirect_ns,
     new_vedirect_entity,
+    vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -16,16 +17,13 @@ _diagnostic_binary_sensor_schema = binary_sensor.binary_sensor_schema(
     entity_category="diagnostic"
 )
 
-CONF_MASK = "mask"
+
 VEDirectBinarySensor = m3_vedirect_ns.class_("BinarySensor", binary_sensor.BinarySensor)
-VEDIRECT_BINARY_SENSOR_SCHEMA = (
-    binary_sensor.binary_sensor_schema(VEDirectBinarySensor)
-    .extend(VEDIRECT_ENTITY_SCHEMA)
-    .extend(
-        {
-            cv.Optional(CONF_MASK): cv.uint32_t,
-        }
-    )
+VEDIRECT_BINARY_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
+    VEDirectBinarySensor
+).extend(
+    vedirect_entity_schema((CLASS.BOOLEAN, CLASS.BITMASK, CLASS.ENUM), True),
+    VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
 )
 
 PLATFORM_ENTITIES = {
@@ -38,8 +36,6 @@ CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 async def new_vedirect_binary_sensor(config, manager):
     var = await new_vedirect_entity(config, manager)
-    if CONF_MASK in config:
-        cg.add(var.set_mask(config[CONF_MASK]))
     await binary_sensor.register_binary_sensor(var, config)
     return var
 

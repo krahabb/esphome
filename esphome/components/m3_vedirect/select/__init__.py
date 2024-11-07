@@ -2,10 +2,11 @@ from esphome.components import select
 import esphome.config_validation as cv
 
 from .. import (
+    CLASS,
     CONF_VEDIRECT_ENTITIES,
-    VEDIRECT_ENTITY_SCHEMA,
     m3_vedirect_ns,
     new_vedirect_entity,
+    vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -15,7 +16,7 @@ from .. import (
 # m3_vedirect::Select mapped to HEX/TEXT data
 VEDirectSelect = m3_vedirect_ns.class_("Select", select.Select)
 VEDIRECT_SELECT_SCHEMA = select.select_schema(VEDirectSelect).extend(
-    VEDIRECT_ENTITY_SCHEMA
+    vedirect_entity_schema((CLASS.ENUM,), False),
 )
 
 PLATFORM_ENTITIES = {

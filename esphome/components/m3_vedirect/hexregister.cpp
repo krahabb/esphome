@@ -5,7 +5,7 @@ namespace esphome {
 namespace m3_vedirect {
 
 const REG_DEF HexRegister::REG_DEF_UNDEFINED(0);
-const TEXT_DEF HexRegister::TEXT_DEF_UNDEFINED;
+
 void HexRegister::set_reg_def(Manager *manager, const REG_DEF *reg_def) {
   this->reg_def_ = reg_def;
   this->init_reg_def_();

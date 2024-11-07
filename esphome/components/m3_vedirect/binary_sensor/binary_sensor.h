@@ -8,7 +8,7 @@ namespace m3_vedirect {
 
 class BinarySensor final : public Entity, public esphome::binary_sensor::BinarySensor {
  public:
-  BinarySensor(Manager *Manager) {}
+  BinarySensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 
@@ -24,14 +24,12 @@ class BinarySensor final : public Entity, public esphome::binary_sensor::BinaryS
   static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 
-  void init_text_def_(const TEXT_DEF *text_def) override;
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
 
   inline void parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) override;
   inline void parse_enum_(ENUM_DEF::enum_t enum_value) override;
-  inline void parse_string_(const char *string_value) override;
 };
 
 }  // namespace m3_vedirect

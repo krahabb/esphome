@@ -2,10 +2,11 @@ from esphome.components import text_sensor
 import esphome.config_validation as cv
 
 from .. import (
+    CLASS,
     CONF_VEDIRECT_ENTITIES,
-    VEDIRECT_ENTITY_SCHEMA,
     m3_vedirect_ns,
     new_vedirect_entity,
+    vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -18,7 +19,7 @@ _diagnostic_text_sensor_schema = text_sensor.text_sensor_schema(
 # m3_vedirect::TextSensor mapped to HEX/TEXT data
 VEDirectTextSensor = m3_vedirect_ns.class_("TextSensor", text_sensor.TextSensor)
 VEDIRECT_TEXT_SENSOR_SCHEMA = text_sensor.text_sensor_schema(VEDirectTextSensor).extend(
-    VEDIRECT_ENTITY_SCHEMA
+    vedirect_entity_schema((CLASS.BITMASK, CLASS.ENUM, CLASS.STRING), True)
 )
 
 PLATFORM_ENTITIES = {

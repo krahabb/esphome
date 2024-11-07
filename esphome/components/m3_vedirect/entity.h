@@ -14,25 +14,18 @@ namespace m3_vedirect {
 
 class Entity : public HexRegister {
  public:
-  typedef REG_DEF::CLASS CLASS;
-
-  // configuration symbols for numeric sensors
-  typedef REG_DEF::UNIT UNIT;
-  static const char *UNIT_TO_DEVICE_CLASS[];
-  static const sensor::StateClass UNIT_TO_STATE_CLASS[];
-
-  typedef REG_DEF::DIGITS DIGITS;
-
   /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
   /// will be automatically routed. This method is part of the public interface
   /// called by yaml generaed code
   /// @param label the name of the TEXT FRAME record to bind
   void set_text_label(Manager *manager, const char *label);
 
-  void set_register_id(Manager *manager, register_id_t register_id);
-
  protected:
   friend class Manager;
+
+  Entity(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)
+      : HexRegister(parse_hex_func, parse_text_func) {}
+
   /// @brief Called when an entity is dynamically initialized by the Manager loop.
   /// This will in turn call the proper register function against App/api
   virtual void dynamic_register_(){};
@@ -43,7 +36,9 @@ class Entity : public HexRegister {
 class ConfigEntity : public Entity {
  public:
   Manager *const manager;
-  ConfigEntity(Manager *manager) : manager(manager) {}
+  ConfigEntity(Manager *manager, parse_hex_func_t parse_hex_func = parse_hex_empty_,
+               parse_text_func_t parse_text_func = parse_text_empty_)
+      : Entity(parse_hex_func, parse_text_func), manager(manager) {}
 };
 
 }  // namespace m3_vedirect

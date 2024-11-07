@@ -6,6 +6,29 @@
 namespace esphome {
 namespace m3_vedirect {
 
+const char *Sensor::UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
+    nullptr, "current", "voltage", "apparent_power", "power", nullptr, "energy", "battery", "duration", "temperature",
+};
+const sensor::StateClass Sensor::UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
+    sensor::StateClass::STATE_CLASS_NONE,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_TOTAL,
+    sensor::StateClass::STATE_CLASS_TOTAL_INCREASING,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+};
+const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
+    0,  // S_1,
+    1,  // S_0_1,
+    2,  // S_0_01,
+    3,  // S_0_001,
+    2,  // S_0_25,
+};
+
 void Sensor::dynamic_register_() {
   App.register_sensor(this);
   if (api::global_api_server)
@@ -15,57 +38,54 @@ void Sensor::dynamic_register_() {
 void Sensor::link_disconnected_() { this->publish_state(NAN); }
 
 void Sensor::init_reg_def_() {
-  switch (this->reg_def_->cls) {
-    case REG_DEF::CLASS::NUMERIC:
-      this->numeric_to_float_ = this->reg_def_->numeric_to_float;
-      this->parse_hex_ = parse_hex_numeric_;
-      break;
-    default:
-      // defaults if nothing better
-      this->parse_hex_ = parse_hex_default_;
-      break;
-  }
+  auto reg_def = this->reg_def_;
+  // Whatever the CLASS, sensor will just extract any meaningful numeric value
+  // from the HEX payload eventually scaling by hex_scale
+  this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+  this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
+  this->set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
+  this->set_state_class(UNIT_TO_STATE_CLASS[reg_def->unit]);
+  this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
+  this->set_hex_scale(REG_DEF::SCALE_TO_SCALE[reg_def->scale]);
+  this->set_text_scale(REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale]);
 }
 
-void Sensor::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  Sensor *sensor = static_cast<Sensor *>(hex_register);
   float value;
-  switch (hexframe->data_size()) {
+  switch (hex_frame->data_size()) {
     case 1:
-      value = hexframe->data_u16();
+      value = hex_frame->data_u8() * sensor->hex_scale_;
       break;
     case 2:
       // it might be signed though
-      value = hexframe->data_u16();
+      value = hex_frame->data_u16() * sensor->hex_scale_;
       break;
     case 4:
-      value = hexframe->data_u16();
+      value = hex_frame->data_u32() * sensor->hex_scale_;
       break;
     default:
-      return;
+      value = NAN;
   }
-  Sensor *sensor = static_cast<Sensor *>(hexregister);
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
   }
 }
 
-void Sensor::parse_hex_numeric_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+template<typename T> void Sensor::parse_hex_t_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  Sensor *sensor = static_cast<Sensor *>(hexregister);
-  float value = sensor->numeric_to_float_(hexframe->data_begin());
+  Sensor *sensor = static_cast<Sensor *>(hex_register);
+  float value = hex_frame->data_t<T>() * sensor->hex_scale_;
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
   }
 }
 
-void Sensor::init_text_def_(const TEXT_DEF *text_def) {
-  this->set_unit_of_measurement(REG_DEF::UNITS[text_def->unit]);
-  this->set_accuracy_decimals(text_def->digits);
-  this->set_device_class(UNIT_TO_DEVICE_CLASS[text_def->unit]);
-  this->set_state_class(UNIT_TO_STATE_CLASS[text_def->unit]);
-  this->set_text_scale(REG_DEF::DIGITS_TO_SCALE[text_def->digits]);
-  this->parse_text_ = parse_text_default_;
-}
+const Sensor::parse_hex_func_t Sensor::DATA_TYPE_TO_PARSE_HEX_FUNC_[REG_DEF::DATA_TYPE::_COUNT] = {
+    Sensor::parse_hex_default_,     Sensor::parse_hex_t_<uint8_t>, Sensor::parse_hex_t_<uint16_t>,
+    Sensor::parse_hex_t_<uint32_t>, Sensor::parse_hex_t_<int8_t>,  Sensor::parse_hex_t_<int16_t>,
+    Sensor::parse_hex_t_<int32_t>,
+};
 
 void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);

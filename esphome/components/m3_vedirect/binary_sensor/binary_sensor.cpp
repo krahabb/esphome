@@ -17,19 +17,20 @@ void BinarySensor::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
       this->parse_hex_ = parse_hex_bitmask_;
+      this->parse_text_ = parse_text_bitmask_;
       break;
     case REG_DEF::CLASS::ENUM:
       this->parse_hex_ = parse_hex_enum_;
+      this->parse_text_ = parse_text_enum_;
       break;
     default:
-      // defaults if nothing better
-      this->parse_hex_ = parse_hex_default_;
       break;
   }
 }
 
 void BinarySensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
+  // By default considering the register as a BOOLEAN
   static_cast<BinarySensor *>(hex_register)->publish_state(hex_frame->data_u8());
 }
 
@@ -45,23 +46,8 @@ void BinarySensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *
   static_cast<BinarySensor *>(hex_register)->parse_enum_(hex_frame->data_u8());
 }
 
-void BinarySensor::init_text_def_(const TEXT_DEF *text_def) {
-  switch (text_def->cls) {
-    // When installing a specialized parse_text ensure the correct 'reg_def_' is in place
-    case REG_DEF::CLASS::BITMASK:
-      this->parse_text_ = parse_text_bitmask_;
-      break;
-    case REG_DEF::CLASS::ENUM:
-      this->parse_text_ = parse_text_enum_;
-      break;
-    default:
-      this->parse_text_ = parse_text_default_;
-      break;
-  }
-}
-
 void BinarySensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
-  static_cast<BinarySensor *>(hex_register)->parse_string_(text_value);
+  static_cast<BinarySensor *>(hex_register)->publish_state(!strcasecmp(text_value, "ON"));
 }
 
 void BinarySensor::parse_text_bitmask_(HexRegister *hex_register, const char *text_value) {
@@ -85,8 +71,6 @@ void BinarySensor::parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) {
 }
 
 void BinarySensor::parse_enum_(ENUM_DEF::enum_t enum_value) { this->publish_state(enum_value == this->mask_); }
-
-void BinarySensor::parse_string_(const char *string_value) { this->publish_state(!strcasecmp(string_value, "ON")); }
 
 }  // namespace m3_vedirect
 }  // namespace esphome

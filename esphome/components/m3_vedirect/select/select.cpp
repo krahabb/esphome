@@ -25,10 +25,9 @@ void Select::init_reg_def_() {
         this->traits_().options().push_back(std::string(lookup_def.label));
       }
       this->parse_hex_ = parse_hex_enum_;
+      this->parse_text_ = parse_text_enum_;
       break;
     default:
-      // defaults if nothing better
-      this->parse_hex_ = parse_hex_default_;
       break;
   }
 }
@@ -36,16 +35,7 @@ void Select::init_reg_def_() {
 void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   std::string hex_value;
   if (hex_frame->data_to_hex(hex_value)) {
-    Select *select = static_cast<Select *>(hex_register);
-    if (select->state != hex_value) {
-      auto &options = select->traits_().options();
-      auto it = std::find(options.begin(), options.end(), hex_value);
-      auto index = std::distance(options.begin(), it);
-      if (it == options.end()) {
-        options.push_back(hex_value);
-      }
-      select->publish_state_(index);
-    }
+    static_cast<Select *>(hex_register)->parse_string_(hex_value.c_str());
   }
 }
 
@@ -54,16 +44,8 @@ void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_fr
   static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_u8());
 }
 
-void Select::init_text_def_(const TEXT_DEF *text_def) {
-  switch (text_def->cls) {
-    // When installing a specialized parse_text ensure the correct 'reg_def_' is in place
-    case REG_DEF::CLASS::ENUM:
-      if ((this->reg_def_->cls == REG_DEF::CLASS::ENUM) && (this->reg_def_->enum_def))
-        this->parse_text_ = parse_text_enum_;
-      break;
-    default:
-      break;
-  }
+void Select::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+  static_cast<Select *>(hex_register)->parse_string_(text_value);
 }
 
 void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
@@ -99,12 +81,23 @@ void Select::parse_enum_(ENUM_DEF::enum_t enum_value) {
   }
 }
 
-void Select::control(const std::string &value) {
-  if (this->reg_def_) {
-    auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
-    if (lookup_def)
-      this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
+void Select::parse_string_(const char *string_value) {
+  if (strcmp(this->state.c_str(), string_value)) {
+    auto &options = this->traits_().options();
+    auto value = std::string(string_value);
+    auto it = std::find(options.begin(), options.end(), value);
+    auto index = std::distance(options.begin(), it);
+    if (it == options.end()) {
+      options.push_back(value);
+    }
+    this->publish_state_(index);
   }
+}
+
+void Select::control(const std::string &value) {
+  auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
+  if (lookup_def)
+    this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
 }
 
 void Select::publish_state_(size_t index) {

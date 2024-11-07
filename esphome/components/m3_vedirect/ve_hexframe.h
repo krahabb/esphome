@@ -81,7 +81,7 @@ struct HexFrame {
   int16_t data_i16() const { return *(int16_t *) this->data_begin(); }
   uint32_t data_u32() const { return *(uint32_t *) this->data_begin(); }
   // unchecked (buffer overflow) cast to data type: be careful
-  template<typename T> T data() { return *(T *) this->data_begin(); }
+  template<typename T> T data_t() const { return *(T *) this->data_begin(); }
   /// @brief Safely extracts the 'raw' payload (i.e. the data past the register id and flags)
   bool data_to_hex(std::string &hexdata) const;
 

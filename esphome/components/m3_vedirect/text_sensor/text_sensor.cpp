@@ -33,55 +33,34 @@ void TextSensor::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
       this->parse_hex_ = parse_hex_bitmask_;
+      this->parse_text_ = parse_text_bitmask_;
       break;
     case REG_DEF::CLASS::ENUM:
       this->parse_hex_ = parse_hex_enum_;
+      this->parse_text_ = parse_text_enum_;
       break;
     default:
-      // defaults if nothing better
-      this->parse_hex_ = parse_hex_default_;
       break;
   }
 }
 
-void TextSensor::parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void TextSensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hexframe) {
   std::string hex_value;
   if (hexframe->data_to_hex(hex_value)) {
-    static_cast<TextSensor *>(hexregister)->parse_string_(hex_value.c_str());
+    static_cast<TextSensor *>(hex_register)->parse_string_(hex_value.c_str());
   }
 }
 
-void TextSensor::parse_hex_bitmask_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void TextSensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hexframe) {
   // BITMASK registers have storage up to 4 bytes
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hexregister)
-      ->parse_bitmask_(HEXFRAME::GET_DATA_AS_INT[hexregister->get_reg_def()->data_type](hexframe->record()));
+  static_cast<TextSensor *>(hex_register)
+      ->parse_bitmask_(HEXFRAME::GET_DATA_AS_INT[hex_register->get_reg_def()->data_type](hexframe->record()));
 }
 
-void TextSensor::parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe) {
+void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hexframe) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hexregister)->parse_enum_(hexframe->data_u8());
-}
-
-void TextSensor::init_text_def_(const TEXT_DEF *text_def) {
-  switch (text_def->cls) {
-    // When installing a specialized parse_text ensure the correct 'reg_def_' is in place
-    case REG_DEF::CLASS::BITMASK:
-      if ((this->reg_def_->cls == REG_DEF::CLASS::BITMASK) && (this->reg_def_->enum_def))
-        this->parse_text_ = parse_text_bitmask_;
-      else
-        this->parse_text_ = parse_text_default_;
-      break;
-    case REG_DEF::CLASS::ENUM:
-      if ((this->reg_def_->cls == REG_DEF::CLASS::ENUM) && (this->reg_def_->enum_def))
-        this->parse_text_ = parse_text_enum_;
-      else
-        this->parse_text_ = parse_text_default_;
-      break;
-    default:
-      this->parse_text_ = parse_text_default_;
-      break;
-  }
+  static_cast<TextSensor *>(hex_register)->parse_enum_(hexframe->data_u8());
 }
 
 void TextSensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {

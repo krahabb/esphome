@@ -201,27 +201,15 @@ HexRegister *Manager::build_text_entity_(const char *label) {
     if (reg_def) {
       hex_register = this->get_hex_register_(reg_def->register_id, true);
     } else {
-      switch (text_def->cls) {
-        case REG_DEF::CLASS::NUMERIC:
-          hex_register = this->dynamic_build_entity_<Sensor>(text_def->description, text_def->label);
-          break;
-        case REG_DEF::CLASS::BOOLEAN:
-          hex_register = this->dynamic_build_entity_<BinarySensor>(text_def->description, text_def->label);
-          break;
-        default:
-          hex_register = this->dynamic_build_entity_<TextSensor>(text_def->description, text_def->label);
-      }
+      hex_register = this->dynamic_build_entity_<TextSensor>(text_def->description, text_def->label);
     }
-
   } else {
-    // ENTITIES_DEF lacks the definition for this parameter so
+    // We lack the definition for this TEXT RECORD so
     // we return a plain TextSensor entity.
     // We allocate a copy since the label param is 'volatile'
     label = strdup(label);
     hex_register = this->dynamic_build_entity_<TextSensor>(label, label);
-    text_def = &HexRegister::TEXT_DEF_UNDEFINED;
   }
-  hex_register->init_text_def_(text_def);
   this->text_entities_.emplace(label, hex_register);
   return hex_register;
 }

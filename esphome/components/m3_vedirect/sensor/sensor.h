@@ -8,23 +8,29 @@ namespace m3_vedirect {
 
 class Sensor final : public Entity, public esphome::sensor::Sensor {
  public:
-  Sensor(Manager *Manager) {}
+  // configuration symbols for numeric sensors
+  static const char *UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT];
+  static const sensor::StateClass UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT];
+  static const uint8_t SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT];
+
+  Sensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
+  void set_hex_scale(float scale) { this->hex_scale_ = scale; }
   void set_text_scale(float scale) { this->text_scale_ = scale; }
 
  protected:
   friend class Manager;
+  float hex_scale_{1.};
   float text_scale_{1.};
 
   void dynamic_register_() override;
   void link_disconnected_() override;
 
-  REG_DEF::numeric_to_float_func_t numeric_to_float_;
-
   void init_reg_def_() override;
-  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_numeric_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 
-  void init_text_def_(const TEXT_DEF *text_def) override;
+  static const parse_hex_func_t DATA_TYPE_TO_PARSE_HEX_FUNC_[];
+  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
+  template<typename T> static void parse_hex_t_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
 };
 
