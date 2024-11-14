@@ -44,6 +44,20 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void loop() override;
   void dump_config() override;
 
+  /// @brief Initialize and link the hex_register into the Manager dispatcher system
+  /// @param hex_register : the register to be initialized/linked
+  /// @param reg_def : the register descriptor definition
+  void init_register(HexRegister *hex_register, const REG_DEF *reg_def);
+  /// @brief Configure this entity based off our registers grammar (REG_DEF::DEFS).
+  /// This method is part of the public interface called by yaml generated code
+  /// @param register_type the TYPE enum from our pre-defined registers set
+  void init_entity(Entity *entity, REG_DEF::TYPE register_type);
+  /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
+  /// will be automatically routed. This method is part of the public interface
+  /// called by yaml generated code
+  /// @param label the name of the TEXT FRAME record to bind
+  void init_entity(Entity *entity, const char *label);
+
   static std::vector<Manager *> get_managers(const std::string &vedirect_id);
 
   void send_hexframe(const HexFrame &hexframe);
@@ -146,10 +160,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // These will provide 'map' access either by text record name (text_entities_)
   // or by HEX register id (hex_entities_). Since some HEX registers are also
   // published in TEXT frames we're also trying to map these to the same entity.
-  friend class Entity;
   std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_;
-  friend class HexRegister;
-  std::unordered_map<uint16_t, HexRegister *> hex_registers_;
+  typedef std::unordered_map<uint16_t, HexRegister *> hex_registers_t;
+  hex_registers_t hex_registers_;
 
   HexRegister *get_hex_register_(register_id_t register_id, bool create);
 

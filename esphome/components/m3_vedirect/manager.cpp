@@ -56,6 +56,40 @@ void Manager::loop() {
 
 void Manager::dump_config() { ESP_LOGCONFIG(this->logtag_, "VEDirect:"); }
 
+void Manager::init_register(HexRegister *hex_register, const REG_DEF *reg_def) {
+  hex_register->reg_def_ = reg_def;
+  hex_register->init_reg_def_();
+  if (reg_def->register_id != REG_DEF::REGISTER_UNDEFINED) {
+    auto result = this->hex_registers_.emplace(reg_def->register_id, hex_register);
+    if (!result.second) {
+      // register_id already present in our set so we must setup/update an HexRegisterDispatcher
+      auto &existing_pair = *result.first;
+      existing_pair.second = existing_pair.second->cascade_dispatcher_(hex_register);
+    }
+  }
+}
+
+void Manager::init_entity(Entity *entity, REG_DEF::TYPE register_type) {
+  this->init_register(entity, &REG_DEF::DEFS[register_type]);
+  auto text_def = TEXT_DEF::find_type(register_type);
+  if (text_def)
+    this->text_entities_.emplace(text_def->label, entity);
+}
+
+void Manager::init_entity(Entity *entity, const char *label) {
+  auto text_def = TEXT_DEF::find_label(label);
+  if (text_def) {
+    if (entity->reg_def_ == &REG_DEF::DEFS[REG_DEF::TYPE::UNDEFINED]) {
+      // only set reg_def from our presets (if any) if the yaml generated code
+      // didn't set a custom configuration
+      auto reg_def = REG_DEF::find_type(text_def->register_type);
+      if (reg_def)
+        this->init_register(entity, reg_def);
+    }
+  }
+  this->text_entities_.emplace(label, entity);
+}
+
 std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
   if (vedirect_id.empty()) {
     return {managers_.front()};
@@ -263,7 +297,7 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
     hexregister = this->dynamic_build_entity_<TextSensor>(name, object_id);
     reg_def = new REG_DEF(register_id);
   }
-  hexregister->set_reg_def(this, reg_def);
+  this->init_register(hexregister, reg_def);
   return hexregister;
 }
 

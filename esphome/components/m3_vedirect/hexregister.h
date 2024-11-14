@@ -3,12 +3,16 @@
 #include "defines.h"
 #include "ve_hexframe.h"
 
+#include <vector>
+
 namespace esphome {
 namespace m3_vedirect {
 
 class HexRegister {
  public:
-  void set_reg_def(Manager *manager, const REG_DEF *reg_def);
+  friend class Manager;
+  friend class HexRegisterDispatcher;
+
   const REG_DEF *get_reg_def() { return this->reg_def_; }
 
   typedef FrameHandler::RxHexFrame RxHexFrame;
@@ -19,8 +23,6 @@ class HexRegister {
   inline void parse_text(const char *text_value) { this->parse_text_(this, text_value); }
 
  protected:
-  friend class Manager;
-
   const REG_DEF *reg_def_;
   parse_hex_func_t parse_hex_;
   parse_text_func_t parse_text_;
@@ -35,6 +37,12 @@ class HexRegister {
   /// @param reg_def: the proper register definition if available
   virtual void init_reg_def_(){};
 
+  // Called by the manager to setup an HexRegisterDispatcher in order to cascade 'parse_hex' calls
+  // when this HexRegister is being added to the registered registers. The base implementation will
+  // setup a new HexRegisterDispatcher cascading this and the provided 'hex_register' while the
+  // HexRegisterDispatcher will just add it to it's existing list
+  virtual HexRegister *cascade_dispatcher_(HexRegister *hex_register);
+
   static void parse_hex_empty_(HexRegister *hex_register, const RxHexFrame *hexframe) {}
 
   static void parse_text_empty_(HexRegister *hex_register, const char *text_value) {}
@@ -44,29 +52,35 @@ class HexRegister {
   virtual void parse_string_(const char *string_value){};
 };
 
-/*
-/// @brief Base class (interface) for entities which are linked to BITMASK registers
-/// like BinarySensor, TextSensor, Switch
-class BitmaskParser {
- protected:
-  friend class BitmaskHexRegister;
-  virtual void parse_bitmask_(BITMASK_DEF::bitmask_t bitmask, const REG_DEF *reg_def) {};
-};
-
-class BitmaskHexRegister : public HexRegister {
+/// @brief This class provides hexframe dispatching to multiple HexRegisters when more than
+/// one are interested in parsing incoming data for the same register address. This is
+/// installed in the Manager.hex_registers_ collection in place of a single HexRegister so
+/// that it'll be able to dispatch frame data to multiple entities/registers.
+class HexRegisterDispatcher final : public HexRegister {
  public:
-  void register_bitmask_parser(BitmaskParser *bitmask_parser) { this->bitmask_parsers_.push_back(bitmask_parser); }
+  friend class HexRegister;
+  HexRegisterDispatcher() : HexRegister(parse_hex_default_, parse_text_empty_) {}
 
  protected:
-  BITMASK_DEF::bitmask_t bitmask_{BITMASK_DEF::VALUE_UNKNOWN};
-  std::vector<BitmaskParser *> bitmask_parsers_;
+  std::vector<HexRegister *> hex_registers_;
 
-  void link_disconnected_() override;
-  void init_reg_def_() override;
+  void link_disconnected_() override {
+    for (auto hex_register : this->hex_registers_) {
+      hex_register->link_disconnected_();
+    }
+  }
 
-  static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hexframe);
+  HexRegister *cascade_dispatcher_(HexRegister *hex_register) override {
+    this->hex_registers_.push_back(hex_register);
+    return this;
+  }
+
+  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+    for (auto hex_register : static_cast<HexRegisterDispatcher *>(hex_register)->hex_registers_) {
+      hex_register->parse_hex(hex_frame);
+    }
+  }
 };
-*/
 
 }  // namespace m3_vedirect
 }  // namespace esphome

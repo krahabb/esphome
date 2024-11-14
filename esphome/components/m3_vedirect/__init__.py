@@ -190,12 +190,12 @@ def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
 
 
 async def new_vedirect_entity(config, manager):
-    var = cg.new_Pvariable(config[ec.CONF_ID], manager)
+    entity = cg.new_Pvariable(config[ec.CONF_ID], manager)
     valid = False
 
     if CONF_TYPE in config:
         valid = True
-        cg.add(var.set_register_type(manager, config[CONF_TYPE]))
+        cg.add(manager.init_entity(entity, config[CONF_TYPE]))
     elif CONF_REGISTER in config:
         valid = True
         register_config = config[CONF_REGISTER]
@@ -231,18 +231,18 @@ async def new_vedirect_entity(config, manager):
         if CONF_DATA_TYPE in register_config:
             local_assignment(reg_def.data_type, register_config[CONF_DATA_TYPE])
 
-        cg.add(var.set_reg_def(manager, cpp.UnaryOpExpression("&", reg_def)))
+        cg.add(manager.init_register(entity, cpp.UnaryOpExpression("&", reg_def)))
 
         if CONF_TEXT_LABEL in register_config:
-            cg.add(var.set_text_label(manager, register_config[CONF_TEXT_LABEL]))
+            cg.add(manager.init_entity(entity, register_config[CONF_TEXT_LABEL]))
 
     # configure binary-like entities
     if CONF_MASK in config:
-        cg.add(var.set_mask(config[CONF_MASK]))
+        cg.add(entity.set_mask(config[CONF_MASK]))
 
     if not valid:
         raise cv.Invalid(f"Either {CONF_TYPE} or {CONF_REGISTER} must be provided")
-    return var
+    return entity
 
 
 async def vedirect_platform_to_code(

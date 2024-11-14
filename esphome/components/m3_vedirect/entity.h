@@ -3,8 +3,6 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 
-#include <unordered_map>
-
 #include "defines.h"
 #include "ve_hexframe.h"
 #include "hexregister.h"
@@ -14,17 +12,6 @@ namespace m3_vedirect {
 
 class Entity : public HexRegister {
  public:
-  /// @brief Configure this entity based off our registers grammar (REG_DEF::DEFS).
-  /// This method is part of the public interface called by yaml generated code
-  /// @param register_type the TYPE enum from our pre-defined registers set
-  void set_register_type(Manager *manager, REG_DEF::TYPE register_type);
-
-  /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
-  /// will be automatically routed. This method is part of the public interface
-  /// called by yaml generated code
-  /// @param label the name of the TEXT FRAME record to bind
-  void set_text_label(Manager *manager, const char *label);
-
  protected:
   friend class Manager;
 
