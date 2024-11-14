@@ -1,10 +1,11 @@
 #include "entity.h"
-#include "esphome/core/application.h"
-#include "esphome/core/log.h"
-#include "esphome/components/api/api_server.h"
-
-#include "manager.h"
 
 namespace esphome {
-namespace m3_vedirect {}  // namespace m3_vedirect
+namespace m3_vedirect {
+
+const char *NumericEntity::UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
+    nullptr, "current", "voltage", "apparent_power", "power", nullptr, "energy", "battery", "duration", "temperature",
+};
+
+}  // namespace m3_vedirect
 }  // namespace esphome

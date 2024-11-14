@@ -6,20 +6,19 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Sensor final : public Entity, public esphome::sensor::Sensor {
+class Sensor final : public NumericEntity, public Entity, public esphome::sensor::Sensor {
  public:
   // configuration symbols for numeric sensors
-  static const char *UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT];
   static const sensor::StateClass UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT];
   static const uint8_t SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT];
 
   Sensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
-  void set_hex_scale(float scale) { this->hex_scale_ = scale; }
-  void set_text_scale(float scale) { this->text_scale_ = scale; }
+  // REMOVE void set_hex_scale(float scale) { this->hex_scale_ = scale; }
+  // REMOVE void set_text_scale(float scale) { this->text_scale_ = scale; }
 
  protected:
   friend class Manager;
-  float hex_scale_{1.};
+
   float text_scale_{1.};
 
   void dynamic_register_() override;

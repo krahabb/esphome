@@ -6,9 +6,6 @@
 namespace esphome {
 namespace m3_vedirect {
 
-const char *Sensor::UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
-    nullptr, "current", "voltage", "apparent_power", "power", nullptr, "energy", "battery", "duration", "temperature",
-};
 const sensor::StateClass Sensor::UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
     sensor::StateClass::STATE_CLASS_NONE,
     sensor::StateClass::STATE_CLASS_MEASUREMENT,
@@ -41,13 +38,12 @@ void Sensor::init_reg_def_() {
   auto reg_def = this->reg_def_;
   // Whatever the CLASS, sensor will just extract any meaningful numeric value
   // from the HEX payload eventually scaling by hex_scale
-
   this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
   this->set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
   this->set_state_class(UNIT_TO_STATE_CLASS[reg_def->unit]);
   this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
-  this->set_hex_scale(REG_DEF::SCALE_TO_SCALE[reg_def->scale]);
-  this->set_text_scale(REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale]);
+  this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
+  this->text_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale];
 
   switch (reg_def->unit) {
     case REG_DEF::UNIT::CELSIUS:

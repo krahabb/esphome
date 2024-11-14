@@ -23,14 +23,21 @@ class Entity : public HexRegister {
   virtual void dynamic_register_(){};
 };
 
-/// @brief Specialization for entities that can write configuration data to
-/// the VEDirect interface
-class ConfigEntity : public Entity {
+/// @brief Mixin style specialization for entities that can write configuration data to
+/// the VEDirect interface (Number, Select, Switch)
+class ConfigEntity {
  public:
   Manager *const manager;
-  ConfigEntity(Manager *manager, parse_hex_func_t parse_hex_func = parse_hex_empty_,
-               parse_text_func_t parse_text_func = parse_text_empty_)
-      : Entity(parse_hex_func, parse_text_func), manager(manager) {}
+  ConfigEntity(Manager *manager) : manager(manager) {}
+};
+
+/// @brief Mixin style specialization for Number and Sensor entities.
+class NumericEntity {
+ public:
+  static const char *UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT];
+
+ protected:
+  float hex_scale_{1.};
 };
 
 }  // namespace m3_vedirect

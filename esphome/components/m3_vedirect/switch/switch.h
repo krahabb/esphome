@@ -6,9 +6,9 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Switch final : public ConfigEntity, public esphome::switch_::Switch {
+class Switch final : public ConfigEntity, public Entity, public esphome::switch_::Switch {
  public:
-  Switch(Manager *manager) : ConfigEntity(manager, parse_hex_default_, parse_text_default_) {}
+  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 

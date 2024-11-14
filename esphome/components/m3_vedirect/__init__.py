@@ -12,8 +12,16 @@ import esphome.cpp_generator as cpp
 from . import ve_reg
 
 CODEOWNERS = ["@krahabb"]
-DEPENDENCIES = ["binary_sensor", "select", "sensor", "switch", "text_sensor", "uart"]
-AUTO_LOAD = ["binary_sensor", "select", "sensor", "switch", "text_sensor"]
+DEPENDENCIES = [
+    "binary_sensor",
+    "number",
+    "select",
+    "sensor",
+    "switch",
+    "text_sensor",
+    "uart",
+]
+AUTO_LOAD = ["binary_sensor", "number", "select", "sensor", "switch", "text_sensor"]
 MULTI_CONF = True
 
 
@@ -171,9 +179,7 @@ VEDIRECT_PLATFORM_SCHEMA = cv.Schema(
 )
 
 
-def vedirect_platform_schema(
-    platform_entities: dict[str, cv.Schema],
-):
+def vedirect_platform_schema(platform_entities: dict[str, cv.Schema]):
     return VEDIRECT_PLATFORM_SCHEMA.extend(
         {cv.Optional(type): schema for type, schema in platform_entities.items()}
     )

@@ -6,9 +6,9 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Select final : public ConfigEntity, public esphome::select::Select {
+class Select final : public ConfigEntity, public Entity, public esphome::select::Select {
  public:
-  Select(Manager *manager) : ConfigEntity(manager, parse_hex_default_, parse_text_default_) {}
+  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
 
  protected:
   friend class Manager;

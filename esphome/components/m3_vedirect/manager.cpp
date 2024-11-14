@@ -1,6 +1,7 @@
 #include "manager.h"
 #include "esphome/core/log.h"
 #include "binary_sensor/binary_sensor.h"
+#include "number/number.h"
 #include "select/select.h"
 #include "sensor/sensor.h"
 #include "switch/switch.h"
@@ -264,8 +265,7 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
         if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
           hexregister = this->dynamic_build_entity_<Sensor>(reg_def->label, reg_def->label);
         } else {
-          // TODO: build a number entity
-          hexregister = this->dynamic_build_entity_<Sensor>(reg_def->label, reg_def->label);
+          hexregister = this->dynamic_build_entity_<Number>(reg_def->label, reg_def->label);
         }
         break;
       case REG_DEF::CLASS::BOOLEAN:
