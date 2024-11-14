@@ -21,8 +21,8 @@
 
 #if 1
 // debug/testing preset environment: remove on release
-//#define VEDIRECT_FLAVOR_ALL
-#define VEDIRECT_FLAVOR_MPPT_RS
+#define VEDIRECT_FLAVOR_ALL
+//#define VEDIRECT_FLAVOR_MPPT_RS
 //#define VEDIRECT_FLAVOR_INV_PHNX
 //#define VEDIRECT_FLAVOR_BMV
 //#define VEDIRECT_FLAVOR_BMV71
