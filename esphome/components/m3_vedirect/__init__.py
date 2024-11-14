@@ -1,4 +1,4 @@
-from enum import StrEnum
+import enum
 from functools import partial
 import typing
 
@@ -6,42 +6,18 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import uart
 import esphome.config_validation as cv
-from esphome.const import CONF_ID, CONF_NAME, CONF_PAYLOAD, CONF_TRIGGER_ID
+import esphome.const as ec
 import esphome.cpp_generator as cpp
+
+from . import ve_reg
 
 CODEOWNERS = ["@krahabb"]
 DEPENDENCIES = ["binary_sensor", "select", "sensor", "switch", "text_sensor", "uart"]
 AUTO_LOAD = ["binary_sensor", "select", "sensor", "switch", "text_sensor"]
 MULTI_CONF = True
 
-m3_ve_reg_ns = cg.global_ns.namespace("m3_ve_reg")
-HEXFRAME_struct = m3_ve_reg_ns.struct("HEXFRAME")
-HEXFRAME_DATATYPE_enum = HEXFRAME_struct.enum("DATA_TYPE")
 
-
-class DATA_TYPE(StrEnum):
-    STRING = "STRING"
-    UN8 = "UN8"
-    UN16 = "UN16"
-    UN32 = "UN32"
-    SN8 = "SN8"
-    SN16 = "SN16"
-    SN32 = "SN32"
-
-
-REG_DEF_struct = m3_ve_reg_ns.struct("REG_DEF")
-REG_DEF_CLASS_enum = REG_DEF_struct.enum("CLASS")
-
-
-class CLASS(StrEnum):
-    BITMASK = "BITMASK"
-    BOOLEAN = "BOOLEAN"
-    ENUM = "ENUM"
-    NUMERIC = "NUMERIC"
-    STRING = "STRING"
-
-
-ENUM_DEF_struct = m3_ve_reg_ns.struct("ENUM_DEF")
+ENUM_DEF_struct = ve_reg.ns.struct("ENUM_DEF")
 ENUM_DEF_LOOKUP_DEF_struct = ENUM_DEF_struct.struct("LOOKUP_DEF")
 
 
@@ -59,13 +35,39 @@ CONF_VEDIRECT_ENTITIES = "vedirect_entities"
 CONF_TEXTFRAME = "textframe"
 CONF_HEXFRAME = "hexframe"
 
-CONF_ENTITIES = "entities"
-CONF_REGISTER_IDS = "register_ids"
-
 
 # common schema for entities:
 def validate_register_id():
     return cv.hex_int_range(min=0, max=65535)
+
+
+def validate_mock_enum(enum_class: type[ve_reg.MockEnum]):
+    return cv.enum({_enum.name: _enum.enum for _enum in enum_class})
+
+
+def validate_str_enum(enum_class: type[enum.StrEnum]):
+    return cv.enum({_enum.name: _enum for _enum in enum_class})
+
+
+def validate_numeric_scale():
+    """Allows 'scale' to be set either as a typed enum from REG_DEF::SCALE or a float value.
+    float value must be one of the normalized."""
+    _scale_map = {
+        1: ve_reg.SCALE.S_1,
+        0.1: ve_reg.SCALE.S_0_1,
+        0.01: ve_reg.SCALE.S_0_01,
+        0.001: ve_reg.SCALE.S_0_001,
+        0.25: ve_reg.SCALE.S_0_25,
+    }
+
+    enum_validator = validate_mock_enum(ve_reg.SCALE)
+
+    def validator(value):
+        if value in _scale_map:
+            value = _scale_map[value].name
+        return enum_validator(value)
+
+    return validator
 
 
 def validate_enum_lookup_def(value):
@@ -86,30 +88,28 @@ CONF_ENUM_DEF_ID = "enum_def_id"
 CONF_ADDRESS = "address"
 CONF_DATA_TYPE = "data_type"
 VEDIRECT_REGISTER_SCHEMA = {
-    cv.GenerateID(CONF_REG_DEF_ID): cv.declare_id(REG_DEF_struct),
+    cv.GenerateID(CONF_REG_DEF_ID): cv.declare_id(ve_reg.REG_DEF_struct),
     cv.GenerateID(CONF_ENUM_DEF_ID): cv.declare_id(ENUM_DEF_struct),
     # binds to the corresponding HEX register
-    cv.Optional(CONF_ADDRESS): validate_register_id(),
+    cv.Optional(CONF_ADDRESS, default=0): validate_register_id(),
     # configures the format of the HEX register
-    cv.Optional(CONF_DATA_TYPE): cv.enum(
-        {_dt.name: HEXFRAME_DATATYPE_enum.enum(_dt.name) for _dt in DATA_TYPE}
-    ),
+    cv.Optional(CONF_DATA_TYPE): validate_mock_enum(ve_reg.DATA_TYPE),
 }
 CONF_TEXT_SCALE = "text_scale"
 CONF_SCALE = "scale"
 CONF_UNIT = "unit"
 VEDIRECT_REGISTER_CLASS_SCHEMAS = {
-    CLASS.BOOLEAN: cv.Schema({}),
-    CLASS.BITMASK: cv.ensure_list(validate_enum_lookup_def),
-    CLASS.ENUM: cv.ensure_list(validate_enum_lookup_def),
-    CLASS.NUMERIC: cv.Schema(
+    ve_reg.CLASS.BOOLEAN: cv.Schema({}),
+    ve_reg.CLASS.BITMASK: cv.ensure_list(validate_enum_lookup_def),
+    ve_reg.CLASS.ENUM: cv.ensure_list(validate_enum_lookup_def),
+    ve_reg.CLASS.NUMERIC: cv.Schema(
         {
-            cv.Optional(CONF_SCALE): cv.float_,
-            cv.Optional(CONF_TEXT_SCALE): cv.float_,
-            cv.Optional(CONF_UNIT): cv.string,
+            cv.Optional(CONF_SCALE): validate_numeric_scale(),
+            cv.Optional(CONF_TEXT_SCALE): validate_numeric_scale(),
+            cv.Optional(CONF_UNIT): validate_mock_enum(ve_reg.UNIT),
         }
     ),
-    CLASS.STRING: cv.Schema({}),
+    ve_reg.CLASS.STRING: cv.Schema({}),
 }
 # TEXT record schema
 VEDIRECT_TEXTRECORD_SCHEMA = {
@@ -122,7 +122,7 @@ CONF_TYPE = "type"
 CONF_REGISTER = "register"
 
 
-def vedirect_entity_schema(classes: typing.Iterable[CLASS], has_text):
+def vedirect_entity_schema(classes: typing.Iterable[ve_reg.CLASS], has_text):
     register_schema = dict(VEDIRECT_REGISTER_SCHEMA)
     for _cls in classes:
         register_schema |= {
@@ -133,8 +133,8 @@ def vedirect_entity_schema(classes: typing.Iterable[CLASS], has_text):
     if has_text:
         register_schema |= VEDIRECT_TEXTRECORD_SCHEMA
     return {
-        cv.Exclusive(CONF_TYPE, "type"): cv.string,
-        cv.Exclusive(CONF_REGISTER, "type"): cv.Schema(register_schema),
+        cv.Exclusive(CONF_TYPE, "_type"): validate_mock_enum(ve_reg.TYPE),
+        cv.Exclusive(CONF_REGISTER, "_type"): cv.Schema(register_schema),
     }
 
 
@@ -181,57 +181,57 @@ def vedirect_platform_schema(
 
 def local_object_construct(id_: cpp.ID, *args):
     obj = cpp.MockObj(id_, ".")
-    expression = cpp.RawStatement(f"{id_.type} {id_}({cpp.ExpressionList(*args)});")
-    cg.add(expression)
+    cg.add(cpp.RawStatement(f"{id_.type} {id_}({cpp.ExpressionList(*args)});"))
     return obj
 
 
+def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
+    cg.add(cpp.RawStatement(f"{lvalue} = {cpp.safe_exp(rvalue)};"))
+
+
 async def new_vedirect_entity(config, manager):
-    var = cg.new_Pvariable(config[CONF_ID], manager)
+    var = cg.new_Pvariable(config[ec.CONF_ID], manager)
     valid = False
 
-    if CONF_REGISTER in config:
+    if CONF_TYPE in config:
+        valid = True
+        cg.add(var.set_register_type(manager, config[CONF_TYPE]))
+    elif CONF_REGISTER in config:
         valid = True
         register_config = config[CONF_REGISTER]
-        if CONF_ADDRESS in register_config:
-            reg_def = local_object_construct(
-                register_config[CONF_REG_DEF_ID], register_config[CONF_ADDRESS]
-            )
-
-            for _cls in CLASS:
-                _cls_key = _cls.name.lower()
-                if _cls_key in register_config:
-                    cg.add(
-                        cpp.AssignmentExpression(
-                            None, "", reg_def.cls, REG_DEF_CLASS_enum.enum(_cls.name)
+        reg_def = local_object_construct(
+            register_config[CONF_REG_DEF_ID], register_config[CONF_ADDRESS]
+        )
+        for _cls in ve_reg.CLASS:
+            _cls_key = _cls.name.lower()
+            if _cls_key in register_config:
+                class_config = register_config[_cls_key]
+                local_assignment(reg_def.cls, _cls.enum)
+                match _cls:
+                    case ve_reg.CLASS.BITMASK | ve_reg.CLASS.ENUM:
+                        enum_def = local_object_construct(
+                            register_config[CONF_ENUM_DEF_ID],
+                            class_config,
                         )
-                    )
-                    match _cls:
-                        case CLASS.BITMASK | CLASS.ENUM:
-                            enum_def = local_object_construct(
-                                register_config[CONF_ENUM_DEF_ID],
-                                register_config[_cls_key],
+                        local_assignment(
+                            reg_def.enum_def, cpp.UnaryOpExpression("&", enum_def)
+                        )
+                    case ve_reg.CLASS.NUMERIC:
+                        if CONF_UNIT in class_config:
+                            local_assignment(reg_def.unit, class_config[CONF_UNIT])
+                        if CONF_SCALE in class_config:
+                            local_assignment(reg_def.scale, class_config[CONF_SCALE])
+                        if CONF_TEXT_SCALE in class_config:
+                            local_assignment(
+                                reg_def.scale, class_config[CONF_TEXT_SCALE]
                             )
-                            cg.add(
-                                cpp.AssignmentExpression(
-                                    None,
-                                    "",
-                                    reg_def.enum_def,
-                                    cpp.UnaryOpExpression("&", enum_def),
-                                )
-                            )
-                        case CLASS.NUMERIC:
-                            pass
-                    break
 
-            if CONF_DATA_TYPE in register_config:
-                cg.add(
-                    cpp.AssignmentExpression(
-                        None, "", reg_def.data_type, register_config[CONF_DATA_TYPE]
-                    )
-                )
+                break
 
-            cg.add(var.set_reg_def(manager, cpp.UnaryOpExpression("&", reg_def)))
+        if CONF_DATA_TYPE in register_config:
+            local_assignment(reg_def.data_type, register_config[CONF_DATA_TYPE])
+
+        cg.add(var.set_reg_def(manager, cpp.UnaryOpExpression("&", reg_def)))
 
         if CONF_TEXT_LABEL in register_config:
             cg.add(var.set_text_label(manager, register_config[CONF_TEXT_LABEL]))
@@ -266,22 +266,14 @@ async def vedirect_platform_to_code(
 # main component (Manager) schema
 CONF_AUTO_CREATE_ENTITIES = "auto_create_entities"
 CONF_PING_TIMEOUT = "ping_timeout"
-CONF_DEFAULT_ENTITIES = "default_entities"
-DEFAULT_ENTITIES_MAP = {
-    "mppt": (),
-    "bmv60": (),
-    "bmv70": (),
-    "bmv71": (),
-    "inverter": (),
-    "charger": (),
-}
+CONF_FLAVOR = "flavor"
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Manager),
-            cv.Optional(CONF_NAME): cv.string_strict,
-            cv.Optional(CONF_DEFAULT_ENTITIES): cv.one_of(*DEFAULT_ENTITIES_MAP),
+            cv.Optional(ec.CONF_NAME): cv.string_strict,
+            cv.Optional(CONF_FLAVOR): cv.ensure_list(validate_str_enum(ve_reg.Flavor)),
             cv.Optional(CONF_TEXTFRAME): cv.Schema(
                 {
                     cv.Optional(CONF_AUTO_CREATE_ENTITIES): cv.boolean,
@@ -293,7 +285,7 @@ CONFIG_SCHEMA = cv.All(
                     cv.Optional(CONF_PING_TIMEOUT): cv.positive_time_period_seconds,
                     cv.Optional(CONF_ON_FRAME_RECEIVED): automation.validate_automation(
                         {
-                            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                            cv.GenerateID(ec.CONF_TRIGGER_ID): cv.declare_id(
                                 HexFrameTrigger
                             ),
                         }
@@ -308,9 +300,14 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config: dict):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[ec.CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
-    cg.add(var.set_vedirect_name(config.get(CONF_NAME, str(var.base))))
+    cg.add(var.set_vedirect_name(config.get(ec.CONF_NAME, str(var.base))))
+    if CONF_FLAVOR in config:
+        for flavor in config[CONF_FLAVOR]:
+            cg.add_define(f"VEDIRECT_FLAVOR_{flavor}")
+    else:
+        cg.add_define("VEDIRECT_FLAVOR_ALL")
     if config_textframe := config.get(CONF_TEXTFRAME):
         if CONF_AUTO_CREATE_ENTITIES in config_textframe:
             cg.add(
@@ -330,7 +327,7 @@ async def to_code(config: dict):
             cg.add(var.set_ping_timeout(config_hexframe[CONF_PING_TIMEOUT]))
 
         for conf in config_hexframe.get(CONF_ON_FRAME_RECEIVED, []):
-            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+            trigger = cg.new_Pvariable(conf[ec.CONF_TRIGGER_ID], var)
             await automation.build_automation(
                 trigger, [(HexFrame_const_ref, "hexframe")], conf
             )
@@ -364,18 +361,17 @@ async def action_to_code(
 
 CONF_COMMAND = "command"
 CONF_REGISTER_ID = "register_id"
-CONF_DATA = "data"
 CONF_DATA_SIZE = "data_size"
 MANAGER_ACTIONS = {
     "send_hexframe": {
         cv.Optional(CONF_VEDIRECT_ID, default=""): cv.string,
-        cv.Required(CONF_PAYLOAD): cv.string,
+        cv.Required(ec.CONF_DATA): cv.string,
     },
     "send_command": {
         cv.Optional(CONF_VEDIRECT_ID, default=""): cv.string,
         cv.Required(CONF_COMMAND): cv.int_,
         cv.Optional(CONF_REGISTER_ID): validate_register_id,
-        cv.Optional(CONF_DATA): cv.int_,
+        cv.Optional(ec.CONF_DATA): cv.int_,
         cv.Optional(CONF_DATA_SIZE): cv.int_,
     },
 }

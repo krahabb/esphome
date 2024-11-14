@@ -74,20 +74,38 @@ struct HexFrame {
   register_id_t register_id() const { return *(uint16_t *) (this->begin() + 1); }
   uint8_t flags() const { return *(this->begin() + 3); }
   const uint8_t *data_begin() const { return this->begin() + 4; }
-  const uint8_t *data_end() const { return this->end() - 1; }
-  int data_size() const { return this->size() - 5; }
-  uint8_t data_u8() const { return *this->data_begin(); }
-  uint16_t data_u16() const { return *(uint16_t *) this->data_begin(); }
-  int16_t data_i16() const { return *(int16_t *) this->data_begin(); }
-  uint32_t data_u32() const { return *(uint32_t *) this->data_begin(); }
-  // unchecked (buffer overflow) cast to data type: be careful
+  const uint8_t *data_end() const { return this->end(); }
+  int data_size() const { return this->size() - 4; }
+  // FRAGILE: unchecked cast to data type: be careful for buffer overflow
   template<typename T> T data_t() const { return *(T *) this->data_begin(); }
+  // size-checked cast to unsigned 32
+  uint32_t safe_data_u32() const {
+    switch (this->data_size()) {
+      case 1:
+        return this->data_t<uint8_t>();
+      case 2:
+        return this->data_t<uint16_t>();
+      case 3:
+        return this->data_t<uint32_t>() & 0x00FFFFFF;
+      case 4:
+        return this->data_t<uint32_t>();
+      default:
+        return 0;  // FRAGILE: invalid value though...
+    }
+  }
+  const char *data_str() const { return (const char *) this->data_begin(); }
   /// @brief Safely extracts the 'raw' payload (i.e. the data past the register id and flags)
+  /// prepending '0x' to the returned string
   bool data_to_hex(std::string &hexdata) const;
+  /// @brief Safely extracts the 'raw' payload (i.e. the data past the register id and flags)
+  /// prepending '0x' to the returned string. Ensure buf_size is at least 3 for the checks to work
+  bool data_to_hex(char *buf, size_t buf_size) const;
 
   /// @brief Decode an HEXFRAME starting from a plain (encoded) HEX stream.
   /// This can be used to decode raw HEX streams and/or to add the checksum
-  /// to partially encoded streams
+  /// to partially encoded streams. When the input 'hexdigits' terminates on '\n'
+  /// the decoder assumes the checksum is included in the unput stream and ignores
+  /// 'addchecksum'
   /// @param hexdigits
   /// @param addchecksum
   /// @return
@@ -163,7 +181,10 @@ struct HexFrame {
 
 /// @brief Provides a static storage implementation for HexFrame
 template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
+  // allocated (maximum) size of the 'raw' payload excluding command and checksum
   static constexpr size_t ALLOCATED_DATA_SIZE = HF_DATA_SIZE;
+  // allocated (maximum) size of the hex encoded whole frame
+  static constexpr size_t ALLOCATED_ENCODED_SIZE = 1 + 1 + HF_DATA_SIZE * 2 + 2 + 1 + 1;
 
   HexFrameT() : HexFrame(this->rawframe_, this->encoded_) {}
 
@@ -171,12 +192,12 @@ template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
   const char *encoded_end_of_storage() const override { return this->encoded_ + sizeof(this->encoded_); }
 
  protected:
-  // raw buffer: contains COMMAND + DATA + CHECKSUM
+  // raw buffer: contains COMMAND + DATA + TERMINATOR(0)
   uint8_t rawframe_[1 + HF_DATA_SIZE + 1];
 
   // buffer for decoded/encoded hex digits:
   // :[COMMAND][DATAHIGH][DATALOW][CHECKSUMHIGH][CHECKSUMLOW]\n\0
-  char encoded_[1 + 1 + HF_DATA_SIZE * 2 + 2 + 1 + 1]{":"};
+  char encoded_[ALLOCATED_ENCODED_SIZE]{":"};
 };
 
 /// @brief Helper constructor for plain 'command' frames (no payload)
@@ -227,6 +248,16 @@ class HexFrameDecoder {
   /// an '\n' (newline) or '\0' (string termination). If the stream
   /// is not properly terminated an overflow will be detected once the
   /// input stream fills the hexframe buffers.
+  /// The decoding is optimized to parse both VEDirect incoming byte stream
+  /// which usually starts on ':' and ends on '\n'. When this is the case,
+  /// the opening ':' must be eated by the external frame handler.
+  /// The other use-case is when we want to build an HexFrame starting from an already
+  /// encoded (hex) string so that we can eventually add the checksum. In this scenario,
+  /// the stream might (should) end on '\0' and we could then easily add the checksum
+  /// if needed. See 'HexFrame::decode'
+  /// While parsing, the input hexdigit is also accumulated into the 'encoded_'
+  /// buffer of the HexFrame so that it could come handy for later prints or so
+  /// without the need to re-encode the frame itself.
   /// @param hexdigit
   /// @return the parsing status 'Result' after each iteration
   Result decode(char hexdigit) {
@@ -246,15 +277,21 @@ class HexFrameDecoder {
       hexdigit -= 55;
     } else if (hexdigit == '\n') {
       *hexframe->encoded_end_++ = '\n';
-      result = this->checksum_ ? Result::ChecksumError : Result::Valid;
-      goto decode_exit;
-    } else if (hexdigit == 0) {
-      // special care since we consider a 'strong' coding error when termination
-      // occurs at nibble boundary
-      result = this->hinibble_ ? Result::Terminated : Result::CodingError;
+      if (this->hinibble_) {
+        // frame alignment ok
+        if (this->checksum_) {
+          result = Result::ChecksumError;
+        } else {
+          result = Result::Valid;
+          // pops out the checksum from the rawdata
+          --hexframe->rawframe_end_;
+        }
+      } else {
+        result = Result::CodingError;
+      }
       goto decode_exit;
     } else {
-      result = Result::CodingError;
+      result = ((hexdigit == 0) && this->hinibble_) ? Result::Terminated : Result::CodingError;
       goto decode_exit;
     }
 
@@ -269,6 +306,7 @@ class HexFrameDecoder {
     return Result::Continue;
 
   decode_exit:
+    *hexframe->rawframe_end_ = 0;
     *hexframe->encoded_end_ = 0;
     this->hexframe_ = nullptr;
     return result;
@@ -292,17 +330,18 @@ class HexFrameDecoder {
  */
 class FrameHandler {
  public:
-  static const char *ERR_HEXFRAME_CHECKSUM;
-  static const char *ERR_HEXFRAME_CODING;
-  static const char *ERR_HEXFRAME_OVERFLOW;
-  static const char *ERR_TEXTFRAME_CHECKSUM;
-  static const char *ERR_TEXTFRAME_NAME_OVERFLOW;
-  static const char *ERR_TEXTFRAME_VALUE_OVERFLOW;
-  static const char *ERR_TEXTFRAME_RECORD_OVERFLOW;
-
   typedef HexFrameT<VEDIRECT_HEXFRAME_MAX_SIZE> RxHexFrame;
 
-  enum FrameState {
+  enum Error {
+    CHECKSUM,
+    CODING,
+    OVERFLOW,
+    NAME_OVERFLOW,
+    VALUE_OVERFLOW,
+    RECORD_OVERFLOW,
+  };
+
+  enum State {
     Idle,
     Name,
     Value,
@@ -315,17 +354,18 @@ class FrameHandler {
     char value[VEDIRECT_VALUE_LEN];
   };
 
-  void reset() { this->frame_state_ = FrameState::Idle; }
+  void reset() { this->frame_state_ = State::Idle; }
   void decode(uint8_t *data_begin, uint8_t *data_end);
 
  private:
   //
   virtual void on_frame_hex_(const RxHexFrame &hexframe) {}
+  virtual void on_frame_hex_error_(Error error) {}
   virtual void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) {}
-  virtual void on_frame_error_(const char *message) {}
+  virtual void on_frame_text_error_(Error error) {}
 
-  FrameState frame_state_{FrameState::Idle};
-  FrameState frame_state_backup_;
+  State frame_state_{State::Idle};
+  State frame_state_backup_;
 
   uint8_t text_checksum_;
   // This is a statically preallocated storage for incoming records
@@ -358,7 +398,7 @@ class FrameHandler {
   inline void frame_hex_start_() {
     this->hexframe_decoder_.init(&this->hexframe_);
     this->frame_state_backup_ = this->frame_state_;
-    this->frame_state_ = FrameState::Hex;
+    this->frame_state_ = State::Hex;
   }
 };
 

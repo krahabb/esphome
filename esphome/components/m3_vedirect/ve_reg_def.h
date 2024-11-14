@@ -3,8 +3,8 @@
 #include <string>
 #include <cstring>
 #include "ve_reg.h"
-#include "ve_reg_enums.h"
-#include "ve_reg_registers.h"
+#include "ve_reg_enum.h"
+#include "ve_reg_register.h"
 #include "ve_reg_text.h"
 
 namespace m3_ve_reg {
@@ -66,6 +66,7 @@ struct BITMASK_DEF : public ENUM_DEF {
 };
 
 // declare the enum helpers structs for BITMASK/ENUM registers
+#define _DEF_ENUM_UNKNOWN N
 #define _DEF_ENUM_BOOLEAN N
 #define _DEF_ENUM_BITMASK Y
 #define _DEF_ENUM_BITMASK_S N
@@ -79,23 +80,24 @@ struct BITMASK_DEF : public ENUM_DEF {
     enum : enum_t { cls##_##label(_ENUMS_ITEM) }; \
   }; \
   extern cls##_DEF VE_REG_##label##_##cls##_DEF;
-#define DECLARE_ENUMS(cls, register_id, label, ...) IF(_DEF_ENUM_##cls)(_DECLARE_ENUMS(cls, register_id, label, ...))
+#define DECLARE_ENUMS(flavor, cls, register_id, label, ...) \
+  IF(DEF_##flavor)(IF(_DEF_ENUM_##cls)(_DECLARE_ENUMS(cls, register_id, label, ...)))
 
 REGISTERS_COMMON(DECLARE_ENUMS)
 
 struct REG_DEF {
-#define DECLARE_REG_LABEL(cls, register_id, label, ...) label,
+#define DECLARE_REG_LABEL(flavor, cls, register_id, label, ...) IF(DEF_##flavor)(label, )
   enum TYPE : uint16_t { REGISTERS_COMMON(DECLARE_REG_LABEL) TYPE_COUNT };
 #undef DECLARE_REG_LABEL
 
   /// @brief Defines the data semantics of this register
   enum CLASS : uint8_t {
-    UNKNOWN,
+    UNKNOWN,  // untyped data. Generally rendered by the 'default' handler (HEX for TextSensors)
     BITMASK,  // represents a set of bit flags
     BOOLEAN,  // boolean state represented by 0 -> false, 1 -> true
     ENUM,     // enumeration data
     NUMERIC,  // numeric data (either signed or unsigned)
-    STRING,
+    STRING,   // (ascii?) content
   };
 
   enum ACCESS : uint8_t {
@@ -131,6 +133,8 @@ struct REG_DEF {
   };
   static const float SCALE_TO_SCALE[SCALE::SCALE_COUNT];
 
+  static constexpr register_id_t REGISTER_UNDEFINED = 0;
+
   const register_id_t register_id;
   const char *const label;
   CLASS cls : 3;
@@ -158,15 +162,15 @@ struct REG_DEF {
         label(nullptr),
         cls(CLASS::UNKNOWN),
         access(ACCESS::READ_ONLY),
-        data_type(DATA_TYPE::STRING),
+        data_type(DATA_TYPE::VARIADIC),
         enum_def(nullptr) {}
-  /// @brief Constructor for STRING or BOOLEAN register definitions
+  /// @brief Constructor for UNKNOWN, BOOLEAN, or STRING register definitions
   REG_DEF(register_id_t register_id, const char *label, CLASS cls, ACCESS access)
       : register_id(register_id),
         label(label),
         cls(cls),
         access(access),
-        data_type(cls == CLASS::BOOLEAN ? DATA_TYPE::UN8 : DATA_TYPE::STRING),
+        data_type(cls == CLASS::BOOLEAN ? DATA_TYPE::UN8 : DATA_TYPE::VARIADIC),
         enum_def(nullptr) {}
   /// @brief Constructor for BITMASK registers definitions
   REG_DEF(register_id_t register_id, const char *label, ACCESS access, DATA_TYPE data_type, ENUM_DEF *enum_def)
@@ -196,11 +200,6 @@ struct REG_DEF {
         scale(scale),
         text_scale(text_scale) {}
 
-  /// @brief get our symbolic name (TYPE) for this REG_DEF. Only
-  /// valid when the structure is peeked from our static DEFS
-  /// @return
-  TYPE get_type() const { return (TYPE) (this - DEFS); }
-
  protected:
 };
 
@@ -209,9 +208,6 @@ struct TEXT_DEF {
   const char *label;
   const char *description;
   const REG_DEF::TYPE register_type;
-
-  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type, REG_DEF::CLASS cls)
-      : label(label), description(description), register_type(register_type) {}
 
   // Constructor used when register_type is a valid mapping to a REG_DEF
   TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type)
@@ -223,6 +219,7 @@ struct TEXT_DEF {
   bool operator<(const char *label) const { return strcmp(this->label, label) < 0; }
   static const TEXT_DEF DEFS[];
   static const TEXT_DEF *find_label(const char *label);
+  static const TEXT_DEF *find_type(REG_DEF::TYPE register_type);
 };
 
 #pragma pack(pop)

@@ -31,19 +31,18 @@ void BinarySensor::init_reg_def_() {
 void BinarySensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   // By default considering the register as a BOOLEAN
-  static_cast<BinarySensor *>(hex_register)->publish_state(hex_frame->data_u8());
+  static_cast<BinarySensor *>(hex_register)->publish_state(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 
 void BinarySensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   // BITMASK registers have storage up to 4 bytes
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  static_cast<BinarySensor *>(hex_register)
-      ->parse_bitmask_(HEXFRAME::GET_DATA_AS_INT[hex_register->get_reg_def()->data_type](hex_frame->record()));
+  static_cast<BinarySensor *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
 }
 
 void BinarySensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<BinarySensor *>(hex_register)->parse_enum_(hex_frame->data_u8());
+  static_cast<BinarySensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 
 void BinarySensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {

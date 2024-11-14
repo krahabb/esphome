@@ -41,13 +41,22 @@ void Sensor::init_reg_def_() {
   auto reg_def = this->reg_def_;
   // Whatever the CLASS, sensor will just extract any meaningful numeric value
   // from the HEX payload eventually scaling by hex_scale
-  this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+
   this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
   this->set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
   this->set_state_class(UNIT_TO_STATE_CLASS[reg_def->unit]);
   this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
   this->set_hex_scale(REG_DEF::SCALE_TO_SCALE[reg_def->scale]);
   this->set_text_scale(REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale]);
+
+  switch (reg_def->unit) {
+    case REG_DEF::UNIT::CELSIUS:
+      // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
+      this->parse_hex_ = parse_hex_temperature_;
+      break;
+    default:
+      this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+  }
 }
 
 void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
@@ -55,18 +64,27 @@ void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex
   float value;
   switch (hex_frame->data_size()) {
     case 1:
-      value = hex_frame->data_u8() * sensor->hex_scale_;
+      value = hex_frame->data_t<uint8_t>() * sensor->hex_scale_;
       break;
     case 2:
       // it might be signed though
-      value = hex_frame->data_u16() * sensor->hex_scale_;
+      value = hex_frame->data_t<uint16_t>() * sensor->hex_scale_;
       break;
     case 4:
-      value = hex_frame->data_u32() * sensor->hex_scale_;
+      value = hex_frame->data_t<uint32_t>() * sensor->hex_scale_;
       break;
     default:
       value = NAN;
   }
+  if (sensor->raw_state != value) {
+    sensor->publish_state(value);
+  }
+}
+
+void Sensor::parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  Sensor *sensor = static_cast<Sensor *>(hex_register);
+  // hoping the operands are int-promoted and the result is an int
+  float value = (hex_frame->data_t<uint16_t>() - 27316) * sensor->hex_scale_;
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
   }

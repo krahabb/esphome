@@ -1,5 +1,5 @@
 #pragma once
-#include "ve_reg_defs.h"
+#include "ve_reg_def.h"
 #include <stddef.h>
 #include <cstring>
 

@@ -2,11 +2,11 @@ from esphome.components import switch
 import esphome.config_validation as cv
 
 from .. import (
-    CLASS,
     CONF_VEDIRECT_ENTITIES,
     VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
     m3_vedirect_ns,
     new_vedirect_entity,
+    ve_reg,
     vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
@@ -16,7 +16,9 @@ VEDirectSwitch = m3_vedirect_ns.class_("Switch", switch.Switch)
 VEDIRECT_SWITCH_SCHEMA = switch.switch_schema(
     VEDirectSwitch, default_restore_mode="DISABLED"
 ).extend(
-    vedirect_entity_schema((CLASS.BOOLEAN, CLASS.BITMASK, CLASS.ENUM), False),
+    vedirect_entity_schema(
+        (ve_reg.CLASS.BOOLEAN, ve_reg.CLASS.BITMASK, ve_reg.CLASS.ENUM), False
+    ),
     VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
 )
 

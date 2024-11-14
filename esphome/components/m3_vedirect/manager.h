@@ -74,11 +74,11 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 
   template<typename... Ts> class Action_send_hexframe : public BaseAction<Ts...> {
    public:
-    TEMPLATABLE_VALUE(std::string, payload)
+    TEMPLATABLE_VALUE(std::string, data)
 
     void play(Ts... x) {
       for (auto manager : Manager::get_managers(this->vedirect_id_.value(x...)))
-        manager->send_hexframe(this->payload_.value(x...));
+        manager->send_hexframe(this->data_.value(x...));
     }
   };
   template<typename... Ts> class Action_send_command : public BaseAction<Ts...> {
@@ -140,7 +140,8 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // override FrameHandler
   void on_frame_hex_(const RxHexFrame &hexframe) override;
   void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
-  void on_frame_error_(const char *message) override;
+  void on_frame_hex_error_(Error error) override;
+  void on_frame_text_error_(Error error) override;
 
   // These will provide 'map' access either by text record name (text_entities_)
   // or by HEX register id (hex_entities_). Since some HEX registers are also

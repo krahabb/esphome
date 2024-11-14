@@ -21,6 +21,7 @@ class TextSensor final : public Entity, esphome::text_sensor::TextSensor {
   static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);

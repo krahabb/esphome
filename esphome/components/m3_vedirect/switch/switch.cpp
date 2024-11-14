@@ -30,19 +30,18 @@ void Switch::init_reg_def_() {
 
 void Switch::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<Switch *>(hex_register)->publish_state(hex_frame->data_u8());
+  static_cast<Switch *>(hex_register)->publish_state(hex_frame->data_t<uint8_t>());
 }
 
 void Switch::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   // BITMASK registers have storage up to 4 bytes
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  static_cast<Switch *>(hex_register)
-      ->parse_bitmask_(HEXFRAME::GET_DATA_AS_INT[hex_register->get_reg_def()->data_type](hex_frame->record()));
+  static_cast<Switch *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
 }
 
 void Switch::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<Switch *>(hex_register)->parse_enum_(hex_frame->data_u8());
+  static_cast<Switch *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 
 void Switch::parse_text_default_(HexRegister *hex_register, const char *text_value) {
@@ -86,16 +85,17 @@ void Switch::write_state(bool state) {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
       hexvalue = state ? this->raw_value_ | this->mask_ : this->raw_value_ & ~this->mask_;
-      break;
+      this->manager->send_register_set(this->reg_def_->register_id, &hexvalue, this->reg_def_->data_type);
+      return;
     case REG_DEF::CLASS::ENUM:
-      hexvalue = state ? this->mask_ : 0;  // what's a reasonable negation of mask_ ?
-      break;
+      // what's a reasonable negation of mask_ ?
+      this->manager->send_register_set(this->reg_def_->register_id, (ENUM_DEF::enum_t)(state ? this->mask_ : 0));
+      return;
     default:
       // consider BOOLEAN
       this->manager->send_register_set(this->reg_def_->register_id, (uint8_t) (state ? 1 : 0));
       return;
   }
-  this->manager->send_register_set(this->reg_def_->register_id, &hexvalue, this->reg_def_->data_type);
 }
 }  // namespace m3_vedirect
 }  // namespace esphome

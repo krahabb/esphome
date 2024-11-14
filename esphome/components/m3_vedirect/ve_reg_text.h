@@ -1,5 +1,5 @@
 #pragma once
-#include "ve_reg_macro.h"
+#include "ve_reg_flavor.h"
 
 // clang-format off
 
@@ -9,38 +9,38 @@
 */
 #define _REGISTER_TYPE_UNDEFINED TYPE_COUNT
 #define TEXTRECORDS(MACRO) \
-	IF(DEF_INV)(MACRO(NUMERIC, "AC_OUT_I", AC_OUT_CURRENT, "AC output current")) \
-	IF(DEF_INV)(MACRO(NUMERIC, "AC_OUT_S", AC_OUT_APPARENT_POWER, "AC output apparent power")) \
-	IF(DEF_INV)(MACRO(NUMERIC, "AC_OUT_V", AC_OUT_VOLTAGE, "AC output voltage")) \
-	MACRO(BITMASK, "AR", ALARM_REASON, "Alarm reason") \
-	IF(DEF_BMV)(MACRO(BOOLEAN, "Alarm", ALARM_BUZZER, "Alarm")) \
-	MACRO(ENUM, "CS", DEVICE_STATE, "State of operation") \
-	IF(DEF_CHG)(MACRO(ENUM, "ERR", CHR_ERROR_CODE, "Charger error")) \
-	MACRO(STRING, "FW", _REGISTER_TYPE_UNDEFINED, "Firmware version (FW)") \
-	MACRO(STRING, "FWE", _REGISTER_TYPE_UNDEFINED, "Firmware version (FWE)") \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "H19", USER_YIELD, "Yield total")) \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "H20", YIELD_TODAY, "Yield today")) \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "H21", MAXIMUM_POWER_TODAY, "Maximum power today")) \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "H22", YIELD_YESTERDAY, "Yield yesterday")) \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "H23", MAXIMUM_POWER_YESTERDAY, "Maximum power yesterday")) \
-	IF(DEF_MPPT)(MACRO(STRING, "HSDS", _REGISTER_TYPE_UNDEFINED, "Day sequence number")) \
-	MACRO(NUMERIC, "I", DC_CHANNEL1_CURRENT, "Battery current") \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "IL", LOAD_CURRENT, "Load current")) \
-	IF(DEF_MPPT)(MACRO(BOOLEAN, "LOAD", LOAD_OUTPUT_STATE, "Output state")) \
-	MACRO(ENUM, "MODE", DEVICE_MODE, "Device mode") \
-	IF(DEF_BMV71)(MACRO(STRING, "MON", DC_MONITOR_MODE, "DC monitor mode")) \
-	IF(DEF_MPPT)(MACRO(ENUM, "MPPT", MPPT_TRACKER_MODE, "Tracker operation mode")) \
-	MACRO(BITMASK, "OR", DEVICE_OFF_REASON_2, "Off reason") \
-	IF(DEF_BMV)(MACRO(NUMERIC, "P", DC_CHANNEL1_POWER, "Battery power")) \
-	MACRO(STRING, "PID", _REGISTER_TYPE_UNDEFINED, "Product Id") \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "PPV", PANEL_POWER, "PV power")) \
-	MACRO(BOOLEAN, "Relay", RELAY_CONTROL, "Relay state") \
-	MACRO(STRING, "SER#", SERIAL_NUMBER, "Serial number") \
-	IF(DEF_BMV)(MACRO(NUMERIC, "SOC", SOC, "SOC")) \
-	IF(DEF_BMV)(MACRO(NUMERIC, "T", BAT_TEMPERATURE, "Battery temperature")) \
-	IF(DEF_BMV)(MACRO(NUMERIC, "TTG", TTG, "Time To Go")) \
-	MACRO(NUMERIC, "V", DC_CHANNEL1_VOLTAGE, "Battery voltage") \
-	IF(DEF_MPPT)(MACRO(NUMERIC, "VPV", PANEL_VOLTAGE, "PV voltage")) \
-	IF(DEF_INV)(MACRO(BITMASK, "WARN", WARNING_REASON, "Warning reason"))
+	MACRO(INV, NUMERIC, "AC_OUT_I", AC_OUT_CURRENT, "AC output current") \
+	MACRO(INV, NUMERIC, "AC_OUT_S", AC_OUT_APPARENT_POWER, "AC output apparent power") \
+	MACRO(INV, NUMERIC, "AC_OUT_V", AC_OUT_VOLTAGE, "AC output voltage") \
+	MACRO(ANY, BITMASK, "AR", ALARM_REASON, "Alarm reason") \
+	MACRO(BMV, BOOLEAN, "Alarm", ALARM_BUZZER, "Alarm") \
+	MACRO(ANY, ENUM, "CS", DEVICE_STATE, "State of operation") \
+	MACRO(CHG, ENUM, "ERR", CHR_ERROR_CODE, "Charger error") \
+	MACRO(ANY, STRING, "FW", _REGISTER_TYPE_UNDEFINED, "Firmware version (FW)") \
+	MACRO(ANY, STRING, "FWE", _REGISTER_TYPE_UNDEFINED, "Firmware version (FWE)") \
+	MACRO(MPPT, NUMERIC, "H19", USER_YIELD, "Yield total") \
+	MACRO(MPPT, NUMERIC, "H20", YIELD_TODAY, "Yield today") \
+	MACRO(MPPT, NUMERIC, "H21", MAXIMUM_POWER_TODAY, "Maximum power today") \
+	MACRO(MPPT, NUMERIC, "H22", YIELD_YESTERDAY, "Yield yesterday") \
+	MACRO(MPPT, NUMERIC, "H23", MAXIMUM_POWER_YESTERDAY, "Maximum power yesterday") \
+	MACRO(MPPT, STRING, "HSDS", _REGISTER_TYPE_UNDEFINED, "Day sequence number") \
+	MACRO(ANY, NUMERIC, "I", DC_CHANNEL1_CURRENT, "Battery current") \
+	MACRO(MPPT, NUMERIC, "IL", LOAD_CURRENT, "Load current") \
+	MACRO(MPPT, BOOLEAN, "LOAD", LOAD_OUTPUT_STATE, "Output state") \
+	MACRO(ANY, ENUM, "MODE", DEVICE_MODE, "Device mode") \
+	MACRO(BMV71, STRING, "MON", DC_MONITOR_MODE, "DC monitor mode") \
+	MACRO(MPPT, ENUM, "MPPT", MPPT_TRACKER_MODE, "Tracker operation mode") \
+	MACRO(ANY, BITMASK, "OR", DEVICE_OFF_REASON_2, "Off reason") \
+	MACRO(BMV, NUMERIC, "P", DC_CHANNEL1_POWER, "Battery power") \
+	MACRO(ANY, UNKNOWN, "PID", PRODUCT_ID, "Product Id") \
+	MACRO(MPPT, NUMERIC, "PPV", PANEL_POWER, "PV power") \
+	MACRO(ANY, BOOLEAN, "Relay", RELAY_CONTROL, "Relay state") \
+	MACRO(ANY, STRING, "SER#", SERIAL_NUMBER, "Serial number") \
+	MACRO(BMV, NUMERIC, "SOC", SOC, "SOC") \
+	MACRO(BMV, NUMERIC, "T", BAT_TEMPERATURE, "Battery temperature") \
+	MACRO(BMV, NUMERIC, "TTG", TTG, "Time To Go") \
+	MACRO(ANY, NUMERIC, "V", DC_CHANNEL1_VOLTAGE, "Battery voltage") \
+	MACRO(MPPT, NUMERIC, "VPV", PANEL_VOLTAGE, "PV voltage") \
+	MACRO(INV, BITMASK, "WARN", WARNING_REASON, "Warning reason")
 
 // clang-format on

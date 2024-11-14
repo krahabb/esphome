@@ -1,3 +1,8 @@
+/*
+    Helper macros for some funny conditional macro processing
+    code from: https://stackoverflow.com/questions/5586429/ifdef-inside-define
+
+*/
 #define PASTE_(x, y) x##y
 #define PASTE(x, y) PASTE_(x, y)
 #define PASTE3_(x, y, z) x##y##z
@@ -48,90 +53,3 @@
 #define XNOR(x, y) PASTE3(x, _XNOR_, y)
 
 #define IF2(x, y, z) PASTE3(x, y, z)
-
-#if 1
-#define FLAVOR_MPPT_BS
-#define FLAVOR_MPPT_RS
-#define FLAVOR_INV_PHNX
-#define FLAVOR_BMV
-#define FLAVOR_BMV71
-#endif
-
-// Inverter flavors
-#ifdef FLAVOR_INV_PHNX
-#define FLAVOR_INV
-#define DEF_INV_PHNX Y
-#else
-#define DEF_INV_PHNX N
-#endif
-
-// Charger flavors
-#ifdef FLAVOR_CHG_PHNX
-#define FLAVOR_CHG
-#define DEF_CHG_PHNX Y
-#else
-#define DEF_CHG_PHNX N
-#endif
-
-// MPPT charger flavors
-#ifdef FLAVOR_MPPT_BS  // BlueSolar MPPT
-#define FLAVOR_MPPT
-#define DEF_MPPT_BS Y
-#else
-#define DEF_MPPT_BS N
-#endif
-
-#ifdef FLAVOR_MPPT_RS
-#define FLAVOR_MPPT
-#define DEF_MPPT_RS Y
-#else
-#define DEF_MPPT_RS N
-#endif
-
-// Battery Monitor flavors
-#ifdef FLAVOR_BMV60
-#define FLAVOR_BMV
-#define DEF_BMV60 Y
-#else
-#define DEF_BMV60 N
-#endif
-
-#ifdef FLAVOR_BMV70
-#define FLAVOR_BMV
-#define DEF_BMV70 Y
-#else
-#define DEF_BMV70 N
-#endif
-
-#ifdef FLAVOR_BMV71
-#define FLAVOR_BMV
-#define DEF_BMV71 Y
-#else
-#define DEF_BMV71 N
-#endif
-
-// define some 'groups'
-#ifdef FLAVOR_MPPT  // any MPPT charger flavor
-#define FLAVOR_CHG
-#define DEF_MPPT Y
-#else
-#define DEF_MPPT N
-#endif
-
-#ifdef FLAVOR_BMV  // any BMV flavor
-#define DEF_BMV Y
-#else
-#define DEF_BMV N
-#endif
-
-#ifdef FLAVOR_CHG  // any charger flavor
-#define DEF_CHG Y
-#else
-#define DEF_CHG N
-#endif
-
-#ifdef FLAVOR_INV  // any inverter flavor
-#define DEF_INV Y
-#else
-#define DEF_INV N
-#endif

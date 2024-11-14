@@ -3,10 +3,10 @@ import esphome.config_validation as cv
 import esphome.const as ec
 
 from .. import (
-    CLASS,
     CONF_VEDIRECT_ENTITIES,
     m3_vedirect_ns,
     new_vedirect_entity,
+    ve_reg,
     vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
@@ -17,7 +17,7 @@ from .. import (
 # CONF_HEX_SCALE = "hex_scale"
 VEDirectSensor = m3_vedirect_ns.class_("Sensor", sensor.Sensor)
 VEDIRECT_SENSOR_SCHEMA = sensor.sensor_schema(VEDirectSensor).extend(
-    vedirect_entity_schema((CLASS.NUMERIC,), True)
+    vedirect_entity_schema((ve_reg.CLASS.NUMERIC,), True)
 )
 
 PLATFORM_ENTITIES = {

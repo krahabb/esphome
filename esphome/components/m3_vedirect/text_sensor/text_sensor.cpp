@@ -18,18 +18,6 @@ void TextSensor::link_disconnected_() {
 }
 
 void TextSensor::init_reg_def_() {
-  /*
-    TextSensor could render BITMASK registers through 2 independent mechanics:
-    - Registering the TextSensor as an HexRegister for the BITMASK register (this is not
-    automatically implemented through our Manager::build_hex_register factory). 'init_reg_def_'
-    will then be called for the case and we'll setup our parse_hex_bitmask_ parser.
-    - Registering the TextSensor as a BitmaskParser for a BitmaskHexRegister (preferred way).
-    This way the BitmaskHexRegister can dispatch the register state to multiple dependant entities
-    like binary sensors or switches for example (using 'parse_bitmask_'). In this case, 'init_reg_def_'
-    would not be called then.
-    At any rate, when a TextSensor 'renders' the state of a BITMASK register it builds
-    a string containing the labels for all of the active bits in the register.
-  */
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
       this->parse_hex_ = parse_hex_bitmask_;
@@ -39,28 +27,34 @@ void TextSensor::init_reg_def_() {
       this->parse_hex_ = parse_hex_enum_;
       this->parse_text_ = parse_text_enum_;
       break;
+    case REG_DEF::CLASS::STRING:
+      this->parse_hex_ = parse_hex_string_;
+      break;
     default:
       break;
   }
 }
 
-void TextSensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hexframe) {
-  std::string hex_value;
-  if (hexframe->data_to_hex(hex_value)) {
-    static_cast<TextSensor *>(hex_register)->parse_string_(hex_value.c_str());
+void TextSensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
+  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
+    static_cast<TextSensor *>(hex_register)->parse_string_(hex_value);
   }
 }
 
-void TextSensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hexframe) {
+void TextSensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   // BITMASK registers have storage up to 4 bytes
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hex_register)
-      ->parse_bitmask_(HEXFRAME::GET_DATA_AS_INT[hex_register->get_reg_def()->data_type](hexframe->record()));
+  static_cast<TextSensor *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
 }
 
-void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hexframe) {
+void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hex_register)->parse_enum_(hexframe->data_u8());
+  static_cast<TextSensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
+}
+
+void TextSensor::parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  static_cast<TextSensor *>(hex_register)->parse_string_(hex_frame->data_str());
 }
 
 void TextSensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
@@ -95,8 +89,7 @@ void TextSensor::parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) {
     this->raw_value_ = bitmask_value;
     std::string state;
     ENUM_DEF *enum_def = this->reg_def_->enum_def;
-    uint8_t bitcount = HEXFRAME::DATA_TYPE_TO_SIZE[this->reg_def_->data_type] * 8;
-    for (uint8_t bit = 0; bit < bitcount; ++bit) {
+    for (uint8_t bit = 0; bitmask_value; ++bit) {
       if (bitmask_value & 0x01) {
         if (state.size())
           state += ",";

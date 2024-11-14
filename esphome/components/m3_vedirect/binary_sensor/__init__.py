@@ -2,11 +2,11 @@ from esphome.components import binary_sensor
 import esphome.config_validation as cv
 
 from .. import (
-    CLASS,
     CONF_VEDIRECT_ENTITIES,
     VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
     m3_vedirect_ns,
     new_vedirect_entity,
+    ve_reg,
     vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
@@ -22,7 +22,9 @@ VEDirectBinarySensor = m3_vedirect_ns.class_("BinarySensor", binary_sensor.Binar
 VEDIRECT_BINARY_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
     VEDirectBinarySensor
 ).extend(
-    vedirect_entity_schema((CLASS.BOOLEAN, CLASS.BITMASK, CLASS.ENUM), True),
+    vedirect_entity_schema(
+        (ve_reg.CLASS.BOOLEAN, ve_reg.CLASS.BITMASK, ve_reg.CLASS.ENUM), True
+    ),
     VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
 )
 

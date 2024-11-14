@@ -4,12 +4,11 @@
 namespace esphome {
 namespace m3_vedirect {
 
-const REG_DEF HexRegister::REG_DEF_UNDEFINED(0);
-
 void HexRegister::set_reg_def(Manager *manager, const REG_DEF *reg_def) {
   this->reg_def_ = reg_def;
   this->init_reg_def_();
-  manager->hex_registers_.emplace(reg_def->register_id, this);
+  if (reg_def->register_id != REG_DEF::REGISTER_UNDEFINED)
+    manager->hex_registers_.emplace(reg_def->register_id, this);
 }
 
 /*

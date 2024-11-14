@@ -26,7 +26,7 @@ struct HEXFRAME {
   };
 
   enum DATA_TYPE : uint8_t {
-    STRING = 0,  // or unknown
+    VARIADIC = 0,  // used for strings or unknown/untyped registers
     UN8 = 1,
     UN16 = 2,
     UN32 = 3,
@@ -50,6 +50,7 @@ struct HEXFRAME {
         uint16_t data_u16;
         uint32_t data_u32;
         uint8_t data[0];
+        char data_string[0];
       };
     };
   };

@@ -1,4 +1,4 @@
-#include "ve_reg_defs.h"
+#include "ve_reg_def.h"
 #include <algorithm>
 #include <cstring>
 
@@ -50,11 +50,13 @@ const float REG_DEF::SCALE_TO_SCALE[SCALE::SCALE_COUNT] = {
   { value, #enum }
 #define _DEFINE_ENUMS(cls, register_id, label, ...) \
   cls##_DEF VE_REG_##label##_##cls##_DEF = {{cls##_##label(_ENUMS_LOOKUP_ITEM)}};
-#define DEFINE_ENUMS(cls, register_id, label, ...) IF(_DEF_ENUM_##cls)(_DEFINE_ENUMS(cls, register_id, label, ...))
+#define DEFINE_ENUMS(flavor, cls, register_id, label, ...) \
+  IF(DEF_##flavor)(IF(_DEF_ENUM_##cls)(_DEFINE_ENUMS(cls, register_id, label, ...)))
 
 REGISTERS_COMMON(DEFINE_ENUMS)
 
 // define the registers definitions (will be stored in REG_DEF::DEFS)
+#define DEFINE_REG_DEF_UNKNOWN(register_id, label, access) {register_id, #label, CLASS::UNKNOWN, REG_DEF::access},
 #define DEFINE_REG_DEF_BOOLEAN(register_id, label, access) {register_id, #label, CLASS::BOOLEAN, REG_DEF::access},
 #define DEFINE_REG_DEF_BITMASK(register_id, label, access, type) \
   {register_id, #label, REG_DEF::access, HEXFRAME::DATA_TYPE_OF<type>(), &VE_REG_##label##_BITMASK_DEF},
@@ -66,7 +68,7 @@ REGISTERS_COMMON(DEFINE_ENUMS)
   {register_id,   #label,         REG_DEF::access,    HEXFRAME::DATA_TYPE_OF<type>(), \
    REG_DEF::unit, REG_DEF::scale, REG_DEF::text_scale},
 #define DEFINE_REG_DEF_STRING(register_id, label, access) {register_id, #label, CLASS::STRING, REG_DEF::access},
-#define DEFINE_REG_DEF(cls, ...) DEFINE_REG_DEF_##cls(__VA_ARGS__)
+#define DEFINE_REG_DEF(flavor, cls, ...) IF(DEF_##flavor)(DEFINE_REG_DEF_##cls(__VA_ARGS__))
 const REG_DEF REG_DEF::DEFS[REG_DEF::TYPE::TYPE_COUNT] = {REGISTERS_COMMON(DEFINE_REG_DEF)};
 
 const REG_DEF *REG_DEF::find_register_id(register_id_t register_id) {
@@ -76,21 +78,21 @@ const REG_DEF *REG_DEF::find_register_id(register_id_t register_id) {
 }
 
 #define DEFINE_TEXT_DEF_REG(label, register_type, name) {label, name, REG_DEF::TYPE::register_type},
-#define DEFINE_TEXT_DEF_BITMASK(label, register_type, name) DEFINE_TEXT_DEF_REG(label, register_type, name)
-#define DEFINE_TEXT_DEF_BOOLEAN(label, register_type, name) \
-  {label, name, REG_DEF::TYPE::register_type, REG_DEF::CLASS::BOOLEAN},
-#define DEFINE_TEXT_DEF_ENUM(label, register_type, name) DEFINE_TEXT_DEF_REG(label, register_type, name)
-#define DEFINE_TEXT_DEF_NUMERIC(label, register_type, name) DEFINE_TEXT_DEF_REG(label, register_type, name)
-#define DEFINE_TEXT_DEF_STRING(label, register_type, name) \
-  {label, name, REG_DEF::TYPE::register_type, REG_DEF::CLASS::STRING},
-
-#define DEFINE_TEXT_DEF(cls, ...) DEFINE_TEXT_DEF_##cls(__VA_ARGS__)
+#define DEFINE_TEXT_DEF(flavor, cls, ...) IF(DEF_##flavor)(DEFINE_TEXT_DEF_REG(__VA_ARGS__))
 const TEXT_DEF TEXT_DEF::DEFS[] = {TEXTRECORDS(DEFINE_TEXT_DEF)};
 
 const TEXT_DEF *TEXT_DEF::find_label(const char *label) {
   const TEXT_DEF *it_end = DEFS + ARRAY_COUNT(DEFS);
   auto it = std::lower_bound(DEFS, it_end, label);
   return (it != it_end) && (strcmp(it->label, label) == 0) ? it : nullptr;
+}
+
+const TEXT_DEF *TEXT_DEF::find_type(REG_DEF::TYPE register_type) {
+  for (auto &text_def : DEFS) {
+    if (text_def.register_type == register_type)
+      return &text_def;
+  }
+  return nullptr;
 }
 
 }  // namespace m3_ve_reg

@@ -8,8 +8,6 @@ namespace m3_vedirect {
 
 class Switch final : public ConfigEntity, public esphome::switch_::Switch {
  public:
-  // TODO: setup a default text parser (even tho 'TEXT' entities are usually readonly
-  // we might have a mapping to an R/W hex register - same as Select)
   Switch(Manager *manager) : ConfigEntity(manager, parse_hex_default_, parse_text_default_) {}
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }

@@ -33,15 +33,15 @@ void Select::init_reg_def_() {
 }
 
 void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  std::string hex_value;
-  if (hex_frame->data_to_hex(hex_value)) {
-    static_cast<Select *>(hex_register)->parse_string_(hex_value.c_str());
+  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
+  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
+    static_cast<Select *>(hex_register)->parse_string_(hex_value);
   }
 }
 
 void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_u8());
+  static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 
 void Select::parse_text_default_(HexRegister *hex_register, const char *text_value) {

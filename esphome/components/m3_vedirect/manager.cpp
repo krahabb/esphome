@@ -3,6 +3,7 @@
 #include "binary_sensor/binary_sensor.h"
 #include "select/select.h"
 #include "sensor/sensor.h"
+#include "switch/switch.h"
 #include "text_sensor/text_sensor.h"
 
 #include "entity.h"
@@ -176,7 +177,13 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
   }
 }
 
-void Manager::on_frame_error_(const char *message) { ESP_LOGE(this->logtag_, message); }
+const char *FRAME_ERRORS[] = {
+    "checksum", "coding", "overflow", "NAME overflow", "VALUE overflow", "RECORD overflow",
+};
+
+void Manager::on_frame_hex_error_(Error error) { ESP_LOGE(this->logtag_, "HEX FRAME: %s", FRAME_ERRORS[error]); }
+
+void Manager::on_frame_text_error_(Error error) { ESP_LOGE(this->logtag_, "TEXT FRAME: %s", FRAME_ERRORS[error]); }
 
 HexRegister *Manager::get_hex_register_(register_id_t register_id, bool create) {
   auto entity_iter = this->hex_registers_.find(register_id);
@@ -231,8 +238,7 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
         if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
           hexregister = this->dynamic_build_entity_<BinarySensor>(reg_def->label, reg_def->label);
         } else {
-          // TODO: build a switch entity
-          hexregister = this->dynamic_build_entity_<BinarySensor>(reg_def->label, reg_def->label);
+          hexregister = this->dynamic_build_entity_<Switch>(reg_def->label, reg_def->label);
         }
         break;
       case REG_DEF::CLASS::ENUM:
@@ -243,15 +249,6 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
         }
         break;
       case REG_DEF::CLASS::BITMASK: {
-        /* example use of BitmaskHexRegister...still have to decide the next steps..
-        right now by default setup a TextSensor
-        BitmaskHexRegister *bitmask_hex_register = new BitmaskHexRegister();
-        hexregister = bitmask_hex_register;
-        auto text_sensor = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
-        bitmask_hex_register->register_bitmask_parser(text_sensor);
-        auto binary_sensor = this->dynamic_build_entity_<BinarySensor>(reg_def->label, "aaaaa");
-        binary_sensor->set_mask(1 << VE_REG_DEVICE_OFF_REASON_2_BITMASK::NO_INPUT_POWER);
-        bitmask_hex_register->register_bitmask_parser(binary_sensor);*/
         hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
       } break;
       default:
