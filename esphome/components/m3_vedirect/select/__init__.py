@@ -1,12 +1,9 @@
 from esphome.components import select
-import esphome.config_validation as cv
 
 from .. import (
-    CONF_VEDIRECT_ENTITIES,
     m3_vedirect_ns,
     new_vedirect_entity,
     ve_reg,
-    vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
@@ -15,15 +12,12 @@ from .. import (
 
 # m3_vedirect::Select mapped to HEX/TEXT data
 VEDirectSelect = m3_vedirect_ns.class_("Select", select.Select)
-VEDIRECT_SELECT_SCHEMA = select.select_schema(VEDirectSelect).extend(
-    vedirect_entity_schema((ve_reg.CLASS.ENUM,), False),
+VEDIRECT_SELECT_SCHEMA = select.select_schema(VEDirectSelect)
+
+PLATFORM_ENTITIES = {}
+CONFIG_SCHEMA = vedirect_platform_schema(
+    VEDIRECT_SELECT_SCHEMA, (ve_reg.CLASS.ENUM,), False, PLATFORM_ENTITIES
 )
-
-PLATFORM_ENTITIES = {
-    CONF_VEDIRECT_ENTITIES: cv.ensure_list(VEDIRECT_SELECT_SCHEMA),
-}
-
-CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
 
 
 async def new_vedirect_select(config, manager):

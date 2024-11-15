@@ -14,21 +14,29 @@
     Some symbols relate to more general classes of devices so if using the aforementioned 'VEDIRECT_FLAVOR_MPPT_BS'
     this in turn will enable 'VEDIRECT_FLAVOR_MPPT' (symbols common to all of the MPPT chargers) and also
    'VEDIRECT_FLAVOR_CHG'.
+
+   This file is also being used to generate mock symbols for flavors ('generator.py').
+   The special defines:
+   - VEDIRECT_FLAVORS_ALL: shortcut to define all flavors at once.
+   - VEDIRECT_FLAVORS_ANY: 'fake' symbol related to the 'ANY' conditional used to enable the feature whatever the
+   flavor(s). This shouldn't be manually defined
+   These will be by ignored by 'generator.py' since they're special symbols to ease out the framework. Compiling with
+   VEDIRECT_FLAVORS_ALL will enable all the flavors in one define
 */
 
 #pragma once
 #include "ve_reg_macro.h"
 
-#if 1
+#if 0
 // debug/testing preset environment: remove on release
-#define VEDIRECT_FLAVOR_ALL
+//#define VEDIRECT_FLAVORS_ALL
 //#define VEDIRECT_FLAVOR_MPPT_RS
 //#define VEDIRECT_FLAVOR_INV_PHNX
 //#define VEDIRECT_FLAVOR_BMV
 //#define VEDIRECT_FLAVOR_BMV71
 #endif
 
-#ifdef VEDIRECT_FLAVOR_ALL  // defines all flavors in one shot
+#ifdef VEDIRECT_FLAVORS_ALL  // defines all flavors in one shot
 #define VEDIRECT_FLAVOR_MPPT_BS
 #define VEDIRECT_FLAVOR_MPPT_RS
 #define VEDIRECT_FLAVOR_INV_PHNX
@@ -40,8 +48,8 @@
 
 // Conditionals always active for characteristcs that belong to all device flavors
 // or to a majority of different groups (so that they're likely in any device)
-#define VEDIRECT_FLAVOR_ANY
-#define DEF_ANY Y
+#define VEDIRECT_FLAVORS_ANY  // This is pretty useless and is just for symmetry with DEF_ANY_Y
+#define DEF_ANY Y  // this must be fixed at Y in order to always activate features using the special flavor 'ANY'
 
 // Inverter flavors
 #ifdef VEDIRECT_FLAVOR_INV_PHNX  // Phoenix inverters

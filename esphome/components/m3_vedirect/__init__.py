@@ -57,22 +57,24 @@ def validate_str_enum(enum_class: type[enum.StrEnum]):
     return cv.enum({_enum.name: _enum for _enum in enum_class})
 
 
+_NUMERIC_SCALE_MAP = {
+    1: ve_reg.SCALE.S_1,
+    0.1: ve_reg.SCALE.S_0_1,
+    0.01: ve_reg.SCALE.S_0_01,
+    0.001: ve_reg.SCALE.S_0_001,
+    0.25: ve_reg.SCALE.S_0_25,
+}
+
+
 def validate_numeric_scale():
     """Allows 'scale' to be set either as a typed enum from REG_DEF::SCALE or a float value.
     float value must be one of the normalized."""
-    _scale_map = {
-        1: ve_reg.SCALE.S_1,
-        0.1: ve_reg.SCALE.S_0_1,
-        0.01: ve_reg.SCALE.S_0_01,
-        0.001: ve_reg.SCALE.S_0_001,
-        0.25: ve_reg.SCALE.S_0_25,
-    }
 
     enum_validator = validate_mock_enum(ve_reg.SCALE)
 
     def validator(value):
-        if value in _scale_map:
-            value = _scale_map[value].name
+        if value in _NUMERIC_SCALE_MAP:
+            value = _NUMERIC_SCALE_MAP[value].name
         return enum_validator(value)
 
     return validator
@@ -152,37 +154,39 @@ VEDIRECT_BINARY_ENTITY_BASE_SCHEMA = {
     cv.Optional(CONF_MASK): cv.uint32_t,
 }
 
-"""
-# TODO: add extended validator for VEDIRECT_ENTITY_BASE_SCHEMA to check the
-# various combinations of possible options
-def _entity_base_validator(config):
-    if CONF_NAME not in config and CONF_ID not in config:
-        raise Invalid("At least one of 'id:' or 'name:' is required!")
-    if CONF_NAME not in config:
-        id = config[CONF_ID]
-        if not id.is_manual:
-            raise Invalid("At least one of 'id:' or 'name:' is required!")
-        config[CONF_NAME] = id.id
-        config[CONF_INTERNAL] = True
+
+def vedirect_platform_schema(
+    vedirect_entity_base_schema: cv.Schema,
+    classes: typing.Iterable[ve_reg.CLASS],
+    has_text: bool,
+    platform_entities: dict[str, cv.Schema],
+):
+    def _validate_platform_entity(config):
+        # Ensure CONF_TYPE is available based off Manager flavor
+        if CONF_VEDIRECT_ENTITIES in config:
+            flavor = MANAGERS_CONFIG[config[CONF_VEDIRECT_ID]][CONF_FLAVOR]
+            for vedirect_entity_config in config[CONF_VEDIRECT_ENTITIES]:
+                if CONF_TYPE in vedirect_entity_config:
+                    entity_type = vedirect_entity_config[CONF_TYPE]
+                    type_flavor = ve_reg.REG_DEFS[entity_type].flavor
+                    if type_flavor not in ("ANY", *flavor):
+                        raise cv.Invalid(
+                            f"Entity type:{entity_type} not available for flavor:{flavor}"
+                        )
         return config
-    if config[CONF_NAME] is None:
-        config[CONF_NAME] = ""
-    return config
-#cv.Schema.add_extra(_entity_base_validator)
-"""
 
-# root schema to group (platform) entities linked to a Manager
-VEDIRECT_PLATFORM_SCHEMA = cv.Schema(
-    {
-        cv.Required(CONF_VEDIRECT_ID): cv.use_id(Manager),
-    }
-)
-
-
-def vedirect_platform_schema(platform_entities: dict[str, cv.Schema]):
-    return VEDIRECT_PLATFORM_SCHEMA.extend(
-        {cv.Optional(type): schema for type, schema in platform_entities.items()}
+    vedirect_entity_base_schema = vedirect_entity_base_schema.extend(
+        vedirect_entity_schema(classes, has_text)
     )
+    return cv.Schema(
+        {
+            cv.Required(CONF_VEDIRECT_ID): cv.use_id(Manager),
+            cv.Optional(CONF_VEDIRECT_ENTITIES): cv.ensure_list(
+                vedirect_entity_base_schema
+            ),
+        }
+        | {cv.Optional(type): schema for type, schema in platform_entities.items()}
+    ).add_extra(_validate_platform_entity)
 
 
 def local_object_construct(id_: cpp.ID, *args):
@@ -270,16 +274,29 @@ async def vedirect_platform_to_code(
 
 
 # main component (Manager) schema
+MANAGERS_CONFIG = {}
+
+
+def validate_manager(config):
+    # Caching the manager(s) config since we'll need that to validate
+    # platforms configuration. Especially the 'flavor' setting might affect
+    # these following steps
+    MANAGERS_CONFIG[config[ec.CONF_ID]] = config
+    return config
+
+
 CONF_AUTO_CREATE_ENTITIES = "auto_create_entities"
 CONF_PING_TIMEOUT = "ping_timeout"
 CONF_FLAVOR = "flavor"
 CONF_ON_FRAME_RECEIVED = "on_frame_received"
-CONFIG_SCHEMA = cv.All(
+CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Manager),
             cv.Optional(ec.CONF_NAME): cv.string_strict,
-            cv.Optional(CONF_FLAVOR): cv.ensure_list(validate_str_enum(ve_reg.Flavor)),
+            cv.Optional(
+                CONF_FLAVOR, default=[flavor.name for flavor in ve_reg.Flavor]
+            ): cv.ensure_list(validate_str_enum(ve_reg.Flavor)),
             cv.Optional(CONF_TEXTFRAME): cv.Schema(
                 {
                     cv.Optional(CONF_AUTO_CREATE_ENTITIES): cv.boolean,
@@ -302,6 +319,7 @@ CONFIG_SCHEMA = cv.All(
     )
     .extend(cv.COMPONENT_SCHEMA)
     .extend(uart.UART_DEVICE_SCHEMA)
+    .add_extra(validate_manager)
 )
 
 
@@ -309,11 +327,8 @@ async def to_code(config: dict):
     var = cg.new_Pvariable(config[ec.CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
     cg.add(var.set_vedirect_name(config.get(ec.CONF_NAME, str(var.base))))
-    if CONF_FLAVOR in config:
-        for flavor in config[CONF_FLAVOR]:
-            cg.add_define(f"VEDIRECT_FLAVOR_{flavor}")
-    else:
-        cg.add_define("VEDIRECT_FLAVOR_ALL")
+    for flavor in config[CONF_FLAVOR]:
+        cg.add_define(f"VEDIRECT_FLAVOR_{flavor}")
     if config_textframe := config.get(CONF_TEXTFRAME):
         if CONF_AUTO_CREATE_ENTITIES in config_textframe:
             cg.add(

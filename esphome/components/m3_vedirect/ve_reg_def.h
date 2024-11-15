@@ -133,7 +133,7 @@ struct REG_DEF {
   };
   static const float SCALE_TO_SCALE[SCALE::SCALE_COUNT];
 
-  static constexpr register_id_t REGISTER_UNDEFINED = 0;
+  static constexpr register_id_t REGISTER_UNDEFINED = 0x0000;
 
   const register_id_t register_id;
   const char *const label;

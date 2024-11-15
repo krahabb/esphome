@@ -61,8 +61,9 @@ def _generate_enums(file_data: str, ns_mock: str):
 def generate():
     ve_reg_py.writelines(
         (
-            '"""\nAUTO GENERATED - See generator.py\n"""\n',
-            "\nimport enum\n",
+            '"""\nAUTO GENERATED - See generator.py\n"""\n\n',
+            "from collections import namedtuple\n",
+            "import enum\n",
             "from functools import cached_property\n",
             "\nimport esphome.codegen as cg\n",
             '\n\nns = cg.global_ns.namespace("m3_ve_reg")\n',
@@ -101,6 +102,18 @@ def generate():
         reg_defs[reg_def_type] = reg_def
 
     _declare_mock_enum("TYPE", reg_defs, "REG_DEF")
+    ve_reg_py.writelines(
+        (
+            '\n\nREG_DEF = namedtuple("REG_DEF", ["flavor", "cls", "register_id", "access"])\n',
+            "REG_DEFS = {\n",
+        )
+    )
+    for reg_def_type, reg_def in reg_defs.items():
+        ve_reg_py.write(
+            f'{INDENT}TYPE.{reg_def_type}.name: REG_DEF("{reg_def[0]}", CLASS.{reg_def[1].split("_")[0]}, {reg_def[2]}, ACCESS.{reg_def[4]}),\n'
+        )
+
+    ve_reg_py.write("}\n")
 
 
 if __name__ == "__main__":

@@ -3,33 +3,26 @@ import esphome.config_validation as cv
 import esphome.const as ec
 
 from .. import (
-    CONF_VEDIRECT_ENTITIES,
     m3_vedirect_ns,
     new_vedirect_entity,
     ve_reg,
-    vedirect_entity_schema,
     vedirect_platform_schema,
     vedirect_platform_to_code,
 )
 
 VEDirectNumber = m3_vedirect_ns.class_("Number", number.Number)
-VEDIRECT_NUMBER_SCHEMA = (
-    number.number_schema(VEDirectNumber)
-    .extend(vedirect_entity_schema((ve_reg.CLASS.NUMERIC,), False))
-    .extend(
-        {
-            cv.Required(ec.CONF_MIN_VALUE): cv.float_,
-            cv.Required(ec.CONF_MAX_VALUE): cv.float_,
-            cv.Required(ec.CONF_STEP): cv.positive_float,
-        }
-    )
+VEDIRECT_NUMBER_SCHEMA = number.number_schema(VEDirectNumber).extend(
+    {
+        cv.Required(ec.CONF_MIN_VALUE): cv.float_,
+        cv.Required(ec.CONF_MAX_VALUE): cv.float_,
+        cv.Required(ec.CONF_STEP): cv.positive_float,
+    }
 )
 
-PLATFORM_ENTITIES = {
-    CONF_VEDIRECT_ENTITIES: cv.ensure_list(VEDIRECT_NUMBER_SCHEMA),
-}
-
-CONFIG_SCHEMA = vedirect_platform_schema(PLATFORM_ENTITIES)
+PLATFORM_ENTITIES = {}
+CONFIG_SCHEMA = vedirect_platform_schema(
+    VEDIRECT_NUMBER_SCHEMA, (ve_reg.CLASS.NUMERIC,), False, PLATFORM_ENTITIES
+)
 
 
 async def new_vedirect_number(config, manager):
