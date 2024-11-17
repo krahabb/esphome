@@ -1,8 +1,12 @@
 #include "select.h"
 #include "esphome/core/application.h"
+#ifdef USE_API
 #include "esphome/components/api/api_server.h"
-#include "esphome/core/log.h"
+#endif
+
 #include "../manager.h"
+
+#include <cinttypes>
 
 namespace esphome {
 namespace m3_vedirect {
@@ -13,10 +17,12 @@ Entity *Select::build_entity(Manager *manager, const char *name, const char *obj
   auto entity = new Select(manager);
   Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_select(entity);
+#ifdef USE_API
   if (api::global_api_server)
     entity->add_on_state_callback([entity](const std::string &state, size_t index) {
       api::global_api_server->on_select_update(entity, state, index);
     });
+#endif
   return entity;
 }
 

@@ -1,6 +1,9 @@
 #include "number.h"
 #include "esphome/core/application.h"
+#ifdef USE_API
 #include "esphome/components/api/api_server.h"
+#endif
+
 #include "../manager.h"
 
 namespace esphome {
@@ -10,8 +13,10 @@ Entity *Number::build_entity(Manager *manager, const char *name, const char *obj
   auto entity = new Number(manager);
   Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_number(entity);
+#ifdef USE_API
   if (api::global_api_server)
     entity->add_on_state_callback([entity](float state) { api::global_api_server->on_number_update(entity, state); });
+#endif
   return entity;
 }
 

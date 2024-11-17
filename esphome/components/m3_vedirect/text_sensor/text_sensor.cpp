@@ -1,7 +1,12 @@
 #include "text_sensor.h"
 #include "esphome/core/application.h"
+#ifdef USE_API
 #include "esphome/components/api/api_server.h"
+#endif
+
 #include "../manager.h"
+
+#include <cinttypes>
 
 namespace esphome {
 namespace m3_vedirect {
@@ -10,9 +15,11 @@ Entity *TextSensor::build_entity(Manager *manager, const char *name, const char 
   auto entity = new TextSensor(manager);
   Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_text_sensor(entity);
+#ifdef USE_API
   if (api::global_api_server)
     entity->add_on_state_callback(
         [entity](std::string state) { api::global_api_server->on_text_sensor_update(entity, state); });
+#endif
   return entity;
 }
 
