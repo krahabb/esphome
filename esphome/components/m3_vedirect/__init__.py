@@ -12,8 +12,7 @@ import esphome.cpp_generator as cpp
 from . import ve_reg
 
 CODEOWNERS = ["@krahabb"]
-DEPENDENCIES = ["binary_sensor", "sensor", "text_sensor", "uart"]
-AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
+DEPENDENCIES = ["uart"]
 MULTI_CONF = True
 
 

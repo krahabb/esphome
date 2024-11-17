@@ -19,13 +19,13 @@ void Manager::setup() {
 
 void Manager::loop() {
   const uint32_t millis_ = millis();
-
+#ifdef USE_SENSOR
   if (this->run_time_) {
     float run_time = millis_ / 1000;
     if (run_time != this->run_time_->raw_state)
       this->run_time_->publish_state(run_time);
   }
-
+#endif
   auto available = this->available();
   if (!available) {
     if (this->connected_ && ((millis_ - this->millis_last_rx_) > VEDIRECT_TIMEOUT_MILLIS)) {
@@ -117,9 +117,11 @@ void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
 void Manager::on_connected_() {
   ESP_LOGD(this->logtag_, "LINK: connected");
   this->connected_ = true;
+#ifdef USE_BINARY_SENSOR
   if (auto link_connected = this->link_connected_) {
     link_connected->publish_state(true);
   }
+#endif
   if (this->auto_create_hex_entities_ || this->hex_registers_.size()) {
     this->send_hexframe(HexFrame_Command(HEXFRAME::COMMAND::Ping));
     this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
@@ -130,9 +132,11 @@ void Manager::on_disconnected_() {
   ESP_LOGD(this->logtag_, "LINK: disconnected");
   this->connected_ = false;
   this->reset();  // cleanup the frame handler
+#ifdef USE_BINARY_SENSOR
   if (auto link_connected = this->link_connected_) {
     link_connected->publish_state(false);
   }
+#endif
   for (auto &pair : this->text_entities_) {
     pair.second->link_disconnected_();
   }
@@ -148,8 +152,10 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
 
   this->hexframe_callback_.call(hexframe);
 
+#ifdef USE_TEXT_SENSOR
   if (this->rawhexframe_)
     this->rawhexframe_->publish_state(std::string(hexframe.encoded()));
+#endif
 
   this->millis_last_hexframe_rx_ = this->millis_last_rx_;
   switch (hexframe.command()) {
@@ -175,6 +181,7 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
 
   this->millis_last_textframe_rx_ = this->millis_last_rx_;
 
+#ifdef USE_TEXT_SENSOR
   if (auto rawtextframe = this->rawtextframe_) {
     std::string textframe_value;
     textframe_value.reserve(text_records_count * sizeof(FrameHandler::TextRecord));
@@ -189,6 +196,7 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
       rawtextframe->publish_state(textframe_value);
     }
   }
+#endif
 
   for (uint8_t i = 0; i < text_records_count; ++i) {
     const TextRecord *text_record = text_records[i];

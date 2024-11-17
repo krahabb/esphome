@@ -1,11 +1,18 @@
 #pragma once
-#include "esphome/components/binary_sensor/binary_sensor.h"
-#include "esphome/components/sensor/sensor.h"
-#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
+
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
+#ifdef USE_SENSOR
+#include "esphome/components/sensor/sensor.h"
+#endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 #include "defines.h"
 #include "ve_hexframe.h"
@@ -27,12 +34,19 @@ namespace m3_vedirect {
   }
 
 class Manager : public uart::UARTDevice, public Component, protected FrameHandler {
-  // dedicated entities to manage component state/behavior
+// dedicated entities to manage component state/behavior
+#ifdef USE_BINARY_SENSOR
+  MANAGER_ENTITY_(binary_sensor::BinarySensor, link_connected)
+#endif
+#ifdef USE_SENSOR
+  MANAGER_ENTITY_(sensor::Sensor, run_time)
+#endif
+#ifdef USE_TEXT_SENSOR
   MANAGER_ENTITY_(text_sensor::TextSensor, rawhexframe)
   MANAGER_ENTITY_(text_sensor::TextSensor, rawtextframe)
-  MANAGER_ENTITY_(binary_sensor::BinarySensor, link_connected)
-  MANAGER_ENTITY_(sensor::Sensor, run_time)
+#endif
 
+ public:
   const char *get_vedirect_id() { return this->vedirect_id_; }
   void set_vedirect_id(const char *vedirect_id) { this->vedirect_id_ = vedirect_id; }
   const char *get_vedirect_name() { return this->vedirect_name_; }
