@@ -6,15 +6,16 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class TextSensor final : public Entity, esphome::text_sensor::TextSensor {
+class TextSensor final : public Entity, public esphome::text_sensor::TextSensor {
  public:
   TextSensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
+
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
 
  protected:
   friend class Manager;
   BITMASK_DEF::bitmask_t raw_value_{BITMASK_DEF::VALUE_UNKNOWN};
 
-  void dynamic_register_() override;
   void link_disconnected_() override;
 
   void init_reg_def_() override;

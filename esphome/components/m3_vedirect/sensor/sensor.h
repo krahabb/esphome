@@ -13,15 +13,14 @@ class Sensor final : public NumericEntity, public Entity, public esphome::sensor
   static const uint8_t SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT];
 
   Sensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
-  // REMOVE void set_hex_scale(float scale) { this->hex_scale_ = scale; }
-  // REMOVE void set_text_scale(float scale) { this->text_scale_ = scale; }
+
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
 
  protected:
   friend class Manager;
 
   float text_scale_{1.};
 
-  void dynamic_register_() override;
   void link_disconnected_() override;
 
   void init_reg_def_() override;

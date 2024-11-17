@@ -1,12 +1,5 @@
 #include "manager.h"
 #include "esphome/core/log.h"
-#include "binary_sensor/binary_sensor.h"
-#include "number/number.h"
-#include "select/select.h"
-#include "sensor/sensor.h"
-#include "switch/switch.h"
-#include "text_sensor/text_sensor.h"
-
 #include "entity.h"
 
 namespace esphome {
@@ -17,10 +10,10 @@ static const char TAG[] = "m3_vedirect.%s";
 std::vector<Manager *> Manager::managers_;
 
 void Manager::setup() {
-  char *buf = new char[sizeof(TAG) + this->vedirect_id_.length()];
-  sprintf(buf, TAG, this->vedirect_id_.c_str());
+  Entity::update_platforms();
+  char *buf = new char[sizeof(TAG) + strlen(this->vedirect_id_)];
+  sprintf(buf, TAG, this->vedirect_id_);
   this->logtag_ = buf;
-
   Manager::managers_.push_back(this);
 }
 
@@ -238,19 +231,19 @@ HexRegister *Manager::build_text_entity_(const char *label) {
   HexRegister *hex_register;
   auto text_def = TEXT_DEF::find_label(label);
   if (text_def) {
-    // check if we have an already defined matching register
+    // check if we have an already defined matching hex register
     auto reg_def = REG_DEF::find_type(text_def->register_type);
     if (reg_def) {
       hex_register = this->get_hex_register_(reg_def->register_id, true);
     } else {
-      hex_register = this->dynamic_build_entity_<TextSensor>(text_def->description, text_def->label);
+      hex_register = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, text_def->description, text_def->label);
     }
   } else {
     // We lack the definition for this TEXT RECORD so
     // we return a plain TextSensor entity.
     // We allocate a copy since the label param is 'volatile'
     label = strdup(label);
-    hex_register = this->dynamic_build_entity_<TextSensor>(label, label);
+    hex_register = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, label, label);
   }
   this->text_entities_.emplace(label, hex_register);
   return hex_register;
@@ -263,30 +256,30 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
     switch (reg_def->cls) {
       case REG_DEF::CLASS::NUMERIC:
         if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
-          hexregister = this->dynamic_build_entity_<Sensor>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::Sensor](this, reg_def->label, reg_def->label);
         } else {
-          hexregister = this->dynamic_build_entity_<Number>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::Number](this, reg_def->label, reg_def->label);
         }
         break;
       case REG_DEF::CLASS::BOOLEAN:
         if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
-          hexregister = this->dynamic_build_entity_<BinarySensor>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::BinarySensor](this, reg_def->label, reg_def->label);
         } else {
-          hexregister = this->dynamic_build_entity_<Switch>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::Switch](this, reg_def->label, reg_def->label);
         }
         break;
       case REG_DEF::CLASS::ENUM:
         if (reg_def->access == REG_DEF::ACCESS::READ_ONLY) {
-          hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, reg_def->label, reg_def->label);
         } else {
-          hexregister = this->dynamic_build_entity_<Select>(reg_def->label, reg_def->label);
+          hexregister = Entity::BUILD_ENTITY_FUNC[Entity::Select](this, reg_def->label, reg_def->label);
         }
         break;
       case REG_DEF::CLASS::BITMASK: {
-        hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+        hexregister = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, reg_def->label, reg_def->label);
       } break;
       default:
-        hexregister = this->dynamic_build_entity_<TextSensor>(reg_def->label, reg_def->label);
+        hexregister = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, reg_def->label, reg_def->label);
     }
   } else {
     // else build a raw text sensor
@@ -294,32 +287,11 @@ HexRegister *Manager::build_hex_register_(register_id_t register_id) {
     sprintf(object_id, "0x%04X", (int) register_id);
     char *name = new char[16];
     sprintf(name, "Register %s", object_id);
-    hexregister = this->dynamic_build_entity_<TextSensor>(name, object_id);
+    hexregister = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, name, object_id);
     reg_def = new REG_DEF(register_id);
   }
   this->init_register(hexregister, reg_def);
   return hexregister;
-}
-
-template<typename TEntity> TEntity *Manager::dynamic_build_entity_(const char *name, const char *object_id) {
-  auto entity = new TEntity(this);
-  this->dynamic_init_entity_(entity, name, object_id);
-  entity->dynamic_register_();
-  return entity;
-}
-
-void Manager::dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id) {
-  // 'inner' helper for dynamic_build_entity_ to avoid the template code duplication
-  if (this->vedirect_name_.empty()) {
-    entity->set_name(name);
-  } else {
-    char *entity_name = new char[this->vedirect_name_.size() + strlen(name) + 2];
-    sprintf(entity_name, "%s.%s", this->vedirect_name_.c_str(), name);
-    entity->set_name(entity_name);
-  }
-  char *entity_object_id = new char[this->vedirect_id_.size() + strlen(object_id) + 2];
-  sprintf(entity_object_id, "%s_%s", this->vedirect_id_.c_str(), object_id);
-  entity->set_object_id(entity_object_id);
 }
 
 }  // namespace m3_vedirect

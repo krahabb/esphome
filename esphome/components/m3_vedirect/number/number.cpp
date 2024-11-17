@@ -6,10 +6,13 @@
 namespace esphome {
 namespace m3_vedirect {
 
-void Number::dynamic_register_() {
-  App.register_number(this);
+Entity *Number::build_entity(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new Number(manager);
+  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  App.register_number(entity);
   if (api::global_api_server)
-    add_on_state_callback([this](float state) { api::global_api_server->on_number_update(this, state); });
+    entity->add_on_state_callback([entity](float state) { api::global_api_server->on_number_update(entity, state); });
+  return entity;
 }
 
 void Number::link_disconnected_() { this->publish_state(NAN); }

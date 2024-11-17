@@ -12,16 +12,8 @@ import esphome.cpp_generator as cpp
 from . import ve_reg
 
 CODEOWNERS = ["@krahabb"]
-DEPENDENCIES = [
-    "binary_sensor",
-    "number",
-    "select",
-    "sensor",
-    "switch",
-    "text_sensor",
-    "uart",
-]
-AUTO_LOAD = ["binary_sensor", "number", "select", "sensor", "switch", "text_sensor"]
+DEPENDENCIES = ["binary_sensor", "sensor", "text_sensor", "uart"]
+AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 MULTI_CONF = True
 
 
@@ -65,19 +57,15 @@ _NUMERIC_SCALE_MAP = {
     0.25: ve_reg.SCALE.S_0_25,
 }
 
+_numeric_scale_enum_validator = validate_mock_enum(ve_reg.SCALE)
 
-def validate_numeric_scale():
+
+def validate_numeric_scale(value):
     """Allows 'scale' to be set either as a typed enum from REG_DEF::SCALE or a float value.
     float value must be one of the normalized."""
-
-    enum_validator = validate_mock_enum(ve_reg.SCALE)
-
-    def validator(value):
-        if value in _NUMERIC_SCALE_MAP:
-            value = _NUMERIC_SCALE_MAP[value].name
-        return enum_validator(value)
-
-    return validator
+    if value in _NUMERIC_SCALE_MAP:
+        value = _NUMERIC_SCALE_MAP[value].name
+    return _numeric_scale_enum_validator(value)
 
 
 def validate_enum_lookup_def(value):
@@ -89,8 +77,8 @@ def validate_enum_lookup_def(value):
         return int(enum_value), enum_label
 
 
-# CONF_REGISTER_ID = "register_id"
-# CONF_CLASS = "class"
+CONF_TYPE = "type"
+CONF_REGISTER = "register"
 CONF_TEXT_LABEL = "text_label"
 # (HEX) Register schema
 CONF_REG_DEF_ID = "reg_def_id"
@@ -114,8 +102,8 @@ VEDIRECT_REGISTER_CLASS_SCHEMAS = {
     ve_reg.CLASS.ENUM: cv.ensure_list(validate_enum_lookup_def),
     ve_reg.CLASS.NUMERIC: cv.Schema(
         {
-            cv.Optional(CONF_SCALE): validate_numeric_scale(),
-            cv.Optional(CONF_TEXT_SCALE): validate_numeric_scale(),
+            cv.Optional(CONF_SCALE): validate_numeric_scale,
+            cv.Optional(CONF_TEXT_SCALE): validate_numeric_scale,
             cv.Optional(CONF_UNIT): validate_mock_enum(ve_reg.UNIT),
         }
     ),
@@ -128,26 +116,6 @@ VEDIRECT_TEXTRECORD_SCHEMA = {
 }
 
 
-CONF_TYPE = "type"
-CONF_REGISTER = "register"
-
-
-def vedirect_entity_schema(classes: typing.Iterable[ve_reg.CLASS], has_text):
-    register_schema = dict(VEDIRECT_REGISTER_SCHEMA)
-    for _cls in classes:
-        register_schema |= {
-            cv.Exclusive(_cls.name.lower(), "class"): VEDIRECT_REGISTER_CLASS_SCHEMAS[
-                _cls
-            ]
-        }
-    if has_text:
-        register_schema |= VEDIRECT_TEXTRECORD_SCHEMA
-    return {
-        cv.Exclusive(CONF_TYPE, "_type"): validate_mock_enum(ve_reg.TYPE),
-        cv.Exclusive(CONF_REGISTER, "_type"): cv.Schema(register_schema),
-    }
-
-
 # Basic schema for binary-like entities: binary_sensor, switch
 CONF_MASK = "mask"
 VEDIRECT_BINARY_ENTITY_BASE_SCHEMA = {
@@ -155,13 +123,85 @@ VEDIRECT_BINARY_ENTITY_BASE_SCHEMA = {
 }
 
 
-def vedirect_platform_schema(
-    vedirect_entity_base_schema: cv.Schema,
-    classes: typing.Iterable[ve_reg.CLASS],
-    has_text: bool,
-    platform_entities: dict[str, cv.Schema],
-):
-    def _validate_platform_entity(config):
+def local_object_construct(id_: cpp.ID, *args):
+    obj = cpp.MockObj(id_, ".")
+    cg.add(cpp.RawStatement(f"{id_.type} {id_}({cpp.ExpressionList(*args)});"))
+    return obj
+
+
+def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
+    cg.add(cpp.RawStatement(f"{lvalue} = {cpp.safe_exp(rvalue)};"))
+
+
+class VEDirectPlatform:
+    COMPONENT_NS: typing.Final = m3_vedirect_ns
+
+    def __init__(
+        self,
+        snake_name: str,
+        base_module,
+        custom_entities: dict[
+            str, cv.Schema
+        ],  # additional custom entities definitions beside vedirect ones
+        vedirect_classes: typing.Iterable[
+            ve_reg.CLASS
+        ],  # vedirect classes supported by this platform
+        vedirect_has_text: bool,  # indicates if this platform supports entities for the TEXT frames
+        *vedirect_schemas,  # extra schemas added to base vedirect_schema
+    ):
+        self.snake_name = snake_name
+        self.class_name = "".join([p.capitalize() for p in snake_name.split("_")])
+        self.base_module = base_module
+        self.entity_class = m3_vedirect_ns.class_(
+            self.class_name, getattr(base_module, self.class_name)
+        )
+        # grab some symbols from the base platform
+        self.register_entity: typing.Callable = getattr(
+            base_module, f"register_{snake_name}"
+        )
+        self.new_base_entity: typing.Callable = getattr(
+            base_module, f"new_{snake_name}"
+        )
+        self.vedirect_classes = vedirect_classes
+        self.custom_entities = custom_entities
+
+        register_schema = dict(VEDIRECT_REGISTER_SCHEMA)
+        for _cls in self.vedirect_classes:
+            register_schema |= {
+                cv.Exclusive(
+                    _cls.name.lower(), "class"
+                ): VEDIRECT_REGISTER_CLASS_SCHEMAS[_cls]
+            }
+        if vedirect_has_text:
+            register_schema |= VEDIRECT_TEXTRECORD_SCHEMA
+
+        base_schema: cv.Schema = getattr(base_module, f"{snake_name}_schema")(
+            self.entity_class
+        )
+        self.vedirect_schema = base_schema.extend(
+            {
+                cv.Exclusive(CONF_TYPE, "_type"): validate_mock_enum(ve_reg.TYPE),
+                cv.Exclusive(CONF_REGISTER, "_type"): cv.Schema(register_schema),
+            },
+            *vedirect_schemas,
+        )
+
+    @property
+    def CONFIG_SCHEMA(self):
+        return cv.Schema(
+            {
+                cv.Required(CONF_VEDIRECT_ID): cv.use_id(Manager),
+                cv.Optional(CONF_VEDIRECT_ENTITIES): cv.ensure_list(
+                    self.vedirect_schema
+                ),
+            }
+            | {
+                cv.Optional(type): schema
+                for type, schema in self.custom_entities.items()
+            }
+        ).add_extra(self._validate_platform)
+
+    def _validate_platform(self, config):
         # Ensure CONF_TYPE is available based off Manager flavor
         if CONF_VEDIRECT_ENTITIES in config:
             flavor = MANAGERS_CONFIG[config[CONF_VEDIRECT_ID]][CONF_FLAVOR]
@@ -175,102 +215,79 @@ def vedirect_platform_schema(
                         )
         return config
 
-    vedirect_entity_base_schema = vedirect_entity_base_schema.extend(
-        vedirect_entity_schema(classes, has_text)
-    )
-    return cv.Schema(
-        {
-            cv.Required(CONF_VEDIRECT_ID): cv.use_id(Manager),
-            cv.Optional(CONF_VEDIRECT_ENTITIES): cv.ensure_list(
-                vedirect_entity_base_schema
-            ),
-        }
-        | {cv.Optional(type): schema for type, schema in platform_entities.items()}
-    ).add_extra(_validate_platform_entity)
+    async def new_vedirect_entity(self, config, manager):
+        entity = cg.new_Pvariable(config[ec.CONF_ID], manager)
+        valid = False
 
-
-def local_object_construct(id_: cpp.ID, *args):
-    obj = cpp.MockObj(id_, ".")
-    cg.add(cpp.RawStatement(f"{id_.type} {id_}({cpp.ExpressionList(*args)});"))
-    return obj
-
-
-def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
-    cg.add(cpp.RawStatement(f"{lvalue} = {cpp.safe_exp(rvalue)};"))
-
-
-async def new_vedirect_entity(config, manager):
-    entity = cg.new_Pvariable(config[ec.CONF_ID], manager)
-    valid = False
-
-    if CONF_TYPE in config:
-        valid = True
-        cg.add(manager.init_entity(entity, config[CONF_TYPE]))
-    elif CONF_REGISTER in config:
-        valid = True
-        register_config = config[CONF_REGISTER]
-        reg_def = local_object_construct(
-            register_config[CONF_REG_DEF_ID], register_config[CONF_ADDRESS]
-        )
-        for _cls in ve_reg.CLASS:
-            _cls_key = _cls.name.lower()
-            if _cls_key in register_config:
-                class_config = register_config[_cls_key]
-                local_assignment(reg_def.cls, _cls.enum)
-                match _cls:
-                    case ve_reg.CLASS.BITMASK | ve_reg.CLASS.ENUM:
-                        enum_def = local_object_construct(
-                            register_config[CONF_ENUM_DEF_ID],
-                            class_config,
-                        )
-                        local_assignment(
-                            reg_def.enum_def, cpp.UnaryOpExpression("&", enum_def)
-                        )
-                    case ve_reg.CLASS.NUMERIC:
-                        if CONF_UNIT in class_config:
-                            local_assignment(reg_def.unit, class_config[CONF_UNIT])
-                        if CONF_SCALE in class_config:
-                            local_assignment(reg_def.scale, class_config[CONF_SCALE])
-                        if CONF_TEXT_SCALE in class_config:
-                            local_assignment(
-                                reg_def.scale, class_config[CONF_TEXT_SCALE]
+        if CONF_TYPE in config:
+            valid = True
+            cg.add(manager.init_entity(entity, config[CONF_TYPE]))
+        elif CONF_REGISTER in config:
+            valid = True
+            register_config = config[CONF_REGISTER]
+            reg_def = local_object_construct(
+                register_config[CONF_REG_DEF_ID], register_config[CONF_ADDRESS]
+            )
+            for _cls in ve_reg.CLASS:
+                _cls_key = _cls.name.lower()
+                if _cls_key in register_config:
+                    class_config = register_config[_cls_key]
+                    local_assignment(reg_def.cls, _cls.enum)
+                    match _cls:
+                        case ve_reg.CLASS.BITMASK | ve_reg.CLASS.ENUM:
+                            enum_def = local_object_construct(
+                                register_config[CONF_ENUM_DEF_ID],
+                                class_config,
                             )
+                            local_assignment(
+                                reg_def.enum_def, cpp.UnaryOpExpression("&", enum_def)
+                            )
+                        case ve_reg.CLASS.NUMERIC:
+                            if CONF_UNIT in class_config:
+                                local_assignment(reg_def.unit, class_config[CONF_UNIT])
+                            if CONF_SCALE in class_config:
+                                local_assignment(
+                                    reg_def.scale, class_config[CONF_SCALE]
+                                )
+                            if CONF_TEXT_SCALE in class_config:
+                                local_assignment(
+                                    reg_def.scale, class_config[CONF_TEXT_SCALE]
+                                )
 
-                break
+                    break
 
-        if CONF_DATA_TYPE in register_config:
-            local_assignment(reg_def.data_type, register_config[CONF_DATA_TYPE])
+            if CONF_DATA_TYPE in register_config:
+                local_assignment(reg_def.data_type, register_config[CONF_DATA_TYPE])
 
-        cg.add(manager.init_register(entity, cpp.UnaryOpExpression("&", reg_def)))
+            cg.add(manager.init_register(entity, cpp.UnaryOpExpression("&", reg_def)))
 
-        if CONF_TEXT_LABEL in register_config:
-            cg.add(manager.init_entity(entity, register_config[CONF_TEXT_LABEL]))
+            if CONF_TEXT_LABEL in register_config:
+                cg.add(manager.init_entity(entity, register_config[CONF_TEXT_LABEL]))
 
-    # configure binary-like entities
-    if CONF_MASK in config:
-        cg.add(entity.set_mask(config[CONF_MASK]))
+        # configure binary-like entities
+        if CONF_MASK in config:
+            cg.add(entity.set_mask(config[CONF_MASK]))
 
-    if not valid:
-        raise cv.Invalid(f"Either {CONF_TYPE} or {CONF_REGISTER} must be provided")
-    return entity
+        if not valid:
+            raise cv.Invalid(f"Either {CONF_TYPE} or {CONF_REGISTER} must be provided")
+        return entity
 
-
-async def vedirect_platform_to_code(
-    config: dict,
-    platform_entities: dict[str, cv.Schema],
-    new_vedirectentity_func,
-    new_entity_func,
-):
-    manager = await cg.get_variable(config[CONF_VEDIRECT_ID])
-
-    for entity_key, entity_config in config.items():
-        if entity_key == CONF_VEDIRECT_ENTITIES:
-            for _entity_config in entity_config:
-                await new_vedirectentity_func(_entity_config, manager)
-            continue
-        if entity_key in platform_entities:
-            var = await new_entity_func(entity_config)
-            cg.add(getattr(manager, f"set_{entity_key}")(var))
+    async def to_code(self, config: dict):
+        manager = await cg.get_variable(config[CONF_VEDIRECT_ID])
+        cg.add(
+            cpp.RawStatement(
+                f"m3_vedirect::Entity::register_platform(m3_vedirect::Entity::{self.class_name}, m3_vedirect::{self.class_name}::build_entity);"
+            )
+        )
+        for entity_key, entity_config in config.items():
+            if entity_key == CONF_VEDIRECT_ENTITIES:
+                for _entity_config in entity_config:
+                    entity = await self.new_vedirect_entity(_entity_config, manager)
+                    await self.register_entity(entity, _entity_config)
+                continue
+            if entity_key in self.custom_entities:
+                entity = await self.new_base_entity(entity_config)
+                cg.add(getattr(manager, f"set_{entity_key}")(entity))
 
 
 # main component (Manager) schema

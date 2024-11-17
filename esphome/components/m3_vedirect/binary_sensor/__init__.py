@@ -1,13 +1,6 @@
 from esphome.components import binary_sensor
 
-from .. import (
-    VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
-    m3_vedirect_ns,
-    new_vedirect_entity,
-    ve_reg,
-    vedirect_platform_schema,
-    vedirect_platform_to_code,
-)
+from .. import VEDIRECT_BINARY_ENTITY_BASE_SCHEMA, VEDirectPlatform, ve_reg
 
 # Manager special sensors
 _diagnostic_binary_sensor_schema = binary_sensor.binary_sensor_schema(
@@ -15,32 +8,19 @@ _diagnostic_binary_sensor_schema = binary_sensor.binary_sensor_schema(
 )
 
 
-VEDirectBinarySensor = m3_vedirect_ns.class_("BinarySensor", binary_sensor.BinarySensor)
-VEDIRECT_BINARY_SENSOR_SCHEMA = binary_sensor.binary_sensor_schema(
-    VEDirectBinarySensor
-).extend(VEDIRECT_BINARY_ENTITY_BASE_SCHEMA)
-
-PLATFORM_ENTITIES = {
-    "link_connected": _diagnostic_binary_sensor_schema,
-}
-CONFIG_SCHEMA = vedirect_platform_schema(
-    VEDIRECT_BINARY_SENSOR_SCHEMA,
+PLATFORM = VEDirectPlatform(
+    "binary_sensor",
+    binary_sensor,
+    {
+        "link_connected": _diagnostic_binary_sensor_schema,
+    },
     (ve_reg.CLASS.BOOLEAN, ve_reg.CLASS.BITMASK, ve_reg.CLASS.ENUM),
     True,
-    PLATFORM_ENTITIES,
+    VEDIRECT_BINARY_ENTITY_BASE_SCHEMA,
 )
 
-
-async def new_vedirect_binary_sensor(config, manager):
-    var = await new_vedirect_entity(config, manager)
-    await binary_sensor.register_binary_sensor(var, config)
-    return var
+CONFIG_SCHEMA = PLATFORM.CONFIG_SCHEMA
 
 
 async def to_code(config: dict):
-    await vedirect_platform_to_code(
-        config,
-        PLATFORM_ENTITIES,
-        new_vedirect_binary_sensor,
-        binary_sensor.new_binary_sensor,
-    )
+    await PLATFORM.to_code(config)

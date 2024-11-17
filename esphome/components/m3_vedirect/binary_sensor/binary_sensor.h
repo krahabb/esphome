@@ -10,6 +10,8 @@ class BinarySensor final : public Entity, public esphome::binary_sensor::BinaryS
  public:
   BinarySensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
 
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 
  protected:
@@ -17,7 +19,6 @@ class BinarySensor final : public Entity, public esphome::binary_sensor::BinaryS
 
   uint32_t mask_{0xFFFFFFFF};
 
-  void dynamic_register_() override;
   void init_reg_def_() override;
 
   static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);

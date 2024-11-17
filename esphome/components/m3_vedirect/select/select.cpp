@@ -9,13 +9,15 @@ namespace m3_vedirect {
 
 static const char *const TAG = "select";
 
-void Select::dynamic_register_() {
-  App.register_select(this);
-  if (api::global_api_server) {
-    add_on_state_callback([this](const std::string &state, size_t index) {
-      api::global_api_server->on_select_update(this, state, index);
+Entity *Select::build_entity(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new Select(manager);
+  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  App.register_select(entity);
+  if (api::global_api_server)
+    entity->add_on_state_callback([entity](const std::string &state, size_t index) {
+      api::global_api_server->on_select_update(entity, state, index);
     });
-  }
+  return entity;
 }
 
 void Select::init_reg_def_() {

@@ -26,32 +26,38 @@ const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
     2,  // S_0_25,
 };
 
-void Sensor::dynamic_register_() {
-  App.register_sensor(this);
+Entity *Sensor::build_entity(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new Sensor(manager);
+  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  App.register_sensor(entity);
   if (api::global_api_server)
-    add_on_state_callback([this](float state) { api::global_api_server->on_sensor_update(this, state); });
+    entity->add_on_state_callback([entity](float state) { api::global_api_server->on_sensor_update(entity, state); });
+  return entity;
 }
 
 void Sensor::link_disconnected_() { this->publish_state(NAN); }
 
 void Sensor::init_reg_def_() {
   auto reg_def = this->reg_def_;
-  // Whatever the CLASS, sensor will just extract any meaningful numeric value
-  // from the HEX payload eventually scaling by hex_scale
-  this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
-  this->set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
-  this->set_state_class(UNIT_TO_STATE_CLASS[reg_def->unit]);
-  this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
-  this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
-  this->text_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale];
-
-  switch (reg_def->unit) {
-    case REG_DEF::UNIT::CELSIUS:
-      // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
-      this->parse_hex_ = parse_hex_temperature_;
-      break;
+  this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+  switch (reg_def->cls) {
+    case REG_DEF::CLASS::NUMERIC:
+      this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
+      this->set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
+      this->set_state_class(UNIT_TO_STATE_CLASS[reg_def->unit]);
+      this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
+      this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
+      this->text_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale];
+      switch (reg_def->unit) {
+        case REG_DEF::UNIT::CELSIUS:
+          // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
+          this->parse_hex_ = parse_hex_temperature_;
+          break;
+        default:
+          break;
+      }
     default:
-      this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+      break;
   }
 }
 

@@ -6,11 +6,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-void BinarySensor::dynamic_register_() {
-  App.register_binary_sensor(this);
-  if (api::global_api_server) {
-    add_on_state_callback([this](bool state) { api::global_api_server->on_binary_sensor_update(this, state); });
-  }
+Entity *BinarySensor::build_entity(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new BinarySensor(manager);
+  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  App.register_binary_sensor(entity);
+  if (api::global_api_server)
+    entity->add_on_state_callback(
+        [entity](bool state) { api::global_api_server->on_binary_sensor_update(entity, state); });
+  return entity;
 }
 
 void BinarySensor::init_reg_def_() {

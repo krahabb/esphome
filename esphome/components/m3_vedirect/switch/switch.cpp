@@ -6,11 +6,13 @@
 namespace esphome {
 namespace m3_vedirect {
 
-void Switch::dynamic_register_() {
-  App.register_switch(this);
-  if (api::global_api_server) {
-    this->add_on_state_callback([this](bool state) { api::global_api_server->on_switch_update(this, state); });
-  }
+Entity *Switch::build_entity(Manager *manager, const char *name, const char *object_id) {
+  auto entity = new Switch(manager);
+  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  App.register_switch(entity);
+  if (api::global_api_server)
+    entity->add_on_state_callback([entity](bool state) { api::global_api_server->on_switch_update(entity, state); });
+  return entity;
 }
 
 void Switch::init_reg_def_() {

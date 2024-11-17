@@ -6,12 +6,13 @@
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
-#include <unordered_map>
-#include <string_view>
-#include <vector>
 
 #include "defines.h"
 #include "ve_hexframe.h"
+
+#include <unordered_map>
+#include <string_view>
+#include <vector>
 
 namespace esphome {
 namespace m3_vedirect {
@@ -32,9 +33,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   MANAGER_ENTITY_(binary_sensor::BinarySensor, link_connected)
   MANAGER_ENTITY_(sensor::Sensor, run_time)
 
-  const std::string &get_vedirect_id() { return this->vedirect_id_; }
+  const char *get_vedirect_id() { return this->vedirect_id_; }
   void set_vedirect_id(const char *vedirect_id) { this->vedirect_id_ = vedirect_id; }
-  const std::string &get_vedirect_name() { return this->vedirect_name_; }
+  const char *get_vedirect_name() { return this->vedirect_name_; }
   void set_vedirect_name(const char *vedirect_name) { this->vedirect_name_ = vedirect_name; }
   void set_auto_create_text_entities(bool value) { this->auto_create_text_entities_ = value; }
   void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
@@ -133,8 +134,8 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   static std::vector<Manager *> managers_;
   // component config
   const char *logtag_;
-  std::string vedirect_id_;
-  std::string vedirect_name_;
+  const char *vedirect_id_{nullptr};
+  const char *vedirect_name_{nullptr};
   bool auto_create_text_entities_{true};
   bool auto_create_hex_entities_{false};
 
@@ -160,8 +161,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   // These will provide 'map' access either by text record name (text_entities_)
   // or by HEX register id (hex_entities_). Since some HEX registers are also
   // published in TEXT frames we're also trying to map these to the same entity.
-  std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_;
-  typedef std::unordered_map<uint16_t, HexRegister *> hex_registers_t;
+  typedef std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_t;
+  text_entities_t text_entities_;
+  typedef std::unordered_map<register_id_t, HexRegister *> hex_registers_t;
   hex_registers_t hex_registers_;
 
   HexRegister *get_hex_register_(register_id_t register_id, bool create);
@@ -178,8 +180,6 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// @return
   HexRegister *build_text_entity_(const char *label);
   HexRegister *build_hex_register_(register_id_t register_id);
-  template<typename TEntity> TEntity *dynamic_build_entity_(const char *name, const char *object_id);
-  void dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id);
 };
 
 }  // namespace m3_vedirect

@@ -10,6 +10,8 @@ class Switch final : public ConfigEntity, public Entity, public esphome::switch_
  public:
   Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
 
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 
  protected:
@@ -18,7 +20,6 @@ class Switch final : public ConfigEntity, public Entity, public esphome::switch_
   BITMASK_DEF::bitmask_t raw_value_{BITMASK_DEF::VALUE_UNKNOWN};
   BITMASK_DEF::bitmask_t mask_{0x01};
 
-  void dynamic_register_() override;
   void init_reg_def_() override;
 
   static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);

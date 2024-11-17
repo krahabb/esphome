@@ -10,9 +10,10 @@ class Number final : public ConfigEntity, public NumericEntity, public Entity, p
  public:
   Number(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_empty_) {}
 
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+
  protected:
   friend class Manager;
-  void dynamic_register_() override;
   void link_disconnected_() override;
 
   void init_reg_def_() override;

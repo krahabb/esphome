@@ -1,5 +1,4 @@
 #include "hexregister.h"
-#include "manager.h"
 
 namespace esphome {
 namespace m3_vedirect {

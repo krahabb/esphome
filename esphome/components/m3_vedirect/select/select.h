@@ -10,11 +10,12 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
  public:
   Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
 
+  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+
  protected:
   friend class Manager;
   ENUM_DEF::enum_t enum_value_{0xFF};
 
-  void dynamic_register_() override;
   void init_reg_def_() override;
 
   static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
