@@ -28,7 +28,7 @@ class HexRegister {
   parse_text_func_t parse_text_;
 
   HexRegister(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)
-      : reg_def_(&REG_DEF::DEFS[REG_DEF::TYPE::UNDEFINED]), parse_hex_(parse_hex_func), parse_text_(parse_text_func) {}
+      : reg_def_(nullptr), parse_hex_(parse_hex_func), parse_text_(parse_text_func) {}
 
   // called by the Manager when VEDirect timeouts (we'll send 'unknown' to APIServer)
   virtual void link_disconnected_(){};

@@ -177,7 +177,6 @@ FLAVOR_DEPENDENCIES = {
 
 
 class TYPE(MockEnum):
-    UNDEFINED = enum.auto()
     BLE_MODE = enum.auto()
     PRODUCT_ID = enum.auto()
     SERIAL_NUMBER = enum.auto()
@@ -231,7 +230,6 @@ class TYPE(MockEnum):
 
 REG_DEF = namedtuple("REG_DEF", ["flavor", "cls", "register_id", "access"])
 REG_DEFS = {
-    TYPE.UNDEFINED.name: REG_DEF("ANY", CLASS.UNKNOWN, 0x0000, ACCESS.READ_ONLY),
     TYPE.BLE_MODE.name: REG_DEF("ANY", CLASS.BITMASK, 0x0090, ACCESS.READ_WRITE),
     TYPE.PRODUCT_ID.name: REG_DEF("ANY", CLASS.UNKNOWN, 0x0100, ACCESS.READ_ONLY),
     TYPE.SERIAL_NUMBER.name: REG_DEF("ANY", CLASS.STRING, 0x010A, ACCESS.READ_ONLY),

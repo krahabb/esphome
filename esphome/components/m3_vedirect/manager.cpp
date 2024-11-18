@@ -73,7 +73,7 @@ void Manager::init_entity(Entity *entity, REG_DEF::TYPE register_type) {
 void Manager::init_entity(Entity *entity, const char *label) {
   auto text_def = TEXT_DEF::find_label(label);
   if (text_def) {
-    if (entity->reg_def_ == &REG_DEF::DEFS[REG_DEF::TYPE::UNDEFINED]) {
+    if (!entity->reg_def_) {
       // only set reg_def from our presets (if any) if the yaml generated code
       // didn't set a custom configuration
       auto reg_def = REG_DEF::find_type(text_def->register_type);

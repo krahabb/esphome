@@ -103,6 +103,7 @@ void Select::parse_string_(const char *string_value) {
 }
 
 void Select::control(const std::string &value) {
+  // TODO: are we 100% sure enum_def is defined ? check yaml init code
   auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
   if (lookup_def)
     this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
