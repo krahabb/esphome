@@ -132,6 +132,46 @@ def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
     cg.add(cpp.RawStatement(f"{lvalue} = {cpp.safe_exp(rvalue)};"))
 
 
+def inflate_flavor(flavor, inflated: set):
+    """Returns a set with all of the sub-flavors that would be automatically defined
+    when defining the provided 'flavor' (see ve_reg_flavor.h)"""
+    sub_flavors = ve_reg.FLAVOR_DEPENDENCIES[flavor]
+    for sub_flavor in sub_flavors:
+        inflated.add(sub_flavor)
+        inflate_flavor(sub_flavor, inflated)
+    return inflated
+
+
+def inflate_flavors(flavors: typing.Iterable):
+    """
+    Given a collection of flavors, expand this with all the 'sub' flavors defined by each of the
+    original set.
+    """
+    inflated = set(flavors)
+    for flavor in flavors:
+        inflate_flavor(flavor, inflated)
+
+    return inflated
+
+
+def deflate_flavors(flavors: typing.Iterable):
+    """
+    Processes the configuration CONF_FLAVOR and extracts a 'minimal' flavors list.
+    Since users could type any flavor in the configuration, some of these might be automatically
+    added by our ve_reg_flavor.h macro processing ('group flavors' or 'base flavors').
+    When we add the build flag these redundant definitions will raise some warnings and we want
+    to avoid that and only set the minimal appropriate set of flavors.
+    """
+    deflated_flavors = set(flavors)
+    for flavor in flavors:
+        inflated = inflate_flavor(flavor, set())
+        duplicates = deflated_flavors & inflated
+        for sub_flavor in duplicates:
+            deflated_flavors.remove(sub_flavor)
+
+    return deflated_flavors
+
+
 class VEDirectPlatform:
     COMPONENT_NS: typing.Final = m3_vedirect_ns
 
@@ -203,14 +243,15 @@ class VEDirectPlatform:
     def _validate_platform(self, config):
         # Ensure CONF_TYPE is available based off Manager flavor
         if CONF_VEDIRECT_ENTITIES in config:
-            flavor = MANAGERS_CONFIG[config[CONF_VEDIRECT_ID]][CONF_FLAVOR]
+            flavors = MANAGERS_CONFIG[config[CONF_VEDIRECT_ID]][CONF_FLAVOR]
+            inflated_flavors = inflate_flavors(flavors)
             for vedirect_entity_config in config[CONF_VEDIRECT_ENTITIES]:
                 if CONF_TYPE in vedirect_entity_config:
                     entity_type = vedirect_entity_config[CONF_TYPE]
                     type_flavor = ve_reg.REG_DEFS[entity_type].flavor
-                    if type_flavor not in ("ANY", *flavor):
+                    if type_flavor not in inflated_flavors:
                         raise cv.Invalid(
-                            f"Entity type:{entity_type} not available for flavor:{flavor}"
+                            f"Entity type {entity_type} is defined for flavor {type_flavor} which is not available in configured flavors:{flavors}"
                         )
         return config
 
@@ -343,8 +384,8 @@ async def to_code(config: dict):
     var = cg.new_Pvariable(config[ec.CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
     cg.add(var.set_vedirect_name(config.get(ec.CONF_NAME, str(var.base))))
-    for flavor in config[CONF_FLAVOR]:
-        cg.add_define(f"VEDIRECT_FLAVOR_{flavor}")
+    for flavor in deflate_flavors(config[CONF_FLAVOR]):
+        cg.add_build_flag(f"-DVEDIRECT_FLAVOR_{flavor}")
     if config_textframe := config.get(CONF_TEXTFRAME):
         if CONF_AUTO_CREATE_ENTITIES in config_textframe:
             cg.add(

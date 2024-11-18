@@ -114,6 +114,7 @@ class SCALE(MockEnum):
 
 
 class Flavor(enum.StrEnum):
+    ALL = enum.auto()
     INV_PHNX = enum.auto()
     CHG_PHNX = enum.auto()
     MPPT_BS = enum.auto()
@@ -125,6 +126,54 @@ class Flavor(enum.StrEnum):
     BMV = enum.auto()
     CHG = enum.auto()
     INV = enum.auto()
+    ANY = enum.auto()
+
+
+FLAVOR_DEPENDENCIES = {
+    Flavor.ALL.name: [
+        Flavor.MPPT_BS.name,
+        Flavor.MPPT_RS.name,
+        Flavor.INV_PHNX.name,
+        Flavor.CHG_PHNX.name,
+        Flavor.BMV60.name,
+        Flavor.BMV70.name,
+        Flavor.BMV71.name,
+    ],
+    Flavor.INV_PHNX.name: [
+        Flavor.INV.name,
+    ],
+    Flavor.CHG_PHNX.name: [
+        Flavor.CHG.name,
+    ],
+    Flavor.MPPT_BS.name: [
+        Flavor.MPPT.name,
+    ],
+    Flavor.MPPT_RS.name: [
+        Flavor.MPPT.name,
+    ],
+    Flavor.BMV60.name: [
+        Flavor.BMV.name,
+    ],
+    Flavor.BMV70.name: [
+        Flavor.BMV.name,
+    ],
+    Flavor.BMV71.name: [
+        Flavor.BMV.name,
+    ],
+    Flavor.MPPT.name: [
+        Flavor.CHG.name,
+    ],
+    Flavor.BMV.name: [
+        Flavor.ANY.name,
+    ],
+    Flavor.CHG.name: [
+        Flavor.ANY.name,
+    ],
+    Flavor.INV.name: [
+        Flavor.ANY.name,
+    ],
+    Flavor.ANY.name: [],
+}
 
 
 class TYPE(MockEnum):

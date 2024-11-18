@@ -13,15 +13,12 @@
 
     Some symbols relate to more general classes of devices so if using the aforementioned 'VEDIRECT_FLAVOR_MPPT_BS'
     this in turn will enable 'VEDIRECT_FLAVOR_MPPT' (symbols common to all of the MPPT chargers) and also
-   'VEDIRECT_FLAVOR_CHG'.
+    'VEDIRECT_FLAVOR_CHG'.
 
-   This file is also being used to generate mock symbols for flavors ('generator.py').
-   The special defines:
-   - VEDIRECT_FLAVORS_ALL: shortcut to define all flavors at once.
-   - VEDIRECT_FLAVORS_ANY: 'fake' symbol related to the 'ANY' conditional used to enable the feature whatever the
-   flavor(s). This shouldn't be manually defined
-   These will be by ignored by 'generator.py' since they're special symbols to ease out the framework. Compiling with
-   VEDIRECT_FLAVORS_ALL will enable all the flavors in one define
+    'VEDIRECT_FLAVOR_ALL' shortcut to define all flavors at once
+    'VEDIRECT_FLAVOR_ANY' refers to registers which are available in every device (or the vast majority)
+
+    This file is also being used to generate mock symbols for flavors ('generator.py').
 */
 
 #pragma once
@@ -36,7 +33,7 @@
 //#define VEDIRECT_FLAVOR_BMV71
 #endif
 
-#ifdef VEDIRECT_FLAVORS_ALL  // defines all flavors in one shot
+#ifdef VEDIRECT_FLAVOR_ALL  // defines all flavors in one shot
 #define VEDIRECT_FLAVOR_MPPT_BS
 #define VEDIRECT_FLAVOR_MPPT_RS
 #define VEDIRECT_FLAVOR_INV_PHNX
@@ -48,8 +45,8 @@
 
 // Conditionals always active for characteristcs that belong to all device flavors
 // or to a majority of different groups (so that they're likely in any device)
-#define VEDIRECT_FLAVORS_ANY  // This is pretty useless and is just for symmetry with DEF_ANY_Y
-#define DEF_ANY Y  // this must be fixed at Y in order to always activate features using the special flavor 'ANY'
+// #define VEDIRECT_FLAVORS_ANY  // This is pretty useless and is just for symmetry with DEF_ANY_Y
+// #define DEF_ANY Y  // this must be fixed at Y in order to always activate features using the special flavor 'ANY'
 
 // Inverter flavors
 #ifdef VEDIRECT_FLAVOR_INV_PHNX  // Phoenix inverters
@@ -113,19 +110,28 @@
 #endif
 
 #ifdef VEDIRECT_FLAVOR_BMV  // any BMV flavor
+#define VEDIRECT_FLAVOR_ANY
 #define DEF_BMV Y
 #else
 #define DEF_BMV N
 #endif
 
 #ifdef VEDIRECT_FLAVOR_CHG  // any charger flavor
+#define VEDIRECT_FLAVOR_ANY
 #define DEF_CHG Y
 #else
 #define DEF_CHG N
 #endif
 
 #ifdef VEDIRECT_FLAVOR_INV  // any inverter flavor
+#define VEDIRECT_FLAVOR_ANY
 #define DEF_INV Y
 #else
 #define DEF_INV N
+#endif
+
+#ifdef VEDIRECT_FLAVOR_ANY  // any flavor
+#define DEF_ANY Y
+#else
+#define DEF_ANY N
 #endif

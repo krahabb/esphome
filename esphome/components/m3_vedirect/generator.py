@@ -86,12 +86,26 @@ def generate():
     _generate_enums(f_ve_reg_def_h, "REG_DEF")
 
     f_ve_reg_flavor_h = _read_file("ve_reg_flavor.h")
-    flavors = []
-    for match in re.finditer(r"#ifdef (\w*)", f_ve_reg_flavor_h):
-        flavor = match.group(1)
-        if flavor.startswith("VEDIRECT_FLAVOR_"):
-            flavors.append(flavor[16::])
+    flavors = {}
+    # for match in re.finditer(r"#ifdef (\w*)", f_ve_reg_flavor_h):
+    for match in re.finditer(
+        r"#ifdef\s*VEDIRECT_FLAVOR_(\w*)(.*?)#endif", f_ve_reg_flavor_h
+    ):
+        # flavors.append(match.group(1))
+        sub_flavors = []
+        for sub_match in re.finditer(
+            r"#define\s*VEDIRECT_FLAVOR_(\w*)", match.group(2)
+        ):
+            sub_flavors.append(sub_match.group(1))
+        flavors[match.group(1)] = sub_flavors
     _declare_enum("Flavor", flavors, "enum.StrEnum")
+    ve_reg_py.write("\n\nFLAVOR_DEPENDENCIES = {\n")
+    for _flavor, _dependencies in flavors.items():
+        ve_reg_py.write(f"{INDENT}Flavor.{_flavor}.name: [")
+        for _dep in _dependencies:
+            ve_reg_py.write(f"Flavor.{_dep}.name, ")
+        ve_reg_py.write("],\n")
+    ve_reg_py.write("}\n")
 
     f_ve_reg_register_h = _read_file("ve_reg_register.h")
     reg_defs = {}
