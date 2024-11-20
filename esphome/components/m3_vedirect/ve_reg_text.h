@@ -3,11 +3,6 @@
 
 // clang-format off
 
-/*
-	NUMERIC is a numeric TEXT record where the scale matches the one defined in REG_DEF
-	this is likely a temporary setting while we migrate the code
-*/
-#define _REGISTER_TYPE_UNDEFINED TYPE_COUNT
 #define TEXTRECORDS(MACRO) \
 	MACRO(INV, NUMERIC, "AC_OUT_I", AC_OUT_CURRENT, "AC output current") \
 	MACRO(INV, NUMERIC, "AC_OUT_S", AC_OUT_APPARENT_POWER, "AC output apparent power") \
@@ -16,14 +11,13 @@
 	MACRO(BMV, BOOLEAN, "Alarm", ALARM_BUZZER, "Alarm") \
 	MACRO(ANY, ENUM, "CS", DEVICE_STATE, "State of operation") \
 	MACRO(CHG, ENUM, "ERR", CHR_ERROR_CODE, "Charger error") \
-	MACRO(ANY, STRING, "FW", _REGISTER_TYPE_UNDEFINED, "Firmware version (FW)") \
-	MACRO(ANY, STRING, "FWE", _REGISTER_TYPE_UNDEFINED, "Firmware version (FWE)") \
+	MACRO(ANY, STRING, "FW", APP_VER, "Firmware version (FW)") \
+	MACRO(ANY, STRING, "FWE", APP_VER, "Firmware version (FWE)") \
 	MACRO(MPPT, NUMERIC, "H19", USER_YIELD, "Yield total") \
 	MACRO(MPPT, NUMERIC, "H20", YIELD_TODAY, "Yield today") \
 	MACRO(MPPT, NUMERIC, "H21", MAXIMUM_POWER_TODAY, "Maximum power today") \
 	MACRO(MPPT, NUMERIC, "H22", YIELD_YESTERDAY, "Yield yesterday") \
 	MACRO(MPPT, NUMERIC, "H23", MAXIMUM_POWER_YESTERDAY, "Maximum power yesterday") \
-	MACRO(MPPT, STRING, "HSDS", _REGISTER_TYPE_UNDEFINED, "Day sequence number") \
 	MACRO(ANY, NUMERIC, "I", DC_CHANNEL1_CURRENT, "Battery current") \
 	MACRO(MPPT, NUMERIC, "IL", LOAD_CURRENT, "Load current") \
 	MACRO(MPPT, BOOLEAN, "LOAD", LOAD_OUTPUT_STATE, "Output state") \

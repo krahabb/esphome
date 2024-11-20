@@ -51,6 +51,17 @@ void TextSensor::init_reg_def_() {
       this->parse_hex_ = parse_hex_string_;
 #endif
       break;
+    case REG_DEF::CLASS::UNKNOWN:
+      if (this->reg_def_->register_id == 0x0102) {
+        // APP_VER (firmware version) register
+#if defined(VEDIRECT_USE_HEXFRAME)
+        this->parse_hex_ = parse_hex_app_ver_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
+        this->parse_text_ = parse_text_app_ver_;
+#endif
+      }
+      break;
     default:
       break;
   }
@@ -109,6 +120,33 @@ void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *he
 void TextSensor::parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_cast<TextSensor *>(hex_register)->parse_string_(hex_frame->data_str());
 }
+
+void TextSensor::parse_hex_app_ver_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 3, "HexFrame storage might lead to access overflow");
+  // Parsing of HEX register for fw version will lead to a representation that might be
+  // different from that carried in the TEXT frame, at least for non-release versions.
+  uint8_t major = *(hex_frame->data_begin() + 2);
+  uint8_t minor = *(hex_frame->data_begin() + 1);
+  uint8_t sw_type = major & 0xC0;
+  major &= 0x3F;
+  char buf[32];
+  switch (sw_type) {
+    case 0x40:  // release
+      sprintf(buf, "%hhu.%.2hhu", major, minor);
+      break;
+    case 0xC0:  // beta
+      sprintf(buf, "%hhu.%.2hhu-beta", major, minor);
+      break;
+    case 0x80:  // tester
+      sprintf(buf, "%hhu.%.2hhu-tester", major, minor);
+      break;
+    // case 0x00:  // bootloader
+    default:
+      sprintf(buf, "%hhu.%.2hhu-bootloader", major, minor);
+      break;
+  }
+  static_cast<TextSensor *>(hex_register)->parse_string_(buf);
+}
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
@@ -137,6 +175,73 @@ void TextSensor::parse_text_enum_(HexRegister *hex_register, const char *text_va
   } else {
     static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
   }
+}
+
+void TextSensor::parse_text_app_ver_(HexRegister *hex_register, const char *text_value) {
+  // Here we expect to parse either 'FW' or 'FWE' text records. We'll use strlen to decide how to interpret
+  // the payload (see https://www.victronenergy.com/upload/documents/VE.Direct-Protocol-3.33.pdf)
+  auto len = strlen(text_value);
+  char buf[14];
+  switch (len) {
+    case 3:
+      // '208' -> fw: 2.08
+      buf[0] = text_value[0];
+      buf[1] = '.';
+      buf[2] = text_value[1];
+      buf[3] = text_value[2];
+      buf[4] = 0;
+      break;
+    case 4:
+      // 'C208' -> fw: 2.08.beta.C
+      buf[0] = text_value[1];
+      buf[1] = '.';
+      buf[2] = text_value[2];
+      buf[3] = text_value[3];
+      strcpy(buf + 4, "-beta-");
+      buf[10] = text_value[0];
+      buf[11] = 0;
+      break;
+    case 5:
+    handle_5:
+      // '208FF' -> fw: 2.08 (official release)
+      buf[0] = text_value[0];
+      buf[1] = '.';
+      buf[2] = text_value[1];
+      buf[3] = text_value[2];
+      if ((text_value[3] == 'F') && (text_value[4] == 'F')) {
+        buf[4] = 0;
+      } else {
+        strcpy(buf + 4, "-beta-");
+        buf[10] = text_value[3];
+        buf[11] = text_value[4];
+        buf[12] = 0;
+      }
+      break;
+    case 6:
+      if (text_value[0] == '0') {
+        ++text_value;
+        goto handle_5;
+      }
+      buf[0] = text_value[0];
+      buf[1] = text_value[1];
+      buf[2] = '.';
+      buf[3] = text_value[2];
+      buf[4] = text_value[3];
+      if ((text_value[4] == 'F') && (text_value[5] == 'F')) {
+        buf[5] = 0;
+      } else {
+        strcpy(buf + 5, "-beta-");
+        buf[11] = text_value[4];
+        buf[12] = text_value[5];
+        buf[13] = 0;
+      }
+      break;
+    default:
+      // unknown format..just forward 'as is'
+      static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
+      return;
+  }
+  static_cast<TextSensor *>(hex_register)->parse_string_(buf);
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 

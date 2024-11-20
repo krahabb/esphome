@@ -33,11 +33,13 @@ class TextSensor final : public Entity, public esphome::text_sensor::TextSensor 
   static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_app_ver_(HexRegister *hex_register, const RxHexFrame *hex_frame);
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
+  static void parse_text_app_ver_(HexRegister *hex_register, const char *text_value);
 #endif
 };
 
