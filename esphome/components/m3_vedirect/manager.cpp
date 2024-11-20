@@ -236,7 +236,7 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
           if (reg_def) {
             hex_register = this->get_hex_register_(reg_def->register_id, true);
           } else {
-            hex_register = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, text_def->description, label);
+            hex_register = Entity::BUILD_ENTITY_FUNC[Entity::TextSensor](this, label, label);
           }
         } else {
           // We lack the definition for this TEXT RECORD so

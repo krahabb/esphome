@@ -24,9 +24,9 @@
 #pragma once
 #include "ve_reg_macro.h"
 
-#if 0
+#if 1
 // debug/testing preset environment: remove on release
-//#define VEDIRECT_FLAVORS_ALL
+#define VEDIRECT_FLAVOR_ALL
 //#define VEDIRECT_FLAVOR_MPPT_RS
 //#define VEDIRECT_FLAVOR_INV_PHNX
 //#define VEDIRECT_FLAVOR_BMV

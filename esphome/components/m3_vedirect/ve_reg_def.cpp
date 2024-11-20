@@ -77,7 +77,7 @@ const REG_DEF *REG_DEF::find_register_id(register_id_t register_id) {
   return (reg_def_it != reg_def_end) && (reg_def_it->register_id == register_id) ? reg_def_it : nullptr;
 }
 
-#define DEFINE_TEXT_DEF_REG(label, register_type, name) {label, name, REG_DEF::TYPE::register_type},
+#define DEFINE_TEXT_DEF_REG(label, register_type) {label, REG_DEF::TYPE::register_type},
 #define DEFINE_TEXT_DEF(flavor, cls, ...) IF(DEF_##flavor)(DEFINE_TEXT_DEF_REG(__VA_ARGS__))
 const TEXT_DEF TEXT_DEF::DEFS[] = {TEXTRECORDS(DEFINE_TEXT_DEF)};
 

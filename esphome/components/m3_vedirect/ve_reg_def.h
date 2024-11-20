@@ -136,7 +136,7 @@ struct REG_DEF {
   static constexpr register_id_t REGISTER_UNDEFINED = 0x0000;
 
   const register_id_t register_id;
-  const char *const label;
+  const char *const label;  // not relevant for manually built (in config.yaml) REG_DEF(s)
   CLASS cls : 3;
   ACCESS access : 1;
   DATA_TYPE data_type : 3;  // only relevant for BITMASK and NUMERIC (ENUM are UN8 though)
@@ -206,15 +206,13 @@ struct REG_DEF {
 /// @brief Descriptor struct for TEXT frame records
 struct TEXT_DEF {
   const char *label;
-  const char *description;
   const REG_DEF::TYPE register_type;
 
   // Constructor used when register_type is a valid mapping to a REG_DEF
-  TEXT_DEF(const char *label, const char *description, REG_DEF::TYPE register_type)
-      : label(label), description(description), register_type(register_type) {}
+  TEXT_DEF(const char *label, REG_DEF::TYPE register_type) : label(label), register_type(register_type) {}
 
   // Constructor for default unknown/untyped field
-  TEXT_DEF() : label(nullptr), description(nullptr), register_type(REG_DEF::TYPE::TYPE_COUNT) {}
+  TEXT_DEF() : label(nullptr), register_type(REG_DEF::TYPE::TYPE_COUNT) {}
 
   bool operator<(const char *label) const { return strcmp(this->label, label) < 0; }
   static const TEXT_DEF DEFS[];
