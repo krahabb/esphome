@@ -8,7 +8,13 @@ namespace m3_vedirect {
 
 class Select final : public ConfigEntity, public Entity, public esphome::select::Select {
  public:
+#if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
   Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
+#elif defined(VEDIRECT_USE_HEXFRAME)
+  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {}
+#elif defined(VEDIRECT_USE_TEXTFRAME)
+  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_text_default_) {}
+#endif
 
   static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
 
@@ -17,19 +23,24 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
   ENUM_DEF::enum_t enum_value_{0xFF};
 
   void init_reg_def_() override;
-
-  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
-  static void parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe);
-
-  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
-
   inline void parse_enum_(ENUM_DEF::enum_t enum_value) override;
   inline void parse_string_(const char *string_value) override;
 
-  // interface esphome::select::Select
-
+// interface esphome::select::Select
+#if defined(VEDIRECT_USE_HEXFRAME)
   void control(const std::string &value) override;
+#else
+  void control(const std::string &value) override {}
+#endif
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
+  static void parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe);
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
+  static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
+#endif
 
   // Hack the basic SelectTraits to allow dynamic management
   // of options from our Select entity without always copying/moving

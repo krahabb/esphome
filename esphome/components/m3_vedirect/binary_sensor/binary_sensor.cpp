@@ -26,18 +26,27 @@ Entity *BinarySensor::build_entity(Manager *manager, const char *name, const cha
 void BinarySensor::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_bitmask_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
       this->parse_text_ = parse_text_bitmask_;
+#endif
       break;
     case REG_DEF::CLASS::ENUM:
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_enum_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
       this->parse_text_ = parse_text_enum_;
+#endif
       break;
     default:
       break;
   }
 }
 
+#if defined(VEDIRECT_USE_HEXFRAME)
 void BinarySensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   // By default considering the register as a BOOLEAN
@@ -54,7 +63,9 @@ void BinarySensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   static_cast<BinarySensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
 
+#if defined(VEDIRECT_USE_TEXTFRAME)
 void BinarySensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
   static_cast<BinarySensor *>(hex_register)->publish_state(!strcasecmp(text_value, "ON"));
 }
@@ -74,12 +85,7 @@ void BinarySensor::parse_text_enum_(HexRegister *hex_register, const char *text_
     static_cast<BinarySensor *>(hex_register)->parse_enum_(enum_value);
   }
 }
-
-void BinarySensor::parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) {
-  this->publish_state(bitmask_value & this->mask_);
-}
-
-void BinarySensor::parse_enum_(ENUM_DEF::enum_t enum_value) { this->publish_state(enum_value == this->mask_); }
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
 }  // namespace m3_vedirect
 }  // namespace esphome

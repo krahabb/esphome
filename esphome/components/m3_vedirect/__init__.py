@@ -1,3 +1,4 @@
+from collections import namedtuple
 import enum
 from functools import partial
 import typing
@@ -132,6 +133,23 @@ def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
     cg.add(cpp.RawStatement(f"{lvalue} = {cpp.safe_exp(rvalue)};"))
 
 
+def define_symbol(symbol: str):
+    cg.add_build_flag(f"-D{symbol}")
+    # Even if not strictly necessary since our (library) code doesn't import esphome\defines.h
+    # so that our build environment just relies on cli -D option forwarded to the compiler,
+    # this is useful to inspect what's the config environment by just inspecting the built
+    # esphome/defines.h
+    cg.add_define(symbol)
+
+
+def define_use_hexframe():
+    define_symbol("VEDIRECT_USE_HEXFRAME")
+
+
+def define_use_textframe():
+    define_symbol("VEDIRECT_USE_TEXTFRAME")
+
+
 def inflate_flavor(flavor, inflated: set):
     """Returns a set with all of the sub-flavors that would be automatically defined
     when defining the provided 'flavor' (see ve_reg_flavor.h)"""
@@ -175,12 +193,14 @@ def deflate_flavors(flavors: typing.Iterable):
 class VEDirectPlatform:
     COMPONENT_NS: typing.Final = m3_vedirect_ns
 
+    CustomEntityDef = namedtuple("CustomEntityDef", ("schema", "define"))
+
     def __init__(
         self,
         snake_name: str,
         base_module,
         custom_entities: dict[
-            str, cv.Schema
+            str, CustomEntityDef
         ],  # additional custom entities definitions beside vedirect ones
         vedirect_classes: typing.Iterable[
             ve_reg.CLASS
@@ -235,8 +255,8 @@ class VEDirectPlatform:
                 ),
             }
             | {
-                cv.Optional(type): schema
-                for type, schema in self.custom_entities.items()
+                cv.Optional(type): custom_entity_def.schema
+                for type, custom_entity_def in self.custom_entities.items()
             }
         ).add_extra(self._validate_platform)
 
@@ -265,8 +285,11 @@ class VEDirectPlatform:
         elif CONF_REGISTER in config:
             valid = True
             register_config = config[CONF_REGISTER]
+            register_id = register_config[CONF_ADDRESS]
+            if register_id:
+                define_use_hexframe()
             reg_def = local_object_construct(
-                register_config[CONF_REG_DEF_ID], register_config[CONF_ADDRESS]
+                register_config[CONF_REG_DEF_ID], register_id
             )
             for _cls in ve_reg.CLASS:
                 _cls_key = _cls.name.lower()
@@ -302,6 +325,7 @@ class VEDirectPlatform:
             cg.add(manager.init_register(entity, cpp.UnaryOpExpression("&", reg_def)))
 
             if CONF_TEXT_LABEL in register_config:
+                define_use_textframe()
                 cg.add(manager.init_entity(entity, register_config[CONF_TEXT_LABEL]))
 
         # configure binary-like entities
@@ -326,6 +350,9 @@ class VEDirectPlatform:
                     await self.register_entity(entity, _entity_config)
                 continue
             if entity_key in self.custom_entities:
+                for define in self.custom_entities[entity_key].define.split(","):
+                    define_symbol(define)
+
                 entity = await self.new_base_entity(entity_config)
                 cg.add(getattr(manager, f"set_{entity_key}")(entity))
 
@@ -337,7 +364,7 @@ MANAGERS_CONFIG = {}
 def validate_manager(config):
     # Caching the manager(s) config since we'll need that to validate
     # platforms configuration. Especially the 'flavor' setting might affect
-    # these following steps
+    # some other validators.
     MANAGERS_CONFIG[config[ec.CONF_ID]] = config
     return config
 
@@ -381,20 +408,37 @@ CONFIG_SCHEMA = (
 
 
 async def to_code(config: dict):
+    """
+    Our code has several conditional defines used to optimize (strip/optimze)
+    code generation for size and performance depending on usage.
+    For example, the symbols VEDIRECT_USE_HEXFRAME, VEDIRECT_USE_TEXTFRAME
+    enable structures and parsers for their respective frame format so that
+    by defining only one of them, the code could be stripped off of the
+    non-relevant feature. Our config validation/generation will then
+    automatically define any of these pre-processor symbols when that feature
+    is requested by configuration so that there's no need for the user to think about
+    explicitly enabling it through a dedicated config. This is also enforced
+    when setting up automations.
+    We're using 'add_build_flag' instead of 'add_define' because not every
+    compilation unit is actually including the 'esphome/defines.h'
+    """
     var = cg.new_Pvariable(config[ec.CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
     cg.add(var.set_vedirect_name(config.get(ec.CONF_NAME, str(var.base))))
     for flavor in deflate_flavors(config[CONF_FLAVOR]):
         cg.add_build_flag(f"-DVEDIRECT_FLAVOR_{flavor}")
-    if config_textframe := config.get(CONF_TEXTFRAME):
+    if CONF_TEXTFRAME in config:
+        define_use_textframe()
+        config_textframe = config[CONF_TEXTFRAME]
         if CONF_AUTO_CREATE_ENTITIES in config_textframe:
             cg.add(
                 var.set_auto_create_text_entities(
                     config_textframe[CONF_AUTO_CREATE_ENTITIES]
                 )
             )
-
-    if config_hexframe := config.get(CONF_HEXFRAME):
+    if CONF_HEXFRAME in config:
+        define_use_hexframe()
+        config_hexframe = config[CONF_HEXFRAME]
         if CONF_AUTO_CREATE_ENTITIES in config_hexframe:
             cg.add(
                 var.set_auto_create_hex_entities(
@@ -426,6 +470,8 @@ _CTYPE_VALIDATOR_MAP = {
 async def action_to_code(
     schema_def: dict[cv.Optional, object], config, action_id, template_args, args
 ):
+    # all of our currently defined actions are based on HEX frame support
+    define_use_hexframe()
     var = cg.new_Pvariable(action_id, template_args)
     for _schema_key, _ctype in schema_def.items():
         _key_name = _schema_key.schema

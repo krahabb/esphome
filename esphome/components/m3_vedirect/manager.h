@@ -15,7 +15,7 @@
 #endif
 
 #include "defines.h"
-#include "ve_hexframe.h"
+#include "ve_reg_frame.h"
 
 #include <unordered_map>
 #include <string_view>
@@ -42,22 +42,25 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   MANAGER_ENTITY_(sensor::Sensor, run_time)
 #endif
 #ifdef USE_TEXT_SENSOR
+#if defined(VEDIRECT_USE_HEXFRAME)
   MANAGER_ENTITY_(text_sensor::TextSensor, rawhexframe)
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
   MANAGER_ENTITY_(text_sensor::TextSensor, rawtextframe)
+#endif
 #endif
 
  public:
-  const char *get_vedirect_id() { return this->vedirect_id_; }
-  void set_vedirect_id(const char *vedirect_id) { this->vedirect_id_ = vedirect_id; }
-  const char *get_vedirect_name() { return this->vedirect_name_; }
-  void set_vedirect_name(const char *vedirect_name) { this->vedirect_name_ = vedirect_name; }
-  void set_auto_create_text_entities(bool value) { this->auto_create_text_entities_ = value; }
-  void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
-  void set_ping_timeout(uint32_t seconds) { this->ping_timeout_ = seconds * 1000; }
+  static std::vector<Manager *> get_managers(const std::string &vedirect_id);
 
   void setup() override;
   void loop() override;
   void dump_config() override;
+
+  const char *get_vedirect_id() { return this->vedirect_id_; }
+  void set_vedirect_id(const char *vedirect_id) { this->vedirect_id_ = vedirect_id; }
+  const char *get_vedirect_name() { return this->vedirect_name_; }
+  void set_vedirect_name(const char *vedirect_name) { this->vedirect_name_ = vedirect_name; }
 
   /// @brief Initialize and link the hex_register into the Manager dispatcher system
   /// @param hex_register : the register to be initialized/linked
@@ -67,13 +70,10 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// This method is part of the public interface called by yaml generated code
   /// @param register_type the TYPE enum from our pre-defined registers set
   void init_entity(Entity *entity, REG_DEF::TYPE register_type);
-  /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
-  /// will be automatically routed. This method is part of the public interface
-  /// called by yaml generated code
-  /// @param label the name of the TEXT FRAME record to bind
-  void init_entity(Entity *entity, const char *label);
 
-  static std::vector<Manager *> get_managers(const std::string &vedirect_id);
+#if defined(VEDIRECT_USE_HEXFRAME)
+  void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
+  void set_ping_timeout(uint32_t seconds) { this->ping_timeout_ = seconds * 1000; }
 
   void send_hexframe(const HexFrame &hexframe);
   void send_hexframe(const char *rawframe, bool addchecksum = true);
@@ -89,6 +89,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     this->send_hexframe(HexFrame_Set(register_id, data));
   }
 
+  void add_on_frame_callback(std::function<void(const HexFrame &)> callback) {
+    this->hexframe_callback_.add(std::move(callback));
+  }
   class HexFrameTrigger : public Trigger<const HexFrame &> {
    public:
     explicit HexFrameTrigger(Manager *vedirect) {
@@ -143,6 +146,16 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
       }
     }
   };
+#endif  //  defined(VEDIRECT_USE_HEXFRAME)
+
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  void set_auto_create_text_entities(bool value) { this->auto_create_text_entities_ = value; }
+  /// @brief Binds the entity to a TEXT FRAME field label so that text frame parsing
+  /// will be automatically routed. This method is part of the public interface
+  /// called by yaml generated code
+  /// @param label the name of the TEXT FRAME record to bind
+  void init_entity(Entity *entity, const char *label);
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
  protected:
   static std::vector<Manager *> managers_;
@@ -150,50 +163,47 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   const char *logtag_;
   const char *vedirect_id_{nullptr};
   const char *vedirect_name_{nullptr};
-  bool auto_create_text_entities_{true};
-  bool auto_create_hex_entities_{false};
-
-  uint32_t ping_timeout_{0};
 
   // component state
   bool connected_{false};
   uint32_t millis_last_rx_{0};
-  uint32_t millis_last_textframe_rx_{0};
-  uint32_t millis_last_hexframe_rx_{0};
-  uint32_t millis_last_hexframe_tx_{0};
-  uint32_t millis_last_ping_tx_{0};
 
   inline void on_connected_();
   inline void on_disconnected_();
 
-  // override FrameHandler
-  void on_frame_hex_(const RxHexFrame &hexframe) override;
-  void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
-  void on_frame_hex_error_(Error error) override;
-  void on_frame_text_error_(Error error) override;
+// override FrameHandler
+#if defined(VEDIRECT_USE_HEXFRAME)
+  bool auto_create_hex_entities_{false};
+  uint32_t ping_timeout_{0};
 
-  // These will provide 'map' access either by text record name (text_entities_)
-  // or by HEX register id (hex_entities_). Since some HEX registers are also
-  // published in TEXT frames we're also trying to map these to the same entity.
+  uint32_t millis_last_ping_tx_{0};
+  uint32_t millis_last_hexframe_rx_{0};
+  uint32_t millis_last_hexframe_tx_{0};
+
+  friend class HexFrameTrigger;
+  CallbackManager<void(const HexFrame &)> hexframe_callback_;
+
+  void on_frame_hex_(const RxHexFrame &hexframe) override;
+  void on_frame_hex_error_(Error error) override;
+#endif
+
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  bool auto_create_text_entities_{true};
+
+  uint32_t millis_last_textframe_rx_{0};
+
+  // Map entities/registers by TEXT frame record names so that we can forward
+  // data while parsing.
   typedef std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_t;
   text_entities_t text_entities_;
+
+  void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
+  void on_frame_text_error_(Error error) override;
+#endif
   typedef std::unordered_map<register_id_t, HexRegister *> hex_registers_t;
   hex_registers_t hex_registers_;
 
   HexRegister *get_hex_register_(register_id_t register_id, bool create);
-
-  friend class HexFrameTrigger;
-  CallbackManager<void(const HexFrame &)> hexframe_callback_;
-  void add_on_frame_callback(std::function<void(const HexFrame &)> callback) {
-    this->hexframe_callback_.add(std::move(callback));
-  }
-
-  /// @brief Class factory method to auto generate an entity based off the TEXT frame label
-  /// @param manager
-  /// @param label
-  /// @return
-  HexRegister *build_text_entity_(const char *label);
-  HexRegister *build_hex_register_(register_id_t register_id);
 };
 
 }  // namespace m3_vedirect

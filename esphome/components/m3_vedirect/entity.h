@@ -1,7 +1,6 @@
 #pragma once
 
 #include "defines.h"
-#include "ve_hexframe.h"
 #include "hexregister.h"
 
 #include "esphome/core/entity_base.h"
@@ -45,9 +44,14 @@ class Entity : public HexRegister {
 
  protected:
   friend class Manager;
-
+#if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
   Entity(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)
       : HexRegister(parse_hex_func, parse_text_func) {}
+#elif defined(VEDIRECT_USE_HEXFRAME)
+  Entity(parse_hex_func_t parse_hex_func = parse_hex_empty_) : HexRegister(parse_hex_func) {}
+#elif defined(VEDIRECT_USE_TEXTFRAME)
+  Entity(parse_text_func_t parse_text_func = parse_text_empty_) : HexRegister(parse_text_func) {}
+#endif
 
   static build_entity_func_t BUILD_ENTITY_FUNC[Platform_COUNT];
   static Entity *build_entity(Manager *manager, const char *name, const char *object_id) { return new Entity(); }

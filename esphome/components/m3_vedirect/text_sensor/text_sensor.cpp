@@ -31,67 +31,28 @@ void TextSensor::link_disconnected_() {
 void TextSensor::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_bitmask_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
       this->parse_text_ = parse_text_bitmask_;
+#endif
       break;
     case REG_DEF::CLASS::ENUM:
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_enum_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
       this->parse_text_ = parse_text_enum_;
+#endif
       break;
     case REG_DEF::CLASS::STRING:
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_string_;
+#endif
       break;
     default:
       break;
-  }
-}
-
-void TextSensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
-  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
-    static_cast<TextSensor *>(hex_register)->parse_string_(hex_value);
-  }
-}
-
-void TextSensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  // BITMASK registers have storage up to 4 bytes
-  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
-}
-
-void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<TextSensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
-}
-
-void TextSensor::parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  static_cast<TextSensor *>(hex_register)->parse_string_(hex_frame->data_str());
-}
-
-void TextSensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
-  static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
-}
-
-void TextSensor::parse_text_bitmask_(HexRegister *hex_register, const char *text_value) {
-  // When parsing text records for BITMASK-like values, the TEXT protocol might sometime carry
-  // decimal based values and sometimes hexadecimal base values. This should be automatically
-  // handled by strtoumax
-  char *endptr;
-  BITMASK_DEF::bitmask_t bitmask_value = strtoumax(text_value, &endptr, 0);
-  if (*endptr == 0) {
-    static_cast<TextSensor *>(hex_register)->parse_bitmask_(bitmask_value);
-  } else {
-    static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
-  }
-}
-
-void TextSensor::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
-  char *endptr;
-  ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
-  if (*endptr == 0) {
-    static_cast<TextSensor *>(hex_register)->parse_enum_(enum_value);
-  } else {
-    static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
   }
 }
 
@@ -125,6 +86,59 @@ void TextSensor::parse_string_(const char *string_value) {
     this->publish_state(std::string(string_value));
   }
 }
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+void TextSensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
+  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
+    static_cast<TextSensor *>(hex_register)->parse_string_(hex_value);
+  }
+}
+
+void TextSensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  // BITMASK registers have storage up to 4 bytes
+  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
+  static_cast<TextSensor *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
+}
+
+void TextSensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
+  static_cast<TextSensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
+}
+
+void TextSensor::parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  static_cast<TextSensor *>(hex_register)->parse_string_(hex_frame->data_str());
+}
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
+
+#if defined(VEDIRECT_USE_TEXTFRAME)
+void TextSensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+  static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
+}
+
+void TextSensor::parse_text_bitmask_(HexRegister *hex_register, const char *text_value) {
+  // When parsing text records for BITMASK-like values, the TEXT protocol might sometime carry
+  // decimal based values and sometimes hexadecimal base values. This should be automatically
+  // handled by strtoumax
+  char *endptr;
+  BITMASK_DEF::bitmask_t bitmask_value = strtoumax(text_value, &endptr, 0);
+  if (*endptr == 0) {
+    static_cast<TextSensor *>(hex_register)->parse_bitmask_(bitmask_value);
+  } else {
+    static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
+  }
+}
+
+void TextSensor::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
+  char *endptr;
+  ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
+  if (*endptr == 0) {
+    static_cast<TextSensor *>(hex_register)->parse_enum_(enum_value);
+  } else {
+    static_cast<TextSensor *>(hex_register)->parse_string_(text_value);
+  }
+}
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
 }  // namespace m3_vedirect
 }  // namespace esphome

@@ -8,7 +8,13 @@ namespace m3_vedirect {
 
 class BinarySensor final : public Entity, public esphome::binary_sensor::BinarySensor {
  public:
+#if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
   BinarySensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
+#elif defined(VEDIRECT_USE_HEXFRAME)
+  BinarySensor(Manager *Manager) : Entity(parse_hex_default_) {}
+#elif defined(VEDIRECT_USE_TEXTFRAME)
+  BinarySensor(Manager *Manager) : Entity(parse_text_default_) {}
+#endif
 
   static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
 
@@ -20,17 +26,21 @@ class BinarySensor final : public Entity, public esphome::binary_sensor::BinaryS
   uint32_t mask_{0xFFFFFFFF};
 
   void init_reg_def_() override;
+  inline void parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) override {
+    this->publish_state(bitmask_value & this->mask_);
+  }
+  inline void parse_enum_(ENUM_DEF::enum_t enum_value) override { this->publish_state(enum_value == this->mask_); }
 
+#if defined(VEDIRECT_USE_HEXFRAME)
   static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
   static void parse_text_default_(HexRegister *hex_register, const char *text_value);
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
-
-  inline void parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) override;
-  inline void parse_enum_(ENUM_DEF::enum_t enum_value) override;
+#endif
 };
 
 }  // namespace m3_vedirect

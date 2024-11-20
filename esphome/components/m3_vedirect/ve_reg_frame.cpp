@@ -1,7 +1,9 @@
-#include "ve_hexframe.h"
+#include "ve_reg_frame.h"
 #include <string.h>
 
 namespace m3_ve_reg {
+
+#if defined(VEDIRECT_USE_HEXFRAME)
 
 const char HEX_DIGITS_MAP[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -75,6 +77,9 @@ void HexFrame::encode_() {
   *this->encoded_end_ = 0;
 }
 
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
+
+#if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
 void FrameHandler::decode(uint8_t *data_begin, uint8_t *data_end) {
   uint8_t data;
 handle_state:
@@ -203,7 +208,164 @@ handle_state:
       break;
   }
 }
-
+#elif defined(VEDIRECT_USE_HEXFRAME)
+void FrameHandler::decode(uint8_t *data_begin, uint8_t *data_end) {
+  uint8_t data;
+  switch (this->frame_state_) {
+    case State::Idle:
+    handle_state_idle:
+      while (data_begin < data_end) {
+        switch (*data_begin++) {
+          case ':':  // HEX FRAME
+            this->frame_hex_start_();
+            goto handle_state_hex;
+          default:
+            break;
+        }
+      }
+      break;
+    case State::Hex:
+    handle_state_hex:
+      while (data_begin < data_end) {
+        switch (this->hexframe_decoder_.decode(*data_begin++)) {
+          case HexFrameDecoder::Result::Continue:
+            break;
+          case HexFrameDecoder::Result::Valid:
+            this->on_frame_hex_(this->hexframe_);
+            this->frame_state_ = State::Idle;
+            goto handle_state_idle;
+          case HexFrameDecoder::Result::ChecksumError:
+            this->on_frame_hex_error_(Error::CHECKSUM);
+            this->frame_state_ = State::Idle;
+            goto handle_state_idle;
+          case HexFrameDecoder::Result::Overflow:
+            this->on_frame_hex_error_(Error::OVERFLOW);
+            this->frame_state_ = State::Idle;
+            goto handle_state_idle;
+          default:
+            // case HexFrameDecoder::Result::CodingError:
+            // case HexFrameDecoder::Result::Terminated:
+            this->on_frame_hex_error_(Error::CODING);
+            this->frame_state_ = State::Idle;
+            goto handle_state_idle;
+        }
+      }
+      break;
+  }
+}
+#elif defined(VEDIRECT_USE_TEXTFRAME)
+void FrameHandler::decode(uint8_t *data_begin, uint8_t *data_end) {
+  uint8_t data;
+handle_state:
+  switch (this->frame_state_) {
+    case State::Name:
+    handle_state_name:
+      while (data_begin < data_end) {
+        data = *data_begin++;
+        switch (data) {
+          case '\t':  // end of name
+            this->text_checksum_ += '\t';
+            *this->text_record_write_ = 0;
+            if (strcmp(this->text_record_->name, "Checksum")) {
+              this->frame_text_value_start_();
+              this->frame_state_ = State::Value;
+              goto handle_state_value;
+            } else {  // the Checksum record indicates a EOF
+              this->frame_state_ = State::Checksum;
+              goto handle_state_checksum;
+            }
+          case ':':  // HEX FRAME
+            this->frame_hex_start_();
+            goto handle_state_hex;
+          default:
+            this->text_checksum_ += data;
+            *this->text_record_write_ = data;
+            if (++this->text_record_write_ >= this->text_record_write_end_) {
+              this->on_frame_text_error_(Error::NAME_OVERFLOW);
+              this->frame_state_ = State::Idle;
+              goto handle_state_idle;
+            }
+        }
+      }
+      break;
+    case State::Value:
+    handle_state_value:
+      while (data_begin < data_end) {
+        data = *data_begin++;
+        switch (data) {
+          case '\n':  // start of next record
+            this->text_checksum_ += '\n';
+            *this->text_record_write_ = 0;
+            if (++this->text_records_count_ >= VEDIRECT_RECORDS_COUNT) {
+              this->on_frame_text_error_(Error::RECORD_OVERFLOW);
+              this->frame_state_ = State::Idle;
+              goto handle_state_idle;
+            }
+            this->frame_text_name_start_();
+            this->frame_state_ = State::Name;
+            goto handle_state_name;
+          case '\r':  // pre-start of next record
+            this->text_checksum_ += '\r';
+            break;
+          case ':':  // HEX FRAME
+            this->frame_hex_start_();
+            goto handle_state_hex;
+          default:
+            this->text_checksum_ += data;
+            *this->text_record_write_ = data;
+            if (++this->text_record_write_ >= this->text_record_write_end_) {
+              this->on_frame_text_error_(Error::VALUE_OVERFLOW);
+              this->frame_state_ = State::Idle;
+              goto handle_state_idle;
+            }
+        }
+      }
+      break;
+    case State::Idle:
+    handle_state_idle:
+      while (data_begin < data_end) {
+        switch (*data_begin++) {
+          case ':':  // HEX FRAME
+            this->frame_hex_start_();
+            goto handle_state_hex;
+          case '\n':  // start of TEXT FRAME
+            this->text_checksum_ += '\n';
+            this->text_records_count_ = 0;
+            this->frame_text_name_start_();
+            this->frame_state_ = State::Name;
+            goto handle_state_name;
+          case '\r':  // pre-start of TEXT FRAME
+            this->text_checksum_ = '\r';
+          default:
+            break;
+        }
+      }
+      break;
+    case State::Hex:
+    handle_state_hex:
+      while (data_begin < data_end) {
+        switch (*data_begin++) {
+          case '\n':
+            this->frame_state_ = this->frame_state_backup_;
+            goto handle_state;
+        }
+      }
+      break;
+    case State::Checksum:
+    handle_state_checksum:
+      if (data_begin < data_end) {
+        if ((uint8_t) (this->text_checksum_ + *data_begin++)) {
+          this->on_frame_text_error_(Error::CHECKSUM);
+        } else {
+          this->on_frame_text_(this->text_records_, this->text_records_count_);
+        }
+        this->frame_state_ = State::Idle;
+        goto handle_state_idle;
+      }
+      break;
+  }
+}
+#endif
 /*
 static_assert(sizeof(HexFrame::Record) == 8, "HexFrame::Record size failure");
 static_assert(sizeof(HexFrame) == 20, "HexFrame size failure = ");

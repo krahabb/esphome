@@ -32,35 +32,16 @@ void Select::init_reg_def_() {
       for (auto &lookup_def : this->reg_def_->enum_def->LOOKUPS) {
         this->traits_().options().push_back(std::string(lookup_def.label));
       }
+#if defined(VEDIRECT_USE_HEXFRAME)
       this->parse_hex_ = parse_hex_enum_;
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
       this->parse_text_ = parse_text_enum_;
+#endif
       break;
     default:
       break;
   }
-}
-
-void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
-  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
-    static_cast<Select *>(hex_register)->parse_string_(hex_value);
-  }
-}
-
-void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
-  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
-}
-
-void Select::parse_text_default_(HexRegister *hex_register, const char *text_value) {
-  static_cast<Select *>(hex_register)->parse_string_(text_value);
-}
-
-void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
-  char *endptr;
-  ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
-  if (*endptr == 0)
-    static_cast<Select *>(hex_register)->parse_enum_(enum_value);
 }
 
 void Select::parse_enum_(ENUM_DEF::enum_t enum_value) {
@@ -102,6 +83,7 @@ void Select::parse_string_(const char *string_value) {
   }
 }
 
+#if defined(VEDIRECT_USE_HEXFRAME)
 void Select::control(const std::string &value) {
   // TODO: are we 100% sure enum_def is defined ? check yaml init code
   auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
@@ -109,6 +91,31 @@ void Select::control(const std::string &value) {
     this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
 }
 
+void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
+  if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
+    static_cast<Select *>(hex_register)->parse_string_(hex_value);
+  }
+}
+
+void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+  static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
+  static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
+}
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
+
+#if defined(VEDIRECT_USE_TEXTFRAME)
+void Select::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+  static_cast<Select *>(hex_register)->parse_string_(text_value);
+}
+
+void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
+  char *endptr;
+  ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
+  if (*endptr == 0)
+    static_cast<Select *>(hex_register)->parse_enum_(enum_value);
+}
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 void Select::publish_state_(size_t index) {
   this->has_state_ = true;
   this->state = this->traits_().options()[index];

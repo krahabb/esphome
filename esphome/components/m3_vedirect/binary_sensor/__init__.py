@@ -12,7 +12,9 @@ PLATFORM = VEDirectPlatform(
     "binary_sensor",
     binary_sensor,
     {
-        "link_connected": _diagnostic_binary_sensor_schema,
+        "link_connected": VEDirectPlatform.CustomEntityDef(
+            _diagnostic_binary_sensor_schema, ""
+        ),
     },
     (ve_reg.CLASS.BOOLEAN, ve_reg.CLASS.BITMASK, ve_reg.CLASS.ENUM),
     True,

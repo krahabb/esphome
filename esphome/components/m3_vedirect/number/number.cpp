@@ -24,22 +24,35 @@ void Number::link_disconnected_() { this->publish_state(NAN); }
 
 void Number::init_reg_def_() {
   auto reg_def = this->reg_def_;
-  // Whatever the CLASS, number will just extract any meaningful numeric value
-  // from the HEX payload eventually scaling by hex_scale
-  this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
-  this->traits.set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
-  this->traits.set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
-  this->traits.set_step(this->hex_scale_);
-
-  switch (reg_def->unit) {
-    case REG_DEF::UNIT::CELSIUS:
-      // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
-      this->parse_hex_ = parse_hex_temperature_;
+  switch (reg_def->cls) {
+    case REG_DEF::CLASS::NUMERIC:
+      this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
+      this->traits.set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
+      this->traits.set_device_class(UNIT_TO_DEVICE_CLASS[reg_def->unit]);
+      this->traits.set_step(this->hex_scale_);
+#if defined(VEDIRECT_USE_HEXFRAME)
+      switch (reg_def->unit) {
+        case REG_DEF::UNIT::CELSIUS:
+          // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
+          this->parse_hex_ = parse_hex_temperature_;
+          break;
+        default:
+          this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+      }
+#endif
       break;
     default:
-      this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+      break;
   }
 }
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+void Number::control(float value) {
+  // Assuming 'value' is not out of range of the underlying data type, this code
+  // should work for both signed/unsigned quantities
+  int native_value = value / this->hex_scale_;
+  this->manager->send_register_set(this->reg_def_->register_id, &native_value, this->reg_def_->data_type);
+};
 
 void Number::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
@@ -86,13 +99,7 @@ const Number::parse_hex_func_t Number::DATA_TYPE_TO_PARSE_HEX_FUNC_[REG_DEF::DAT
     Number::parse_hex_t_<uint32_t>, Number::parse_hex_t_<int8_t>,  Number::parse_hex_t_<int16_t>,
     Number::parse_hex_t_<int32_t>,
 };
-
-void Number::control(float value) {
-  // Assuming 'value' is not out of range of the underlying data type, this code
-  // should work for both signed/unsigned quantities
-  int native_value = value / this->hex_scale_;
-  this->manager->send_register_set(this->reg_def_->register_id, &native_value, this->reg_def_->data_type);
-};
+#endif  //  defined(VEDIRECT_USE_HEXFRAME)
 
 }  // namespace m3_vedirect
 }  // namespace esphome

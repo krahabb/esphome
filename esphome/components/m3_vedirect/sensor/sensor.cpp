@@ -44,7 +44,9 @@ void Sensor::link_disconnected_() { this->publish_state(NAN); }
 
 void Sensor::init_reg_def_() {
   auto reg_def = this->reg_def_;
+#if defined(VEDIRECT_USE_HEXFRAME)
   this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
+#endif
   switch (reg_def->cls) {
     case REG_DEF::CLASS::NUMERIC:
       this->set_unit_of_measurement(REG_DEF::UNITS[reg_def->unit]);
@@ -53,6 +55,7 @@ void Sensor::init_reg_def_() {
       this->set_accuracy_decimals(SCALE_TO_DIGITS[reg_def->scale]);
       this->hex_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def->scale];
       this->text_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale];
+#if defined(VEDIRECT_USE_HEXFRAME)
       switch (reg_def->unit) {
         case REG_DEF::UNIT::CELSIUS:
           // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
@@ -61,11 +64,14 @@ void Sensor::init_reg_def_() {
         default:
           break;
       }
+#endif
+      break;
     default:
       break;
   }
 }
 
+#if defined(VEDIRECT_USE_HEXFRAME)
 void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   float value;
@@ -111,7 +117,9 @@ const Sensor::parse_hex_func_t Sensor::DATA_TYPE_TO_PARSE_HEX_FUNC_[REG_DEF::DAT
     Sensor::parse_hex_t_<uint32_t>, Sensor::parse_hex_t_<int8_t>,  Sensor::parse_hex_t_<int16_t>,
     Sensor::parse_hex_t_<int32_t>,
 };
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
 
+#if defined(VEDIRECT_USE_TEXTFRAME)
 void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   char *endptr;
@@ -121,6 +129,7 @@ void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_val
   if (sensor->raw_state != value)
     sensor->publish_state(value);
 }
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
 }  // namespace m3_vedirect
 }  // namespace esphome

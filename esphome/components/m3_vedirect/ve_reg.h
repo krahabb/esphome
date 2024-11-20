@@ -1,5 +1,8 @@
 #pragma once
 #include <stdint.h>
+/// @brief m3_ve_reg namespace is a collection of api's independent of esphome
+/// (so that it could esily be used as a library) . It's purpose is to provide a
+/// framework to manage vedirect registers through both HEX frames and TEXT frames
 namespace m3_ve_reg {
 
 typedef unsigned short register_id_t;

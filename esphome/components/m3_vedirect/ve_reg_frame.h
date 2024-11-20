@@ -5,16 +5,33 @@
 
 namespace m3_ve_reg {
 
-#define VEDIRECT_NAME_LEN 9
-#define VEDIRECT_VALUE_LEN 33
-#define VEDIRECT_RECORDS_COUNT 22
+// VEDIRECT_USE_HEXFRAME and VEDIRECT_USE_TEXTFRAME can be used to enable/disable
+// entire support for parsing of the respective type of frame. This is used
+// mainly to optimize FrameHandler but could also be used in dependant code to
+// conditionally include features directly related to this.
+#if !defined(VEDIRECT_USE_HEXFRAME) && !defined(VEDIRECT_USE_TEXTFRAME)
+// enable both by default if nothing was choosen
+#define VEDIRECT_USE_HEXFRAME
+#define VEDIRECT_USE_TEXTFRAME
+#endif
 
+#if defined(VEDIRECT_USE_HEXFRAME)
 // Fix a (reasonable) limit to the maximum size (in raw frame bytes) of an incoming
 // HEX frame so that we abort pumping data into memory when something is likely wrong
+// This is needed since our FrameHandler statically allocates the receiving HexFrame
+// buffer in order to optimize memory management and performance
 #ifndef VEDIRECT_HEXFRAME_MAX_SIZE
 #define VEDIRECT_HEXFRAME_MAX_SIZE 64
 #endif
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
 
+#if defined(VEDIRECT_USE_TEXTFRAME)
+#define VEDIRECT_NAME_LEN 9
+#define VEDIRECT_VALUE_LEN 33
+#define VEDIRECT_RECORDS_COUNT 22
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
+
+#if defined(VEDIRECT_USE_HEXFRAME)
 /// @brief  Helper class to manage HEX frames. It allows building an internal
 /// binary representation and encoding/decoding
 /// to the HEX format suitable for serial communication.
@@ -200,23 +217,19 @@ template<std::size_t HF_DATA_SIZE> struct HexFrameT : public HexFrame {
   char encoded_[ALLOCATED_ENCODED_SIZE]{":"};
 };
 
-/// @brief Helper constructor for plain 'command' frames (no payload)
+/// @brief Helper for plain 'command' frames (no payload)
 struct HexFrame_Command : public HexFrameT<0> {
  public:
   HexFrame_Command(HEXFRAME::COMMAND command) { this->command(command); }
 };
 
-/// @brief Helper constructor for plain 'command' frames (no payload)
+/// @brief Helper for plain 'GET register' frames
 struct HexFrame_Get : public HexFrameT<3> {
  public:
   HexFrame_Get(register_id_t register_id) { this->command_get(register_id); }
 };
 
-/// @brief Helper constructor for plain 'command' frames (no payload)
-/*template <typename DataType> struct HexFrame_Set : public HexFrameT<3 + sizeof(DataType)> {
- public:
-  HexFrame_Set(register_id_t register_id, DataType data) { this->command_set(register_id, data); }
-};*/
+/// @brief Helper for plain 'SET register' frames
 struct HexFrame_Set : public HexFrameT<7> {
  public:
   HexFrame_Set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type) {
@@ -321,6 +334,8 @@ class HexFrameDecoder {
   const uint8_t *rawframe_end_of_storage_;
 };
 
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
+
 /** VEDirect frame handler:
  * This class needs to be overriden to get notification of relevant parsing events.
  * Feed in the raw data (from serial) to 'decode' and get events for
@@ -330,47 +345,62 @@ class HexFrameDecoder {
  */
 class FrameHandler {
  public:
-  typedef HexFrameT<VEDIRECT_HEXFRAME_MAX_SIZE> RxHexFrame;
-
   enum Error {
     CHECKSUM,
     CODING,
     OVERFLOW,
+#if defined(VEDIRECT_USE_TEXTFRAME)
     NAME_OVERFLOW,
     VALUE_OVERFLOW,
     RECORD_OVERFLOW,
+#endif
   };
 
   enum State {
     Idle,
+    Hex,
+#if defined(VEDIRECT_USE_TEXTFRAME)
     Name,
     Value,
     Checksum,
-    Hex,
+#endif
   };
 
+#if defined(VEDIRECT_USE_HEXFRAME)
+  typedef HexFrameT<VEDIRECT_HEXFRAME_MAX_SIZE> RxHexFrame;
+#endif
+
+#if defined(VEDIRECT_USE_TEXTFRAME)
   struct TextRecord {
     char name[VEDIRECT_NAME_LEN];
     char value[VEDIRECT_VALUE_LEN];
   };
+#endif
 
   void reset() { this->frame_state_ = State::Idle; }
   void decode(uint8_t *data_begin, uint8_t *data_end);
 
  private:
-  //
+  State frame_state_{State::Idle};
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+  RxHexFrame hexframe_;
+  HexFrameDecoder hexframe_decoder_;
+
   virtual void on_frame_hex_(const RxHexFrame &hexframe) {}
   virtual void on_frame_hex_error_(Error error) {}
-  virtual void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) {}
-  virtual void on_frame_text_error_(Error error) {}
+#endif  // defined(VEDIRECT_USE_HEXFRAME)
 
-  State frame_state_{State::Idle};
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  // Save current TEXT frame state if an HEX frame appears in the middle.
+  // Current VEDirect docs say this is not the case anymore but older fw
+  // could interlave HEX frames into TEXT frames.
   State frame_state_backup_;
 
   uint8_t text_checksum_;
   // This is a statically preallocated storage for incoming records
   // TextRecord(s) will be added 'on-demand' (and reused on every new frame parsing)
-  // Having 'nullptr' means the record has not been alloocated yet..simple as that.
+  // Having 'nullptr' means the record has not been allocated yet..simple as that.
   TextRecord *text_records_[VEDIRECT_RECORDS_COUNT]{};
   uint8_t text_records_count_;
 
@@ -391,13 +421,17 @@ class FrameHandler {
     this->text_record_write_ = this->text_record_->value;
     this->text_record_write_end_ = this->text_record_write_ + sizeof(this->text_record_->value);
   }
-
-  RxHexFrame hexframe_;
-  HexFrameDecoder hexframe_decoder_;
+  virtual void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) {}
+  virtual void on_frame_text_error_(Error error) {}
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
   inline void frame_hex_start_() {
+#if defined(VEDIRECT_USE_HEXFRAME)
     this->hexframe_decoder_.init(&this->hexframe_);
+#endif
+#if defined(VEDIRECT_USE_TEXTFRAME)
     this->frame_state_backup_ = this->frame_state_;
+#endif
     this->frame_state_ = State::Hex;
   }
 };

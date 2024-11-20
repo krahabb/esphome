@@ -11,8 +11,12 @@ PLATFORM = VEDirectPlatform(
     "text_sensor",
     text_sensor,
     {
-        "rawhexframe": _diagnostic_text_sensor_schema,
-        "rawtextframe": _diagnostic_text_sensor_schema,
+        "rawhexframe": VEDirectPlatform.CustomEntityDef(
+            _diagnostic_text_sensor_schema, "VEDIRECT_USE_HEXFRAME"
+        ),
+        "rawtextframe": VEDirectPlatform.CustomEntityDef(
+            _diagnostic_text_sensor_schema, "VEDIRECT_USE_TEXTFRAME"
+        ),
     },
     (ve_reg.CLASS.BITMASK, ve_reg.CLASS.ENUM, ve_reg.CLASS.STRING),
     True,
