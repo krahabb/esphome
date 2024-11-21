@@ -87,7 +87,10 @@ void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex
       value = hex_frame->data_t<uint32_t>() * sensor->hex_scale_;
       break;
     default:
-      value = NAN;
+      if (!std::isnan(sensor->raw_state)) {
+        sensor->publish_state(NAN);
+      }
+      return;
   }
   if (sensor->raw_state != value) {
     sensor->publish_state(value);
@@ -124,10 +127,16 @@ void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_val
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   char *endptr;
   float value = strtof(text_value, &endptr) * sensor->text_scale_;
-  if (*endptr != 0)
-    value = NAN;
-  if (sensor->raw_state != value)
-    sensor->publish_state(value);
+  if (*endptr) {
+    // failed conversion
+    if (!std::isnan(sensor->raw_state)) {
+      sensor->publish_state(NAN);
+    }
+  } else {
+    if (sensor->raw_state != value) {
+      sensor->publish_state(value);
+    }
+  }
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 

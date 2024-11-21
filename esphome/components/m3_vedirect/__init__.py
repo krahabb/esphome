@@ -350,8 +350,10 @@ class VEDirectPlatform:
                     await self.register_entity(entity, _entity_config)
                 continue
             if entity_key in self.custom_entities:
-                for define in self.custom_entities[entity_key].define.split(","):
-                    define_symbol(define)
+                define = self.custom_entities[entity_key].define
+                if define:
+                    for _define in define.split(","):
+                        define_symbol(_define)
 
                 entity = await self.new_base_entity(entity_config)
                 cg.add(getattr(manager, f"set_{entity_key}")(entity))

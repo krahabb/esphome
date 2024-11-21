@@ -69,7 +69,10 @@ void Number::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex
       value = hex_frame->data_t<uint32_t>() * number->hex_scale_;
       break;
     default:
-      value = NAN;
+      if (!std::isnan(number->state)) {
+        number->publish_state(NAN);
+      }
+      return;
   }
   if (number->state != value) {
     number->publish_state(value);
