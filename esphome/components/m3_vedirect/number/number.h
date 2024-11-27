@@ -27,6 +27,7 @@ class Number final : public ConfigEntity, public NumericEntity, public Entity, p
 // interface esphome::number::Number
 #if defined(VEDIRECT_USE_HEXFRAME)
   void control(float value) override;
+  static void request_callback_(void *callback_param, const RxHexFrame *hex_frame);
 #else
   void control(float value) override {}
 #endif

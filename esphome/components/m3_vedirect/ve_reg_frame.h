@@ -158,6 +158,9 @@ struct HexFrame {
     this->rawframe_end_ = this->rawframe_begin_ + 4 + data_size;
     this->encode_();
   }
+  void command_set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type) {
+    this->command_set(register_id, data, HEXFRAME::DATA_TYPE_TO_SIZE[data_type]);
+  }
   template<typename T> void command_set(register_id_t register_id, T data) {
     auto record = this->record();
     record->command = HEXFRAME::COMMAND::Set;
@@ -233,7 +236,7 @@ struct HexFrame_Get : public HexFrameT<3> {
 struct HexFrame_Set : public HexFrameT<7> {
  public:
   HexFrame_Set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type) {
-    this->command_set(register_id, data, HEXFRAME::DATA_TYPE_TO_SIZE[data_type]);
+    this->command_set(register_id, data, data_type);
   }
   template<typename T> HexFrame_Set(register_id_t register_id, T data) { this->command_set(register_id, data); }
 };

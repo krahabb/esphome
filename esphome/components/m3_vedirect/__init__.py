@@ -134,7 +134,7 @@ def local_assignment(lvalue: cpp.MockObj, rvalue: cpp.MockObj):
 
 
 def define_symbol(symbol: str):
-    cg.add_build_flag(f"-D{symbol}")
+    cg.add_build_flag(f"-D{symbol}=")
     # Even if not strictly necessary since our (library) code doesn't import esphome\defines.h
     # so that our build environment just relies on cli -D option forwarded to the compiler,
     # this is useful to inspect what's the config environment by just inspecting the built

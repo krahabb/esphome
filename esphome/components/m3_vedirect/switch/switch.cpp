@@ -68,16 +68,34 @@ void Switch::write_state(bool state) {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:
       hexvalue = state ? this->raw_value_ | this->mask_ : this->raw_value_ & ~this->mask_;
-      this->manager->send_register_set(this->reg_def_->register_id, &hexvalue, this->reg_def_->data_type);
-      return;
+      break;
     case REG_DEF::CLASS::ENUM:
       // what's a reasonable negation of mask_ ?
-      this->manager->send_register_set(this->reg_def_->register_id, (ENUM_DEF::enum_t)(state ? this->mask_ : 0));
-      return;
+      hexvalue = state ? this->mask_ : 0;
+      break;
     default:
       // consider BOOLEAN
-      this->manager->send_register_set(this->reg_def_->register_id, (uint8_t) (state ? 1 : 0));
-      return;
+      hexvalue = state ? 1 : 0;
+      break;
+  }
+  this->manager->request_set(this->reg_def_->register_id, &hexvalue, this->reg_def_->data_type, request_callback_,
+                             this);
+}
+
+void Switch::request_callback_(Manager::request_callback_param_t callback_param, const RxHexFrame *hex_frame) {
+  // Assuming the transaction managment code works we still have to decide how to process the
+  // reply. Currently, a succesful one, would already be processed by standard flow but we likely need to manage
+  // the case for errors/timeouts since it appears as the state is not consistent after a failed command.
+  // It looks like the HA part of esphome component assumes optimistic updates and so the state is inconsistent
+  // when the request actually fails. We need to better investigate all of these behaviors in the field though.
+  Switch *_switch = reinterpret_cast<Switch *>(callback_param);
+  if (hex_frame) {
+    if (hex_frame->flags()) {
+      // error
+    } else {
+    }
+  } else {
+    // timed out
   }
 }
 

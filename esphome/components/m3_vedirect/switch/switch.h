@@ -33,6 +33,7 @@ class Switch final : public ConfigEntity, public Entity, public esphome::switch_
   // interface esphome::switch_::Switch
 #if defined(VEDIRECT_USE_HEXFRAME)
   void write_state(bool state) override;
+  static void request_callback_(void *callback_param, const RxHexFrame *hex_frame);
 #else
   void write_state(bool state) override{};
 #endif

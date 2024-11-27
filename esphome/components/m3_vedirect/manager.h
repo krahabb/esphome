@@ -19,6 +19,7 @@
 
 #include <unordered_map>
 #include <string_view>
+#include <string>
 #include <vector>
 
 namespace esphome {
@@ -75,6 +76,8 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
   void set_ping_timeout(uint32_t seconds) { this->ping_timeout_ = seconds * 1000; }
 
+  // send_xxx api: sends an HEX frame without transaction control (send and forget)
+
   void send_hexframe(const HexFrame &hexframe);
   void send_hexframe(const char *rawframe, bool addchecksum = true);
   void send_hexframe(const std::string &rawframe, bool addchecksum = true) {
@@ -88,6 +91,14 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   template<typename T> void send_register_set(register_id_t register_id, T data) {
     this->send_hexframe(HexFrame_Set(register_id, data));
   }
+
+  // request_xxx api: sends an HEX frame and manage the reply forwarding back the result
+  // typedefs for HEX frames requests/callbacks
+  typedef void *request_callback_param_t;
+  typedef void (*request_callback_t)(request_callback_param_t callback_param, const RxHexFrame *hex_frame);
+
+  void request_set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type,
+                   request_callback_t callback, request_callback_param_t callback_param);
 
   void add_on_frame_callback(std::function<void(const HexFrame &)> callback) {
     this->hexframe_callback_.add(std::move(callback));
@@ -182,6 +193,21 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 
   friend class HexFrameTrigger;
   CallbackManager<void(const HexFrame &)> hexframe_callback_;
+
+  /// @brief Context class for a request for an HEX command/request with transaction management
+  /// so that the response (either succesfull or not) could be tracked and processed accordingly.
+  struct Request {
+   public:
+    std::string tag;
+    HexFrameT<7> hex_frame{};
+    uint32_t millis{0};
+    request_callback_t callback{};
+    request_callback_param_t callback_param{};
+  };
+
+  std::vector<Request> requests_;
+  uint32_t pending_requests_{0};
+  void requests_match_get_or_set_(const RxHexFrame &hexframe);
 
   void on_frame_hex_(const RxHexFrame &hexframe) override;
   void on_frame_hex_error_(Error error) override;

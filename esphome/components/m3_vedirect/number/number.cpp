@@ -51,8 +51,21 @@ void Number::control(float value) {
   // Assuming 'value' is not out of range of the underlying data type, this code
   // should work for both signed/unsigned quantities
   int native_value = value / this->hex_scale_;
-  this->manager->send_register_set(this->reg_def_->register_id, &native_value, this->reg_def_->data_type);
+  this->manager->request_set(this->reg_def_->register_id, &native_value, this->reg_def_->data_type, request_callback_,
+                             this);
 };
+
+void Number::request_callback_(void *callback_param, const RxHexFrame *hex_frame) {
+  Number *_number = reinterpret_cast<Number *>(callback_param);
+  if (hex_frame) {
+    if (hex_frame->flags()) {
+      // error
+    } else {
+    }
+  } else {
+    // timed out
+  }
+}
 
 void Number::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);

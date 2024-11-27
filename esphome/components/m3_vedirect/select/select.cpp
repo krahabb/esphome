@@ -87,8 +87,22 @@ void Select::parse_string_(const char *string_value) {
 void Select::control(const std::string &value) {
   // TODO: are we 100% sure enum_def is defined ? check yaml init code
   auto lookup_def = this->reg_def_->enum_def->lookup_value(value.c_str());
-  if (lookup_def)
-    this->manager->send_register_set(this->reg_def_->register_id, lookup_def->value);
+  if (lookup_def) {
+    this->manager->request_set(this->reg_def_->register_id, &lookup_def->value, this->reg_def_->data_type,
+                               request_callback_, this);
+  }
+}
+
+void Select::request_callback_(void *callback_param, const RxHexFrame *hex_frame) {
+  Select *_select = reinterpret_cast<Select *>(callback_param);
+  if (hex_frame) {
+    if (hex_frame->flags()) {
+      // error
+    } else {
+    }
+  } else {
+    // timed out
+  }
 }
 
 void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
@@ -116,6 +130,7 @@ void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value)
     static_cast<Select *>(hex_register)->parse_enum_(enum_value);
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
+
 void Select::publish_state_(size_t index) {
   this->has_state_ = true;
   this->state = this->traits_().options()[index];

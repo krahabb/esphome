@@ -42,26 +42,25 @@ void Manager::loop() {
   }
 #endif
   auto available = this->available();
-  if (!available) {
-    if (this->connected_ && ((millis_ - this->millis_last_rx_) > VEDIRECT_TIMEOUT_MILLIS)) {
+  if (available) {
+    uint8_t frame_buf[256];
+    if (available > sizeof(frame_buf))
+      available = sizeof(frame_buf);
+    if (this->read_array(frame_buf, available)) {
+      this->millis_last_rx_ = millis_;
+      this->decode(frame_buf, frame_buf + available);
+    }
+#if defined(VEDIRECT_USE_HEXFRAME)
+    if (this->ping_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_timeout_)) {
+      this->send_hexframe(HexFrame_Command(HEXFRAME::COMMAND::Ping));
+      this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
+    }
+#endif
+  } else {
+    if (this->connected_ && ((millis_ - this->millis_last_rx_) > VEDIRECT_LINK_TIMEOUT_MILLIS)) {
       this->on_disconnected_();
     }
-    return;
   }
-
-  uint8_t frame_buf[256];
-  if (available > sizeof(frame_buf))
-    available = sizeof(frame_buf);
-  if (this->read_array(frame_buf, available)) {
-    this->millis_last_rx_ = millis_;
-    this->decode(frame_buf, frame_buf + available);
-  }
-#if defined(VEDIRECT_USE_HEXFRAME)
-  if (this->ping_timeout_ && ((millis_ - this->millis_last_ping_tx_) > this->ping_timeout_)) {
-    this->send_hexframe(HexFrame_Command(HEXFRAME::COMMAND::Ping));
-    this->millis_last_ping_tx_ = this->millis_last_hexframe_tx_;
-  }
-#endif
 }
 
 void Manager::dump_config() { ESP_LOGCONFIG(this->logtag_, "VEDirect:"); }
@@ -103,6 +102,42 @@ void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
     ESP_LOGE(this->logtag_, "HEX FRAME: wrong encoding on request to send %s", rawframe);
   }
 }
+
+void Manager::request_set(register_id_t register_id, const void *data, HEXFRAME::DATA_TYPE data_type,
+                          request_callback_t callback, request_callback_param_t callback_param) {
+  // Request(s) in our storage are re-used as far as they're expired (millis == 0)
+  Request *request = nullptr;
+  for (auto &it : this->requests_) {
+    if (!it.millis) {
+      request = &it;
+      goto _setup_request;
+    }
+  }
+  // When no cached Request structs are available we increase our
+  // storage. This will never be reduced/compacted though, hoping it doesn't grow
+  // too much due to a fast burst of requests coming in (a pending request expires
+  // either when replied or after a VEDIRECT_COMMAND_TIMEOUT_MILLIS timeout).
+  this->requests_.push_back(Request());
+  request = &this->requests_.back();
+  request->tag = std::to_string(this->requests_.size());
+
+_setup_request:
+  request->millis = millis();
+  request->hex_frame.command_set(register_id, data, data_type);
+  request->callback = callback;
+  request->callback_param = callback_param;
+  ++this->pending_requests_;
+  this->send_hexframe(request->hex_frame);
+  this->set_timeout(request->tag, VEDIRECT_COMMAND_TIMEOUT_MILLIS, [this, request]() {
+    if (request->millis) {
+      // This means the SET command wasn't (yet) replied so we just timeout it.
+      request->callback(request->callback_param, nullptr);
+      request->millis = 0;
+      --this->pending_requests_;
+    }
+  });
+}
+
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
@@ -164,6 +199,20 @@ const char *FRAME_ERRORS[] = {
 };
 
 #if defined(VEDIRECT_USE_HEXFRAME)
+void Manager::requests_match_get_or_set_(const RxHexFrame &rx_hex_frame) {
+  for (auto &request : this->requests_) {
+    if ((request.hex_frame.command() == rx_hex_frame.command()) &&
+        (request.hex_frame.register_id() == rx_hex_frame.register_id())) {
+      ESP_LOGD(this->logtag_, "HEX FRAME: received reply %s for request %s", rx_hex_frame.encoded(),
+               request.hex_frame.encoded());
+      request.callback(request.callback_param, &rx_hex_frame);
+      request.millis = 0;
+      --this->pending_requests_;
+      return;
+    }
+  }
+}
+
 void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
   ESP_LOGD(this->logtag_, "HEX FRAME: received %s", hexframe.encoded());
 
@@ -179,19 +228,35 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
 
   this->millis_last_hexframe_rx_ = this->millis_last_rx_;
   switch (hexframe.command()) {
+    case HEXFRAME::COMMAND::Async:
+      goto _forward_to_register;
     case HEXFRAME::COMMAND::Get:
     case HEXFRAME::COMMAND::Set:
-    case HEXFRAME::COMMAND::Async: {
-      if (hexframe.data_size() > 0) {
-        HexRegister *hex_register = this->get_hex_register_(hexframe.register_id(), this->auto_create_hex_entities_);
-        if (hex_register)
-          hex_register->parse_hex(&hexframe);
-      } else {
-        ESP_LOGE(this->logtag_, "Inconsistent hex frame size: %s", hexframe.encoded());
+#ifdef ESPHOME_LOG_HAS_ERROR
+      if (hexframe.flags()) {
+        ESP_LOGE(this->logtag_, "HEX FRAME: received flags 0x%02X", hexframe.flags());
       }
-    }
+#endif
+      if (this->pending_requests_) {
+        this->requests_match_get_or_set_(hexframe);
+      }
+      goto _forward_to_register;
+    case HEXFRAME::COMMAND::Error:
+      ESP_LOGE(this->logtag_, "HEX FRAME: received error frame %s", hexframe.encoded());
+      return;
+  }
+  return;
+
+_forward_to_register:
+  if (hexframe.data_size() > 0) {
+    HexRegister *hex_register = this->get_hex_register_(hexframe.register_id(), this->auto_create_hex_entities_);
+    if (hex_register)
+      hex_register->parse_hex(&hexframe);
+  } else {
+    ESP_LOGE(this->logtag_, "HEX FRAME: inconsistent size: %s", hexframe.encoded());
   }
 }
+
 void Manager::on_frame_hex_error_(Error error) { ESP_LOGE(this->logtag_, "HEX FRAME: %s", FRAME_ERRORS[error]); }
 #endif  // #if defined(VEDIRECT_USE_HEXFRAME)
 #if defined(VEDIRECT_USE_TEXTFRAME)

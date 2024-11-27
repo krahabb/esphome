@@ -29,6 +29,7 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
 // interface esphome::select::Select
 #if defined(VEDIRECT_USE_HEXFRAME)
   void control(const std::string &value) override;
+  static void request_callback_(void *callback_param, const RxHexFrame *hex_frame);
 #else
   void control(const std::string &value) override {}
 #endif

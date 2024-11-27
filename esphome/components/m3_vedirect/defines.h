@@ -14,7 +14,11 @@ class Entity;
 
 // maximum amount of time (millis) without receiving data
 // after which we consider the vedirect link disconnected
-#define VEDIRECT_TIMEOUT_MILLIS 5000
+#define VEDIRECT_LINK_TIMEOUT_MILLIS 5000
+
+// maximum amount of time (millis) without receiving a SET command
+// reply after which we consider the command unsuccesful
+#define VEDIRECT_COMMAND_TIMEOUT_MILLIS 1000
 
 // Helpers for unordered_map with const char* key
 #if __cpp_constexpr >= 201304L
