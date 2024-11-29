@@ -10,6 +10,13 @@ PLATFORM = VEDirectPlatform(
     False,
 )
 
+
+async def _register_select(var, config):
+    await select.register_select(var, config, options=[])
+
+
+PLATFORM.register_entity = _register_select
+
 CONFIG_SCHEMA = PLATFORM.CONFIG_SCHEMA
 
 
