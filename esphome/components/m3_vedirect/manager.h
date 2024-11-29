@@ -205,7 +205,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     request_callback_param_t callback_param{};
   };
 
-  std::vector<Request> requests_;
+  std::vector<Request *> requests_;
   uint32_t pending_requests_{0};
   void requests_match_get_or_set_(const RxHexFrame &hexframe);
 

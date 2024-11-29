@@ -107,9 +107,9 @@ void Manager::request_set(register_id_t register_id, const void *data, HEXFRAME:
                           request_callback_t callback, request_callback_param_t callback_param) {
   // Request(s) in our storage are re-used as far as they're expired (millis == 0)
   Request *request = nullptr;
-  for (auto &it : this->requests_) {
-    if (!it.millis) {
-      request = &it;
+  for (auto it : this->requests_) {
+    if (!it->millis) {
+      request = it;
       goto _setup_request;
     }
   }
@@ -117,8 +117,8 @@ void Manager::request_set(register_id_t register_id, const void *data, HEXFRAME:
   // storage. This will never be reduced/compacted though, hoping it doesn't grow
   // too much due to a fast burst of requests coming in (a pending request expires
   // either when replied or after a VEDIRECT_COMMAND_TIMEOUT_MILLIS timeout).
-  this->requests_.push_back(Request());
-  request = &this->requests_.back();
+  this->requests_.push_back(new Request());
+  request = this->requests_.back();
   request->tag = std::to_string(this->requests_.size());
 
 _setup_request:
@@ -130,6 +130,8 @@ _setup_request:
   this->send_hexframe(request->hex_frame);
   this->set_timeout(request->tag, VEDIRECT_COMMAND_TIMEOUT_MILLIS, [this, request]() {
     if (request->millis) {
+      ESP_LOGD(this->logtag_, "HEX FRAME: timeout on request(tag=%s) %s", request->tag.c_str(),
+               request->hex_frame.encoded());
       // This means the SET command wasn't (yet) replied so we just timeout it.
       request->callback(request->callback_param, nullptr);
       request->millis = 0;
@@ -200,13 +202,13 @@ const char *FRAME_ERRORS[] = {
 
 #if defined(VEDIRECT_USE_HEXFRAME)
 void Manager::requests_match_get_or_set_(const RxHexFrame &rx_hex_frame) {
-  for (auto &request : this->requests_) {
-    if ((request.hex_frame.command() == rx_hex_frame.command()) &&
-        (request.hex_frame.register_id() == rx_hex_frame.register_id())) {
-      ESP_LOGD(this->logtag_, "HEX FRAME: received reply %s for request %s", rx_hex_frame.encoded(),
-               request.hex_frame.encoded());
-      request.callback(request.callback_param, &rx_hex_frame);
-      request.millis = 0;
+  for (auto request : this->requests_) {
+    if ((request->hex_frame.command() == rx_hex_frame.command()) &&
+        (request->hex_frame.register_id() == rx_hex_frame.register_id())) {
+      ESP_LOGD(this->logtag_, "HEX FRAME: received reply %s (flags: 0x%02X) for request %s", rx_hex_frame.encoded(),
+               rx_hex_frame.flags(), request->hex_frame.encoded());
+      request->callback(request->callback_param, &rx_hex_frame);
+      request->millis = 0;
       --this->pending_requests_;
       return;
     }
