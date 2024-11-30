@@ -26,6 +26,11 @@ Entity *Select::build_entity(Manager *manager, const char *name, const char *obj
   return entity;
 }
 
+void Select::link_disconnected_() {
+  this->enum_value_ = ENUM_DEF::VALUE_UNKNOWN;
+  this->publish_state_("unknown", -1);
+}
+
 void Select::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::ENUM:
@@ -47,26 +52,7 @@ void Select::init_reg_def_() {
 void Select::parse_enum_(ENUM_DEF::enum_t enum_value) {
   if (this->enum_value_ != enum_value) {
     this->enum_value_ = enum_value;
-    // the select::traits implementation is so bad...
-    // it would be nice to have a data provider interface though but
-    // this is it and we'd rather not patch the official esphome core.
-    // Here we'll try to mantain sync between our enum_def and the select::options array
-    // This code is safe as far as the enum_def->LOOKUPS is not modified by other parts
-    // of the code
-    auto &options = this->traits_().options();
-    auto enum_def = this->reg_def_->enum_def;
-    auto lookup_result = enum_def->get_lookup(enum_value);
-    if (lookup_result.added) {
-      options.insert(options.begin() + lookup_result.index, std::string(lookup_result.lookup_def->label));
-    }
-    // Better safe than sorry..
-    if (options.size() != enum_def->LOOKUPS.size()) {
-      options.clear();
-      for (auto &lookup_def : enum_def->LOOKUPS) {
-        options.push_back(std::string(lookup_def.label));
-      }
-    }
-    this->publish_state_(lookup_result.index);
+    this->publish_enum_(enum_value);
   }
 }
 
@@ -79,7 +65,7 @@ void Select::parse_string_(const char *string_value) {
     if (it == options.end()) {
       options.push_back(value);
     }
-    this->publish_state_(index);
+    this->publish_state_(value, index);
   }
 }
 
@@ -95,13 +81,19 @@ void Select::control(const std::string &value) {
 
 void Select::request_callback_(void *callback_param, const RxHexFrame *hex_frame) {
   Select *_select = reinterpret_cast<Select *>(callback_param);
-  if (hex_frame) {
-    if (hex_frame->flags()) {
-      // error
-    } else {
+  if (!hex_frame || (hex_frame && hex_frame->flags())) {
+    // Error or timeout..resend actual state since it looks like HA esphome does optimistic
+    // updates in it's HA entity instance...
+    if (_select->enum_value_ != ENUM_DEF::VALUE_UNKNOWN) {
+      _select->publish_enum_(_select->enum_value_);
     }
   } else {
-    // timed out
+    // Invalidate our state so that the subsequent dispatching/parsing goes through
+    // an effective publish_state. This is needed (again) since the frontend already
+    // optimistically updated the entity to the new value but even in case of success,
+    // the device might 'force' a different setting if the request was for an unsupported
+    // ENUM
+    _select->enum_value_ = ENUM_DEF::VALUE_UNKNOWN;
   }
 }
 
@@ -131,11 +123,36 @@ void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value)
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
-void Select::publish_state_(size_t index) {
+void Select::publish_enum_(ENUM_DEF::enum_t enum_value) {
+  // the select::traits implementation is so bad...
+  // it would be nice to have a data provider interface though but
+  // this is it and we'd rather not patch the official esphome core.
+  // Here we'll try to mantain sync between our enum_def and the select::options array
+  // This code is safe as far as the enum_def->LOOKUPS is not modified by other parts
+  // of the code
+  auto &options = this->traits_().options();
+  auto enum_def = this->reg_def_->enum_def;
+  auto lookup_result = enum_def->get_lookup(enum_value);
+  if (lookup_result.added) {
+    options.insert(options.begin() + lookup_result.index, std::string(lookup_result.lookup_def->label));
+  }
+  // Better safe than sorry..
+  if (options.size() != enum_def->LOOKUPS.size()) {
+    options.clear();
+    for (auto &lookup_def : enum_def->LOOKUPS) {
+      options.push_back(std::string(lookup_def.label));
+    }
+  }
+  this->publish_state_(lookup_result.index);
+}
+
+void Select::publish_state_(const std::string &state, size_t index) {
+  // our custom publish_state doesn't really care if the index is correct or not since esphome
+  // discards it anyway when broadcasting through api
   this->has_state_ = true;
-  this->state = this->traits_().options()[index];
-  ESP_LOGD(TAG, "'%s': Sending state %s (index %zu)", this->get_name().c_str(), this->state.c_str(), index);
-  this->state_callback_.call(this->state, index);
+  this->state = state;
+  ESP_LOGD(TAG, "'%s': Sending state %s (index %zu)", this->get_name().c_str(), state.c_str(), index);
+  this->state_callback_.call(state, index);
 }
 
 }  // namespace m3_vedirect

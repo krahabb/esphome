@@ -20,8 +20,9 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
 
  protected:
   friend class Manager;
-  ENUM_DEF::enum_t enum_value_{0xFF};
+  ENUM_DEF::enum_t enum_value_{ENUM_DEF::VALUE_UNKNOWN};
 
+  void link_disconnected_() override;
   void init_reg_def_() override;
   inline void parse_enum_(ENUM_DEF::enum_t enum_value) override;
   inline void parse_string_(const char *string_value) override;
@@ -54,7 +55,9 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
 
   // 'optimized' publish_state bypassing index checks since we're mantaining our
   // own 'source of truth' in enum_def_
-  void publish_state_(size_t index);
+  void publish_enum_(ENUM_DEF::enum_t enum_value);
+  void publish_state_(const std::string &state, size_t index);
+  void publish_state_(size_t index) { this->publish_state_(this->traits_().options()[index], index); }
 };
 
 }  // namespace m3_vedirect
