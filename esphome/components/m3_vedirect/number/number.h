@@ -21,7 +21,6 @@ class Number final : public ConfigEntity, public NumericEntity, public Entity, p
  protected:
   friend class Manager;
   void link_disconnected_() override;
-
   void init_reg_def_() override;
 
 // interface esphome::number::Number

@@ -57,13 +57,17 @@ void Number::control(float value) {
 
 void Number::request_callback_(void *callback_param, const RxHexFrame *hex_frame) {
   Number *_number = reinterpret_cast<Number *>(callback_param);
-  if (hex_frame) {
-    if (hex_frame->flags()) {
-      // error
-    } else {
-    }
+  if (!hex_frame || (hex_frame && hex_frame->flags())) {
+    // Error or timeout..resend actual state since it looks like HA esphome does optimistic
+    // updates in it's HA entity instance...
+    _number->publish_state(_number->state);
   } else {
-    // timed out
+    // Invalidate our state so that the subsequent dispatching/parsing goes through
+    // an effective publish_state. This is needed (again) since the frontend already
+    // optimistically updated the entity to the new value but even in case of success,
+    // the device might 'force' a different setting if the request was for an unsupported
+    // value
+    _number->state = NAN;
   }
 }
 
