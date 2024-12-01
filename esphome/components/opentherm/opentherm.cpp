@@ -220,7 +220,7 @@ void IRAM_ATTR OpenTherm::bit_read_(uint8_t value) {
   this->bit_pos_++;
 }
 
-ProtocolErrorType OpenTherm::verify_stop_bit_(uint8_t value) {
+ProtocolErrorType IRAM_ATTR OpenTherm::verify_stop_bit_(uint8_t value) {
   if (value) {  // stop bit detected
     return check_parity_(this->data_) ? ProtocolErrorType::NO_ERROR : ProtocolErrorType::PARITY_ERROR;
   } else {  // no stop bit detected, error
@@ -365,7 +365,7 @@ void IRAM_ATTR OpenTherm::stop_timer_() {
 
 #ifdef ESP8266
 // 5 kHz timer_
-void OpenTherm::start_read_timer_() {
+void IRAM_ATTR OpenTherm::start_read_timer_() {
   InterruptLock const lock;
   timer1_attachInterrupt(OpenTherm::esp8266_timer_isr);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);  // 5MHz (5 ticks/us - 1677721.4 us max)
@@ -373,14 +373,14 @@ void OpenTherm::start_read_timer_() {
 }
 
 // 2 kHz timer_
-void OpenTherm::start_write_timer_() {
+void IRAM_ATTR OpenTherm::start_write_timer_() {
   InterruptLock const lock;
   timer1_attachInterrupt(OpenTherm::esp8266_timer_isr);
   timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);  // 5MHz (5 ticks/us - 1677721.4 us max)
   timer1_write(2500);                            // 2kHz
 }
 
-void OpenTherm::stop_timer_() {
+void IRAM_ATTR OpenTherm::stop_timer_() {
   InterruptLock const lock;
   timer1_disable();
   timer1_detachInterrupt();
@@ -389,7 +389,7 @@ void OpenTherm::stop_timer_() {
 #endif  // END ESP8266
 
 // https://stackoverflow.com/questions/21617970/how-to-check-if-value-has-even-parity-of-bits-or-odd
-bool OpenTherm::check_parity_(uint32_t val) {
+bool IRAM_ATTR OpenTherm::check_parity_(uint32_t val) {
   val ^= val >> 16;
   val ^= val >> 8;
   val ^= val >> 4;

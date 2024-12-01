@@ -171,9 +171,13 @@ lvgl:
             duration: 1s
             auto_start: true
             on_all_events:
-              logger.log:
-                format: "Event %s"
-                args: ['lv_event_code_name_for(event->code).c_str()']
+              - logger.log:
+                  format: "Event %s"
+                  args: ['lv_event_code_name_for(event->code).c_str()']
+              - lvgl.animimg.update:
+                  id: anim_img
+                  src: !lambda "return {dog_image, cat_image};"
+                  duration: 2s
         - label:
             id: hello_label
             text: Hello world
@@ -635,7 +639,7 @@ lvgl:
                   - image:
                       grid_cell_row_pos: 0
                       grid_cell_column_pos: 0
-                      src: dog_image
+                      src: !lambda return dog_image;
                       on_click:
                         then:
                           - lvgl.tabview.select:

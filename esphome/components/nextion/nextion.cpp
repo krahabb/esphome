@@ -563,13 +563,10 @@ void Nextion::process_nextion_commands_() {
           break;
         }
 
-        int dataindex = 0;
-
         int value = 0;
 
         for (int i = 0; i < 4; ++i) {
           value += to_process[i] << (8 * i);
-          ++dataindex;
         }
 
         NextionQueue *nb = this->nextion_queue_.front();
