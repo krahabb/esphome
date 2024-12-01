@@ -15,9 +15,9 @@ namespace m3_vedirect {
 static const char *const TAG = "m3_vedirect.select";
 #endif
 
-Entity *Select::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *Select::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new Select(manager);
-  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_select(entity);
 #ifdef USE_API
   if (api::global_api_server)
@@ -99,25 +99,25 @@ void Select::request_callback_(void *callback_param, const RxHexFrame *hex_frame
   }
 }
 
-void Select::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Select::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame) {
   char hex_value[RxHexFrame::ALLOCATED_ENCODED_SIZE];
   if (hex_frame->data_to_hex(hex_value, RxHexFrame::ALLOCATED_ENCODED_SIZE)) {
     static_cast<Select *>(hex_register)->parse_string_(hex_value);
   }
 }
 
-void Select::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Select::parse_hex_enum_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   static_cast<Select *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
-void Select::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+void Select::parse_text_default_(Register *hex_register, const char *text_value) {
   static_cast<Select *>(hex_register)->parse_string_(text_value);
 }
 
-void Select::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
+void Select::parse_text_enum_(Register *hex_register, const char *text_value) {
   char *endptr;
   ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
   if (*endptr == 0)

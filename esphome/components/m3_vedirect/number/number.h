@@ -1,22 +1,22 @@
 #pragma once
 #include "esphome/components/number/number.h"
 
-#include "../entity.h"
+#include "../hexregister.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-class Number final : public ConfigEntity, public NumericEntity, public Entity, public esphome::number::Number {
+class Number final : public WritableRegister, public NumericRegister, public Register, public esphome::number::Number {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_, parse_text_empty_) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Number(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {}
+  Number(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : ConfigEntity(manager), Entity(parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager), Register(parse_text_empty_) {}
 #endif
 
-  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+  static Register *build_entity(Manager *manager, const char *name, const char *object_id);
 
  protected:
   friend class Manager;
@@ -32,9 +32,9 @@ class Number final : public ConfigEntity, public NumericEntity, public Entity, p
 #endif
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  template<typename T> static void parse_hex_t_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_temperature_(Register *hex_register, const RxHexFrame *hex_frame);
+  template<typename T> static void parse_hex_t_(Register *hex_register, const RxHexFrame *hex_frame);
   static const parse_hex_func_t DATA_TYPE_TO_PARSE_HEX_FUNC_[];
 #endif
 };

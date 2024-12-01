@@ -29,9 +29,9 @@ const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
     2,  // S_0_25,
 };
 
-Entity *Sensor::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *Sensor::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new Sensor(manager);
-  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_sensor(entity);
 #ifdef USE_API
   if (api::global_api_server)
@@ -72,7 +72,7 @@ void Sensor::init_reg_def_() {
 }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Sensor::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   float value;
   switch (hex_frame->data_size()) {
@@ -97,7 +97,7 @@ void Sensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex
   }
 }
 
-void Sensor::parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Sensor::parse_hex_temperature_(Register *hex_register, const RxHexFrame *hex_frame) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   // hoping the operands are int-promoted and the result is an int
   float value = (hex_frame->data_t<uint16_t>() - 27316) * sensor->hex_scale_;
@@ -106,7 +106,7 @@ void Sensor::parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame 
   }
 }
 
-template<typename T> void Sensor::parse_hex_t_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+template<typename T> void Sensor::parse_hex_t_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   float value = hex_frame->data_t<T>() * sensor->hex_scale_;
@@ -123,7 +123,7 @@ const Sensor::parse_hex_func_t Sensor::DATA_TYPE_TO_PARSE_HEX_FUNC_[REG_DEF::DAT
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
-void Sensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+void Sensor::parse_text_default_(Register *hex_register, const char *text_value) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   char *endptr;
   float value = strtof(text_value, &endptr) * sensor->text_scale_;

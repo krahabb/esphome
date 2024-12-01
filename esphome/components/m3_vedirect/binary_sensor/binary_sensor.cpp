@@ -11,9 +11,9 @@
 namespace esphome {
 namespace m3_vedirect {
 
-Entity *BinarySensor::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *BinarySensor::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new BinarySensor(manager);
-  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_binary_sensor(entity);
 #ifdef USE_API
   if (api::global_api_server)
@@ -47,30 +47,30 @@ void BinarySensor::init_reg_def_() {
 }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-void BinarySensor::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void BinarySensor::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   // By default considering the register as a BOOLEAN
   static_cast<BinarySensor *>(hex_register)->publish_state(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 
-void BinarySensor::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void BinarySensor::parse_hex_bitmask_(Register *hex_register, const RxHexFrame *hex_frame) {
   // BITMASK registers have storage up to 4 bytes
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
   static_cast<BinarySensor *>(hex_register)->parse_bitmask_(hex_frame->safe_data_u32());
 }
 
-void BinarySensor::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void BinarySensor::parse_hex_enum_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
   static_cast<BinarySensor *>(hex_register)->parse_enum_(hex_frame->data_t<ENUM_DEF::enum_t>());
 }
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
-void BinarySensor::parse_text_default_(HexRegister *hex_register, const char *text_value) {
+void BinarySensor::parse_text_default_(Register *hex_register, const char *text_value) {
   static_cast<BinarySensor *>(hex_register)->publish_state(!strcasecmp(text_value, "ON"));
 }
 
-void BinarySensor::parse_text_bitmask_(HexRegister *hex_register, const char *text_value) {
+void BinarySensor::parse_text_bitmask_(Register *hex_register, const char *text_value) {
   char *endptr;
   BITMASK_DEF::bitmask_t bitmask_value = strtoumax(text_value, &endptr, 0);
   if (*endptr == 0) {
@@ -78,7 +78,7 @@ void BinarySensor::parse_text_bitmask_(HexRegister *hex_register, const char *te
   }
 }
 
-void BinarySensor::parse_text_enum_(HexRegister *hex_register, const char *text_value) {
+void BinarySensor::parse_text_enum_(Register *hex_register, const char *text_value) {
   char *endptr;
   ENUM_DEF::enum_t enum_value = strtoumax(text_value, &endptr, 0);
   if (*endptr == 0) {

@@ -1,22 +1,22 @@
 #pragma once
 #include "esphome/components/select/select.h"
 
-#include "../entity.h"
+#include "../hexregister.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-class Select final : public ConfigEntity, public Entity, public esphome::select::Select {
+class Select final : public WritableRegister, public Register, public esphome::select::Select {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
+  Select(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_, parse_text_default_) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {}
+  Select(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Select(Manager *manager) : ConfigEntity(manager), Entity(parse_text_default_) {}
+  Select(Manager *manager) : WritableRegister(manager), Register(parse_text_default_) {}
 #endif
 
-  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+  static Register *build_entity(Manager *manager, const char *name, const char *object_id);
 
  protected:
   friend class Manager;
@@ -36,12 +36,12 @@ class Select final : public ConfigEntity, public Entity, public esphome::select:
 #endif
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-  static void parse_hex_default_(HexRegister *hexregister, const RxHexFrame *hexframe);
-  static void parse_hex_enum_(HexRegister *hexregister, const RxHexFrame *hexframe);
+  static void parse_hex_default_(Register *hexregister, const RxHexFrame *hexframe);
+  static void parse_hex_enum_(Register *hexregister, const RxHexFrame *hexframe);
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
-  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
+  static void parse_text_default_(Register *hex_register, const char *text_value);
+  static void parse_text_enum_(Register *hex_register, const char *text_value);
 #endif
 
   // Hack the basic SelectTraits to allow dynamic management

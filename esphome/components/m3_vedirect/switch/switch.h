@@ -1,28 +1,28 @@
 #pragma once
 #include "esphome/components/switch/switch.h"
 
-#include "../entity.h"
+#include "../hexregister.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-class Switch final : public ConfigEntity, public Entity, public esphome::switch_::Switch {
+class Switch final : public WritableRegister, public Register, public esphome::switch_::Switch {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {
+  Switch(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_, parse_text_default_) {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {
+  Switch(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_) {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_text_default_) {
+  Switch(Manager *manager) : WritableRegister(manager), Register(parse_text_default_) {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #endif
 
-  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+  static Register *build_entity(Manager *manager, const char *name, const char *object_id);
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 
@@ -48,14 +48,14 @@ class Switch final : public ConfigEntity, public Entity, public esphome::switch_
 #endif
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_bitmask_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_enum_(Register *hex_register, const RxHexFrame *hex_frame);
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
-  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
+  static void parse_text_default_(Register *hex_register, const char *text_value);
+  static void parse_text_bitmask_(Register *hex_register, const char *text_value);
+  static void parse_text_enum_(Register *hex_register, const char *text_value);
 #endif
 
   // optimized publish_state

@@ -9,9 +9,9 @@
 namespace esphome {
 namespace m3_vedirect {
 
-Entity *Number::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *Number::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new Number(manager);
-  Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
   App.register_number(entity);
 #ifdef USE_API
   if (api::global_api_server)
@@ -71,7 +71,7 @@ void Number::request_callback_(void *callback_param, const RxHexFrame *hex_frame
   }
 }
 
-void Number::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Number::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
   float value;
   switch (hex_frame->data_size()) {
@@ -96,7 +96,7 @@ void Number::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex
   }
 }
 
-void Number::parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+void Number::parse_hex_temperature_(Register *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
   // hoping the operands are int-promoted and the result is an int
   float value = (hex_frame->data_t<uint16_t>() - 27316) * number->hex_scale_;
@@ -105,7 +105,7 @@ void Number::parse_hex_temperature_(HexRegister *hex_register, const RxHexFrame 
   }
 }
 
-template<typename T> void Number::parse_hex_t_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
+template<typename T> void Number::parse_hex_t_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
   Number *number = static_cast<Number *>(hex_register);
   float value = hex_frame->data_t<T>() * number->hex_scale_;

@@ -281,7 +281,7 @@ class VEDirectPlatform:
 
         if CONF_TYPE in config:
             valid = True
-            cg.add(manager.init_entity(entity, config[CONF_TYPE]))
+            cg.add(manager.init_register(entity, config[CONF_TYPE]))
         elif CONF_REGISTER in config:
             valid = True
             register_config = config[CONF_REGISTER]
@@ -326,7 +326,7 @@ class VEDirectPlatform:
 
             if CONF_TEXT_LABEL in register_config:
                 define_use_textframe()
-                cg.add(manager.init_entity(entity, register_config[CONF_TEXT_LABEL]))
+                cg.add(manager.init_register(entity, register_config[CONF_TEXT_LABEL]))
 
         # configure binary-like entities
         if CONF_MASK in config:
@@ -340,7 +340,7 @@ class VEDirectPlatform:
         manager = await cg.get_variable(config[CONF_VEDIRECT_ID])
         cg.add(
             cpp.RawStatement(
-                f"m3_vedirect::Entity::register_platform(m3_vedirect::Entity::{self.class_name}, m3_vedirect::{self.class_name}::build_entity);"
+                f"m3_vedirect::Register::register_platform(m3_vedirect::Register::{self.class_name}, m3_vedirect::{self.class_name}::build_entity);"
             )
         )
         for entity_key, entity_config in config.items():

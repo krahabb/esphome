@@ -9,8 +9,7 @@ namespace m3_vedirect {
 using namespace ::m3_ve_reg;
 
 class Manager;
-class HexRegister;
-class Entity;
+class Register;
 
 // maximum amount of time (millis) without receiving data
 // after which we consider the vedirect link disconnected

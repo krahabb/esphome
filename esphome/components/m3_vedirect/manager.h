@@ -66,11 +66,11 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// @brief Initialize and link the hex_register into the Manager dispatcher system
   /// @param hex_register : the register to be initialized/linked
   /// @param reg_def : the register descriptor definition
-  void init_register(HexRegister *hex_register, const REG_DEF *reg_def);
+  void init_register(Register *hex_register, const REG_DEF *reg_def);
   /// @brief Configure this entity based off our registers grammar (REG_DEF::DEFS).
   /// This method is part of the public interface called by yaml generated code
   /// @param register_type the TYPE enum from our pre-defined registers set
-  void init_entity(Entity *entity, REG_DEF::TYPE register_type);
+  void init_register(Register *entity, REG_DEF::TYPE register_type);
 
 #if defined(VEDIRECT_USE_HEXFRAME)
   void set_auto_create_hex_entities(bool value) { this->auto_create_hex_entities_ = value; }
@@ -165,7 +165,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// will be automatically routed. This method is part of the public interface
   /// called by yaml generated code
   /// @param label the name of the TEXT FRAME record to bind
-  void init_entity(Entity *entity, const char *label);
+  void init_register(Register *entity, const char *label);
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
  protected:
@@ -220,16 +220,16 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 
   // Map entities/registers by TEXT frame record names so that we can forward
   // data while parsing.
-  typedef std::unordered_map<const char *, HexRegister *, cstring_hash, cstring_eq> text_entities_t;
-  text_entities_t text_entities_;
+  typedef std::unordered_map<const char *, Register *, cstring_hash, cstring_eq> text_registers_t;
+  text_registers_t text_registers_;
 
   void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
   void on_frame_text_error_(Error error) override;
 #endif
-  typedef std::unordered_map<register_id_t, HexRegister *> hex_registers_t;
+  typedef std::unordered_map<register_id_t, Register *> hex_registers_t;
   hex_registers_t hex_registers_;
 
-  HexRegister *get_hex_register_(register_id_t register_id, bool create);
+  Register *get_hex_register_(register_id_t register_id, bool create);
 };
 
 }  // namespace m3_vedirect

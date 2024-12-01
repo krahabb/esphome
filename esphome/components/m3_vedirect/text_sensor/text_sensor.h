@@ -1,22 +1,22 @@
 #pragma once
 #include "esphome/components/text_sensor/text_sensor.h"
 
-#include "../entity.h"
+#include "../hexregister.h"
 
 namespace esphome {
 namespace m3_vedirect {
 
-class TextSensor final : public Entity, public esphome::text_sensor::TextSensor {
+class TextSensor final : public Register, public esphome::text_sensor::TextSensor {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  TextSensor(Manager *Manager) : Entity(parse_hex_default_, parse_text_default_) {}
+  TextSensor(Manager *Manager) : Register(parse_hex_default_, parse_text_default_) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  TextSensor(Manager *Manager) : Entity(parse_hex_default_) {}
+  TextSensor(Manager *Manager) : Register(parse_hex_default_) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  TextSensor(Manager *Manager) : Entity(parse_text_default_) {}
+  TextSensor(Manager *Manager) : Register(parse_text_default_) {}
 #endif
 
-  static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
+  static Register *build_entity(Manager *manager, const char *name, const char *object_id);
 
  protected:
   friend class Manager;
@@ -29,17 +29,17 @@ class TextSensor final : public Entity, public esphome::text_sensor::TextSensor 
   inline void parse_string_(const char *string_value) override;
 
 #if defined(VEDIRECT_USE_HEXFRAME)
-  static void parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_string_(HexRegister *hex_register, const RxHexFrame *hex_frame);
-  static void parse_hex_app_ver_(HexRegister *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_bitmask_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_enum_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_string_(Register *hex_register, const RxHexFrame *hex_frame);
+  static void parse_hex_app_ver_(Register *hex_register, const RxHexFrame *hex_frame);
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
-  static void parse_text_default_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
-  static void parse_text_app_ver_(HexRegister *hex_register, const char *text_value);
+  static void parse_text_default_(Register *hex_register, const char *text_value);
+  static void parse_text_bitmask_(Register *hex_register, const char *text_value);
+  static void parse_text_enum_(Register *hex_register, const char *text_value);
+  static void parse_text_app_ver_(Register *hex_register, const char *text_value);
 #endif
 };
 
