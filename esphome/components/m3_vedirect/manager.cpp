@@ -1,5 +1,5 @@
 #include "manager.h"
-#include "hexregister.h"
+#include "register.h"
 
 #include "esphome/core/log.h"
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "esphome/components/switch/switch.h"
 
-#include "../hexregister.h"
+#include "../register.h"
 
 namespace esphome {
 namespace m3_vedirect {

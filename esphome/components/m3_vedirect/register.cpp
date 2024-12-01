@@ -1,4 +1,4 @@
-#include "hexregister.h"
+#include "register.h"
 
 namespace esphome {
 namespace m3_vedirect {

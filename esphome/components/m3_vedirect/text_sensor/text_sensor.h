@@ -1,7 +1,7 @@
 #pragma once
 #include "esphome/components/text_sensor/text_sensor.h"
 
-#include "../hexregister.h"
+#include "../register.h"
 
 namespace esphome {
 namespace m3_vedirect {
