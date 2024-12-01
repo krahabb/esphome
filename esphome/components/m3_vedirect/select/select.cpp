@@ -11,7 +11,9 @@
 namespace esphome {
 namespace m3_vedirect {
 
-static const char *const TAG = "select";
+#ifdef ESPHOME_LOG_HAS_DEBUG
+static const char *const TAG = "m3_vedirect.select";
+#endif
 
 Entity *Select::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new Select(manager);

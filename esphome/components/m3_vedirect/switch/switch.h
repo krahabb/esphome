@@ -9,16 +9,25 @@ namespace m3_vedirect {
 class Switch final : public ConfigEntity, public Entity, public esphome::switch_::Switch {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {}
+  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_, parse_text_default_) {
+    this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
+  }
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {}
+  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_hex_default_) {
+    this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
+  }
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_text_default_) {}
+  Switch(Manager *manager) : ConfigEntity(manager), Entity(parse_text_default_) {
+    this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
+  }
 #endif
 
   static Entity *build_entity(Manager *manager, const char *name, const char *object_id);
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
+
+  // interface esphome::switch_::Switch
+  void set_restore_mode(esphome::switch_::SwitchRestoreMode restore_mode) {}
 
  protected:
   friend class Manager;
@@ -48,6 +57,10 @@ class Switch final : public ConfigEntity, public Entity, public esphome::switch_
   static void parse_text_bitmask_(HexRegister *hex_register, const char *text_value);
   static void parse_text_enum_(HexRegister *hex_register, const char *text_value);
 #endif
+
+  // optimized publish_state
+  void publish_state_(bool state);
+  void republish_state_();
 };
 
 }  // namespace m3_vedirect

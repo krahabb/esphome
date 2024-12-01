@@ -11,6 +11,10 @@
 namespace esphome {
 namespace m3_vedirect {
 
+#ifdef ESPHOME_LOG_HAS_DEBUG
+static const char *const TAG = "m3_vedirect.switch";
+#endif
+
 Entity *Switch::build_entity(Manager *manager, const char *name, const char *object_id) {
   auto entity = new Switch(manager);
   Entity::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
@@ -48,14 +52,14 @@ void Switch::init_reg_def_() {
 void Switch::parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) {
   if (this->raw_value_ != bitmask_value) {
     this->raw_value_ = bitmask_value;
-    this->publish_state(bitmask_value & this->mask_);
+    this->publish_state_(bitmask_value & this->mask_);
   }
 }
 
 void Switch::parse_enum_(ENUM_DEF::enum_t enum_value) {
   if (this->raw_value_ != enum_value) {
     this->raw_value_ = enum_value;
-    this->publish_state(enum_value == this->mask_);
+    this->publish_state_(enum_value == this->mask_);
   }
 }
 
@@ -83,25 +87,24 @@ void Switch::write_state(bool state) {
 }
 
 void Switch::request_callback_(Manager::request_callback_param_t callback_param, const RxHexFrame *hex_frame) {
-  // Assuming the transaction managment code works we still have to decide how to process the
-  // reply. Currently, a succesful one, would already be processed by standard flow but we likely need to manage
-  // the case for errors/timeouts since it appears as the state is not consistent after a failed command.
-  // It looks like the HA part of esphome component assumes optimistic updates and so the state is inconsistent
-  // when the request actually fails. We need to better investigate all of these behaviors in the field though.
   Switch *_switch = reinterpret_cast<Switch *>(callback_param);
-  if (hex_frame) {
-    if (hex_frame->flags()) {
-      // error
-    } else {
-    }
+  if (!hex_frame || (hex_frame && hex_frame->flags())) {
+    // Error or timeout..resend actual state since it looks like HA esphome does optimistic
+    // updates in it's HA entity instance...
+    _switch->republish_state_();
   } else {
-    // timed out
+    // Invalidate our state so that the subsequent dispatching/parsing goes through
+    // an effective publish_state. This is needed (again) since the frontend already
+    // optimistically updated the entity to the new value but even in case of success,
+    // the device might 'force' a different setting if the request was for an unsupported
+    // value
+    _switch->raw_value_ = BITMASK_DEF::VALUE_UNKNOWN;
   }
 }
 
 void Switch::parse_hex_default_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 1, "HexFrame storage might lead to access overflow");
-  static_cast<Switch *>(hex_register)->publish_state(hex_frame->data_t<uint8_t>());
+  static_cast<Switch *>(hex_register)->publish_state_(hex_frame->data_t<uint8_t>());
 }
 
 void Switch::parse_hex_bitmask_(HexRegister *hex_register, const RxHexFrame *hex_frame) {
@@ -118,7 +121,7 @@ void Switch::parse_hex_enum_(HexRegister *hex_register, const RxHexFrame *hex_fr
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
 void Switch::parse_text_default_(HexRegister *hex_register, const char *text_value) {
-  static_cast<Switch *>(hex_register)->publish_state(!strcasecmp(text_value, "ON"));
+  static_cast<Switch *>(hex_register)->publish_state_(!strcasecmp(text_value, "ON"));
 }
 
 void Switch::parse_text_bitmask_(HexRegister *hex_register, const char *text_value) {
@@ -137,6 +140,20 @@ void Switch::parse_text_enum_(HexRegister *hex_register, const char *text_value)
   }
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
+
+void Switch::publish_state_(bool state) {
+  state = state != this->inverted_;
+  if (this->state != state) {
+    this->state = state;
+    ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), ONOFF(state));
+    this->state_callback_.call(state);
+  }
+}
+
+void Switch::republish_state_() {
+  ESP_LOGD(TAG, "'%s': Sending state %s", this->name_.c_str(), ONOFF(this->state));
+  this->state_callback_.call(this->state);
+}
 
 }  // namespace m3_vedirect
 }  // namespace esphome
