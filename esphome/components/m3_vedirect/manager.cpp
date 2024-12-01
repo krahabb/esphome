@@ -10,7 +10,7 @@ static const char TAG[] = "m3_vedirect.%s";
 
 std::vector<Manager *> Manager::managers_;
 
-std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
+const std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
   if (vedirect_id.empty()) {
     return {managers_.front()};
   } else if (vedirect_id == "*") {

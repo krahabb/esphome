@@ -52,7 +52,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif
 
  public:
-  static std::vector<Manager *> get_managers(const std::string &vedirect_id);
+  static const std::vector<Manager *> get_managers(const std::string &vedirect_id);
 
   void setup() override;
   void loop() override;
