@@ -27,6 +27,12 @@ m3_victron_ble_ir:
     # Any register (enum/bitmask/measure) can be declared/implemented as (plain) sensor.
     # For binary_sensors, you can add a 'mask' option so that the entity becomes 'on' when
     # the register value matches the mask.
+    on_message:
+      # This trigger carries the received/decoded BLE record (const m3_victron_ble_ir::VBI_RECORD * message)
+      - homeassistant.event:
+          event: esphome.m3_victron_ble_ir_message
+          data:
+            payload: !lambda "return format_hex((uint8_t*)&message, sizeof(message));"
 
 binary_sensor:
   - platform: m3_victron_ble_ir
