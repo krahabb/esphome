@@ -38,7 +38,7 @@ def literal(arg):
 def call_lambda(lamb: LambdaExpression):
     expr = lamb.content.strip()
     if expr.startswith("return") and expr.endswith(";"):
-        return expr[7:][:-1]
+        return expr[6:][:-1].strip()
     return f"{lamb}()"
 
 
