@@ -1,6 +1,6 @@
 #include "display.h"
-#include "display_color_utils.h"
 #include <utility>
+#include "display_color_utils.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
@@ -670,7 +670,7 @@ void Display::strftime(int x, int y, BaseFont *font, Color color, Color backgrou
     this->print(x, y, font, color, align, buffer, background);
 }
 void Display::strftime(int x, int y, BaseFont *font, Color color, TextAlign align, const char *format, ESPTime time) {
-  this->strftime(x, y, font, color, COLOR_OFF, TextAlign::TOP_LEFT, format, time);
+  this->strftime(x, y, font, color, COLOR_OFF, align, format, time);
 }
 void Display::strftime(int x, int y, BaseFont *font, Color color, const char *format, ESPTime time) {
   this->strftime(x, y, font, color, COLOR_OFF, TextAlign::TOP_LEFT, format, time);
