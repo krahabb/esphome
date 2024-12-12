@@ -95,6 +95,43 @@ This table exposes the list of actually pre-defined registers to be used with th
 
 {reg_def_table}
 
+The 'flavor' property is used to conditionally include the corresponding definition(s) in the code. This works as an optimization for code size so that it is possible to decide which of the registers must be defined. It is controlled by the configuration key in the main platform configuration:
+```yaml
+m3_vedirect:
+  - id: vedirect_0
+    uart_id: uart_0
+    name: "Victron"
+    flavor: [ALL] # include all flavors i.e. all of the register definitions
+```
+If you want to use a particular register definition you have to ensure the corresponding `flavor` is set.
+
+The 'class' and 'r/w' properties are very important and state which kind of data the register is carrying and if it's read only or writable. Different 'classes' and 'r/w' can be supported by different EspHome entity types according to the following table:
+
+|class|r/w|primary entity|
+|---|---|---|
+|BITMASK|READ_ONLY|binary_sensor(1)|
+|BITMASK|READ_WRITE|switch(1)|
+|BOOLEAN|READ_ONLY|binary_sensor|
+|BOOLEAN|READ_WRITE|switch|
+|ENUM|READ_ONLY|text_sensor|
+|ENUM|READ_WRITE|select|
+|NUMERIC|READ_ONLY|sensor|
+|NUMERIC|READ_WRITE|number|
+|STRING|READ_ONLY|text_sensor|
+
+(1) in order to use a `binary_sensor` or `switch` for `BITMASK` registers you'd also have to set the configuration property `mask` which, as the name implies, is used to extract/mask the intended bit from the register value (representing a bitmask for the matter).
+```yaml
+binary_sensor:
+  - platform: m3_vedirect
+    vedirect_id: vedirect_0
+    vedirect_entities:
+      - type: DEVICE_OFF_REASON_2
+        name: 'No input power'
+        mask: 1 # Bit 0 of DEVICE_OFF_REASON bitmask
+```
+
+Beside these 'primary entity' mappings you can always use a `sensor` entity to represent the raw value as a numeric value even if the register is not marked as `NUMERIC` (though some sign conversion issues might happen since the conversion would be done as an unsigned type whenever the class is not `NUMERIC`). 
+Moreover, the `text_sensor` entity too can represent any class data type, generally falling back to report the hex register value 'as is' (if no better conversion is provided by the register definition).
 
 More help and wiki will come.
 
