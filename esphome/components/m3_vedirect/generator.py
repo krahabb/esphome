@@ -73,7 +73,6 @@ def generate_docs():
     import enum
 
     README = "README.md"
-    README_STUB = "README_.md"
     FLAVOR_TEMPLATE = "m3_vedirect_flavor_template_.yaml"
     FLAVOR_EXAMPLE = "m3_vedirect_flavor_%s_example.yaml"
     INDENT_YAML = "  "
@@ -84,29 +83,36 @@ def generate_docs():
         filling in dynamic/generated data.
         """
 
-        with open(README_STUB, encoding="utf-8") as readme_stub:
+        with open(README, encoding="utf-8") as readme_stub:
             readme = readme_stub.read()
 
-        reg_def_table = "".join(
-            (
-                "|type|class|r/w|hex address|flavor|\n",
-                "|---|---|---|---|---|\n",
-            )
-        )
-
-        for reg_def_type, reg_def in ve_reg.REG_DEFS.items():
-            reg_def_table += "".join(
-                (
-                    f"|{reg_def_type}",  # type
-                    f"|{reg_def.cls.name}",  # class
-                    f"|{reg_def.access.name}",  # R/W
-                    f"|0x{reg_def.register_id:04X}",  # address
-                    f"|{reg_def.flavor}",  # flavor
-                    "|\n",
+        reg_def_table = [
+            "<!--BEGIN REG_DEF_TABLE-->\n",
+            "|type|class|r/w|hex address|flavor|\n",
+            "|---|---|---|---|---|\n",
+        ]
+        reg_def_table.extend(
+            [
+                "".join(
+                    (
+                        f"|{reg_def_type}",  # type
+                        f"|{reg_def.cls.name}",  # class
+                        f"|{reg_def.access.name}",  # R/W
+                        f"|0x{reg_def.register_id:04X}",  # address
+                        f"|{reg_def.flavor}",  # flavor
+                        "|\n",
+                    )
                 )
-            )
-
-        readme = readme.replace("{reg_def_table}", reg_def_table)
+                for reg_def_type, reg_def in ve_reg.REG_DEFS.items()
+            ]
+        )
+        reg_def_table.append("<!--END REG_DEF_TABLE-->")
+        readme = re.sub(
+            r"<!--BEGIN REG_DEF_TABLE-->.*<!--END REG_DEF_TABLE-->",
+            "".join(reg_def_table),
+            readme,
+            flags=re.DOTALL,
+        )
 
         with open(README, mode="w", encoding="utf-8") as readme_file:
             readme_file.write(readme)

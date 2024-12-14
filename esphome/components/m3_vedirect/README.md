@@ -93,6 +93,7 @@ More: you can map the same register (`DEVICE_STATE`) to more than one entity so 
 ## Register definitions
 This table exposes the list of actually pre-defined registers to be used with the 'shortcut' configuration `type`. It is extracted from the source file definitions in [ve_reg_register.h](https://github.com/krahabb/esphome-victron-vedirect/blob/main/components/m3_vedirect/ve_reg_register.h) which is always the 'source of truth' for the component.
 
+<!--BEGIN REG_DEF_TABLE-->
 |type|class|r/w|hex address|flavor|
 |---|---|---|---|---|
 |BLE_MODE|BITMASK|READ_WRITE|0x0090|ANY|
@@ -143,6 +144,7 @@ This table exposes the list of actually pre-defined registers to be used with th
 |BAT_TEMPERATURE|NUMERIC|READ_ONLY|0xEDEC|ANY|
 |DC_MONITOR_MODE|NUMERIC|READ_ONLY|0xEEB8|BMV71|
 |ALARM_BUZZER|BOOLEAN|READ_WRITE|0xEEFC|BMV|
+<!--END REG_DEF_TABLE-->
 
 
 The 'flavor' property is used to conditionally include the corresponding definition(s) in the code. This works as an optimization for code size so that it is possible to decide which of the registers must be defined. It is controlled by the configuration key in the main platform configuration:
