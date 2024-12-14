@@ -30,6 +30,13 @@ There are some sample configurations with a basic explanation of the features fo
 
 These samples mostly use the 'auto create' feature in order to automatically create an entity for any register data appearing on the communication channel. This might help to start over but could soon become cumbersome since HEX broadcasted registers might be a lot and the component will create HA entities for any of these.
 
+These other samples show instead usage of static entities definition for different 'flavors'. See [manual configuration](#manual-configuration) for better insights.
+- [m3_vedirect_flavor_ALL_example.yaml](https://github.com/krahabb/esphome-victron-vedirect/blob/main/components/m3_vedirect/m3_vedirect_flavor_ALL_example.yaml)
+- [m3_vedirect_flavor_BMV_example.yaml](https://github.com/krahabb/esphome-victron-vedirect/blob/main/components/m3_vedirect/m3_vedirect_flavor_BMV_example.yaml)
+- [m3_vedirect_flavor_INV_example.yaml](https://github.com/krahabb/esphome-victron-vedirect/blob/main/components/m3_vedirect/m3_vedirect_flavor_INV_example.yaml)
+- [m3_vedirect_flavor_MPPT_example.yaml](https://github.com/krahabb/esphome-victron-vedirect/blob/main/components/m3_vedirect/m3_vedirect_flavor_MPPT_example.yaml)
+
+
 We'll see then how to better configure the device for only the needed entities.
 
 ### Manual configuration
