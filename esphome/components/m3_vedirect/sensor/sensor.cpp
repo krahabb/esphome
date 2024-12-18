@@ -100,10 +100,17 @@ void Sensor::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_fr
 
 void Sensor::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
-  // hoping the operands are int-promoted and the result is an int
-  float value = (hex_frame->data_t<uint16_t>() - 27316) * sensor->hex_scale_;
-  if (sensor->raw_state != value) {
-    sensor->publish_state(value);
+  uint16_t raw_value = hex_frame->data_t<uint16_t>();
+  if (raw_value == 0xFFFF) {
+    if (!std::isnan(sensor->raw_state)) {
+      sensor->publish_state(NAN);
+    }
+  } else {
+    // hoping the operands are int-promoted and the result is an int
+    float value = (raw_value - 27316) * sensor->hex_scale_;
+    if (sensor->raw_state != value) {
+      sensor->publish_state(value);
+    }
   }
 }
 

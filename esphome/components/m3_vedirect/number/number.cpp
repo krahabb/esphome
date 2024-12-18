@@ -98,10 +98,17 @@ void Number::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_fr
 
 void Number::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
-  // hoping the operands are int-promoted and the result is an int
-  float value = (hex_frame->data_t<uint16_t>() - 27316) * number->hex_scale_;
-  if (number->state != value) {
-    number->publish_state(value);
+  uint16_t raw_value = hex_frame->data_t<uint16_t>();
+  if (raw_value == 0xFFFF) {
+    if (!std::isnan(number->state)) {
+      number->publish_state(NAN);
+    }
+  } else {
+    // hoping the operands are int-promoted and the result is an int
+    float value = (raw_value - 27316) * number->hex_scale_;
+    if (number->state != value) {
+      number->publish_state(value);
+    }
   }
 }
 
