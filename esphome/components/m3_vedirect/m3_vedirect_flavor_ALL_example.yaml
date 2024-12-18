@@ -26,6 +26,8 @@ binary_sensor:
   - platform: m3_vedirect
     vedirect_id: vedirect_0
     vedirect_entities:
+      - type: SOLAR_ACTIVITY
+        name: "SOLAR_ACTIVITY"
       - type: LOAD_OUTPUT_STATE
         name: "LOAD_OUTPUT_STATE"
 
@@ -61,6 +63,8 @@ sensor:
         name: "TTG"
       - type: SOC
         name: "SOC"
+      - type: TIME_OF_DAY
+        name: "TIME_OF_DAY"
       - type: AC_OUT_VOLTAGE
         name: "AC_OUT_VOLTAGE"
       - type: AC_OUT_CURRENT
@@ -167,6 +171,10 @@ text_sensor:
         name: "CAPABILITIES_BLE"
       - type: DEVICE_STATE
         name: "DEVICE_STATE"
+      - type: INVERTER_DEVICE_STATE
+        name: "INVERTER_DEVICE_STATE"
+      - type: CHARGER_DEVICE_STATE
+        name: "CHARGER_DEVICE_STATE"
       - type: DEVICE_OFF_REASON
         name: "DEVICE_OFF_REASON"
       - type: DEVICE_OFF_REASON_2
