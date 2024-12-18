@@ -20,6 +20,7 @@ const sensor::StateClass Sensor::UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT] 
     sensor::StateClass::STATE_CLASS_MEASUREMENT,
     sensor::StateClass::STATE_CLASS_MEASUREMENT,
     sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT,
 };
 const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
     0,  // S_1,
@@ -57,9 +58,9 @@ void Sensor::init_reg_def_() {
       this->text_scale_ = REG_DEF::SCALE_TO_SCALE[reg_def_->text_scale];
 #if defined(VEDIRECT_USE_HEXFRAME)
       switch (reg_def->unit) {
-        case REG_DEF::UNIT::CELSIUS:
+        case REG_DEF::UNIT::KELVIN:
           // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
-          this->parse_hex_ = parse_hex_temperature_;
+          this->parse_hex_ = parse_hex_kelvin_;
           break;
         default:
           break;
@@ -97,7 +98,7 @@ void Sensor::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_fr
   }
 }
 
-void Sensor::parse_hex_temperature_(Register *hex_register, const RxHexFrame *hex_frame) {
+void Sensor::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame) {
   Sensor *sensor = static_cast<Sensor *>(hex_register);
   // hoping the operands are int-promoted and the result is an int
   float value = (hex_frame->data_t<uint16_t>() - 27316) * sensor->hex_scale_;

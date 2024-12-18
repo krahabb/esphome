@@ -71,6 +71,7 @@ struct BITMASK_DEF : public ENUM_DEF {
 #define _DEF_ENUM_BITMASK Y
 #define _DEF_ENUM_BITMASK_S N
 #define _DEF_ENUM_ENUM Y
+#define _DEF_ENUM_ENUM_S N
 #define _DEF_ENUM_NUMERIC N
 #define _DEF_ENUM_STRING N
 #define _ENUMS_ITEM(enum, value) enum = value
@@ -101,8 +102,9 @@ struct REG_DEF {
   };
 
   enum ACCESS : uint8_t {
-    READ_ONLY = 0,
-    READ_WRITE = 1,
+    CONSTANT = 0,    // fixed read-only value
+    READ_ONLY = 1,   // measure
+    READ_WRITE = 2,  // configuration
   };
 
   typedef HEXFRAME::DATA_TYPE DATA_TYPE;
@@ -119,6 +121,7 @@ struct REG_DEF {
     SOC_PERCENTAGE,
     minute,
     CELSIUS,
+    KELVIN,
     UNIT_COUNT,
   };
   static const char *UNITS[UNIT::UNIT_COUNT];
@@ -138,9 +141,8 @@ struct REG_DEF {
   const register_id_t register_id;
   const char *const label;  // not relevant for manually built (in config.yaml) REG_DEF(s)
   CLASS cls : 3;
-  ACCESS access : 1;
+  ACCESS access : 2;
   DATA_TYPE data_type : 3;  // only relevant for BITMASK and NUMERIC (ENUM are UN8 though)
-  uint8_t _padding : 1;
   union {
     struct {
       ENUM_DEF *enum_def;

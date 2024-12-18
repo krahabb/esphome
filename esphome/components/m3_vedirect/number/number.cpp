@@ -32,9 +32,9 @@ void Number::init_reg_def_() {
       this->traits.set_step(this->hex_scale_);
 #if defined(VEDIRECT_USE_HEXFRAME)
       switch (reg_def->unit) {
-        case REG_DEF::UNIT::CELSIUS:
+        case REG_DEF::UNIT::KELVIN:
           // special treatment for 'temperature' registers which are expected to carry un16 kelvin degrees
-          this->parse_hex_ = parse_hex_temperature_;
+          this->parse_hex_ = parse_hex_kelvin_;
           break;
         default:
           this->parse_hex_ = DATA_TYPE_TO_PARSE_HEX_FUNC_[reg_def->data_type];
@@ -96,7 +96,7 @@ void Number::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_fr
   }
 }
 
-void Number::parse_hex_temperature_(Register *hex_register, const RxHexFrame *hex_frame) {
+void Number::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
   // hoping the operands are int-promoted and the result is an int
   float value = (hex_frame->data_t<uint16_t>() - 27316) * number->hex_scale_;

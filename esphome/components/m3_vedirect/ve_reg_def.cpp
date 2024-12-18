@@ -35,7 +35,7 @@ ENUM_DEF::LOOKUP_RESULT ENUM_DEF::get_lookup(enum_t value) {
 }
 
 const char *REG_DEF::UNITS[UNIT::UNIT_COUNT] = {
-    nullptr, "A", "V", "VA", "W", "Ah", "kWh", "%", "min", "°C",
+    nullptr, "A", "V", "VA", "W", "Ah", "kWh", "%", "min", "°C", "°C",
 };
 const float REG_DEF::SCALE_TO_SCALE[SCALE::SCALE_COUNT] = {
     1.f,    // S_1,
@@ -64,6 +64,8 @@ REGISTERS_COMMON(DEFINE_ENUMS)
   {register_id, #label, REG_DEF::access, HEXFRAME::DATA_TYPE_OF<type>(), &VE_REG_##bitmask_label##_BITMASK_DEF},
 #define DEFINE_REG_DEF_ENUM(register_id, label, access) \
   {register_id, #label, REG_DEF::access, &VE_REG_##label##_ENUM_DEF},
+#define DEFINE_REG_DEF_ENUM_S(register_id, label, access, enum_label) \
+  {register_id, #label, REG_DEF::access, &VE_REG_##enum_label##_ENUM_DEF},
 #define DEFINE_REG_DEF_NUMERIC(register_id, label, access, type, unit, scale, text_scale) \
   {register_id,   #label,         REG_DEF::access,    HEXFRAME::DATA_TYPE_OF<type>(), \
    REG_DEF::unit, REG_DEF::scale, REG_DEF::text_scale},
