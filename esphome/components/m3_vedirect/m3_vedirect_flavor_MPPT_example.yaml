@@ -68,6 +68,8 @@ sensor:
         name: "CHARGER_VOLTAGE"
       - type: CHARGER_CURRENT
         name: "CHARGER_CURRENT"
+      - type: CHR_INTERNAL_TEMPERATURE
+        name: "CHR_INTERNAL_TEMPERATURE"
       - type: USER_YIELD
         name: "USER_YIELD"
       - type: SYSTEM_YIELD
