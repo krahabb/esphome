@@ -66,7 +66,7 @@ struct BITMASK_DEF : public ENUM_DEF {
 };
 
 // declare the enum helpers structs for BITMASK/ENUM registers
-#define _DEF_ENUM_UNKNOWN N
+#define _DEF_ENUM_VOID N
 #define _DEF_ENUM_BOOLEAN N
 #define _DEF_ENUM_BITMASK Y
 #define _DEF_ENUM_BITMASK_S N
@@ -93,7 +93,7 @@ struct REG_DEF {
 
   /// @brief Defines the data semantics of this register
   enum CLASS : uint8_t {
-    UNKNOWN,  // untyped data. Generally rendered by the 'default' handler (HEX for TextSensors)
+    VOID,     // untyped data. Generally rendered by the 'default' handler (HEX for TextSensors)
     BITMASK,  // represents a set of bit flags
     BOOLEAN,  // boolean state represented by 0 -> false, 1 -> true
     ENUM,     // enumeration data
@@ -111,7 +111,8 @@ struct REG_DEF {
 
   // configuration symbols for numeric sensors
   enum UNIT : uint8_t {
-    NONE,
+    NONE,     // no unit - no state class
+    UNKNOWN,  // unknown unit - state class: measurement
     A,
     V,
     VA,
@@ -162,11 +163,11 @@ struct REG_DEF {
   REG_DEF(register_id_t register_id)
       : register_id(register_id),
         label(nullptr),
-        cls(CLASS::UNKNOWN),
+        cls(CLASS::VOID),
         access(ACCESS::READ_ONLY),
         data_type(DATA_TYPE::VARIADIC),
         enum_def(nullptr) {}
-  /// @brief Constructor for UNKNOWN, BOOLEAN, or STRING register definitions
+  /// @brief Constructor for VOID, BOOLEAN, or STRING register definitions
   REG_DEF(register_id_t register_id, const char *label, CLASS cls, ACCESS access)
       : register_id(register_id),
         label(label),

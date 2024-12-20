@@ -148,7 +148,7 @@ def generate_docs():
                 ve_reg.CLASS.ENUM: entities[Platform.text_sensor],
                 ve_reg.CLASS.NUMERIC: entities[Platform.sensor],
                 ve_reg.CLASS.STRING: entities[Platform.text_sensor],
-                ve_reg.CLASS.UNKNOWN: entities[Platform.text_sensor],
+                ve_reg.CLASS.VOID: entities[Platform.text_sensor],
             },
             ve_reg.ACCESS.READ_ONLY: {
                 ve_reg.CLASS.BITMASK: entities[Platform.text_sensor],
@@ -156,7 +156,7 @@ def generate_docs():
                 ve_reg.CLASS.ENUM: entities[Platform.text_sensor],
                 ve_reg.CLASS.NUMERIC: entities[Platform.sensor],
                 ve_reg.CLASS.STRING: entities[Platform.text_sensor],
-                ve_reg.CLASS.UNKNOWN: entities[Platform.text_sensor],
+                ve_reg.CLASS.VOID: entities[Platform.text_sensor],
             },
             ve_reg.ACCESS.READ_WRITE: {
                 ve_reg.CLASS.BITMASK: entities[Platform.text_sensor],
@@ -164,7 +164,7 @@ def generate_docs():
                 ve_reg.CLASS.ENUM: entities[Platform.select],
                 ve_reg.CLASS.NUMERIC: entities[Platform.number],
                 ve_reg.CLASS.STRING: entities[Platform.text_sensor],
-                ve_reg.CLASS.UNKNOWN: entities[Platform.text_sensor],
+                ve_reg.CLASS.VOID: entities[Platform.text_sensor],
             },
         }
 

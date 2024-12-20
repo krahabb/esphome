@@ -61,7 +61,7 @@ REG_DEF_struct = ns.struct("REG_DEF")
 
 
 class CLASS(MockEnum):
-    UNKNOWN = enum.auto()
+    VOID = enum.auto()
     BITMASK = enum.auto()
     BOOLEAN = enum.auto()
     ENUM = enum.auto()
@@ -85,6 +85,7 @@ class ACCESS(MockEnum):
 
 class UNIT(MockEnum):
     NONE = enum.auto()
+    NOT_KNOWN = enum.auto()
     A = enum.auto()
     V = enum.auto()
     VA = enum.auto()
@@ -273,8 +274,8 @@ class TYPE(MockEnum):
 REG_DEF = namedtuple("REG_DEF", ["flavor", "cls", "register_id", "access"])
 REG_DEFS = {
     TYPE.BLE_MODE.name: REG_DEF("ANY", CLASS.BITMASK, 0x0090, ACCESS.READ_WRITE),
-    TYPE.PRODUCT_ID.name: REG_DEF("ANY", CLASS.UNKNOWN, 0x0100, ACCESS.CONSTANT),
-    TYPE.APP_VER.name: REG_DEF("ANY", CLASS.UNKNOWN, 0x0102, ACCESS.CONSTANT),
+    TYPE.PRODUCT_ID.name: REG_DEF("ANY", CLASS.VOID, 0x0100, ACCESS.CONSTANT),
+    TYPE.APP_VER.name: REG_DEF("ANY", CLASS.VOID, 0x0102, ACCESS.CONSTANT),
     TYPE.SERIAL_NUMBER.name: REG_DEF("ANY", CLASS.STRING, 0x010A, ACCESS.CONSTANT),
     TYPE.MODEL_NAME.name: REG_DEF("ANY", CLASS.STRING, 0x010B, ACCESS.CONSTANT),
     TYPE.CAPABILITIES.name: REG_DEF("ANY", CLASS.BITMASK, 0x0140, ACCESS.CONSTANT),

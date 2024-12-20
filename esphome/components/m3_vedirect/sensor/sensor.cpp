@@ -10,17 +10,12 @@ namespace esphome {
 namespace m3_vedirect {
 
 const sensor::StateClass Sensor::UNIT_TO_STATE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
-    sensor::StateClass::STATE_CLASS_NONE,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_TOTAL,
-    sensor::StateClass::STATE_CLASS_TOTAL_INCREASING,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
-    sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_NONE,        sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_TOTAL,       sensor::StateClass::STATE_CLASS_TOTAL_INCREASING,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
+    sensor::StateClass::STATE_CLASS_MEASUREMENT, sensor::StateClass::STATE_CLASS_MEASUREMENT,
 };
 const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
     0,  // S_1,
