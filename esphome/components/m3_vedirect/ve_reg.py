@@ -117,6 +117,7 @@ class SCALE(MockEnum):
 
 class Flavor(enum.StrEnum):
     ALL = enum.auto()
+    MULTI_RS = enum.auto()
     INV_PHNX = enum.auto()
     CHG_PHNX = enum.auto()
     MPPT_BS = enum.auto()
@@ -133,6 +134,7 @@ class Flavor(enum.StrEnum):
 
 FLAVOR_DEPENDENCIES = {
     Flavor.ALL.name: [
+        Flavor.MULTI_RS.name,
         Flavor.MPPT_BS.name,
         Flavor.MPPT_RS.name,
         Flavor.INV_PHNX.name,
@@ -140,6 +142,10 @@ FLAVOR_DEPENDENCIES = {
         Flavor.BMV60.name,
         Flavor.BMV70.name,
         Flavor.BMV71.name,
+    ],
+    Flavor.MULTI_RS.name: [
+        Flavor.INV.name,
+        Flavor.MPPT_RS.name,
     ],
     Flavor.INV_PHNX.name: [
         Flavor.INV.name,
@@ -188,10 +194,10 @@ class TYPE(MockEnum):
     CAPABILITIES_BLE = enum.auto()
     DEVICE_MODE = enum.auto()
     DEVICE_STATE = enum.auto()
-    INVERTER_DEVICE_STATE = enum.auto()
-    CHARGER_DEVICE_STATE = enum.auto()
     DEVICE_OFF_REASON = enum.auto()
     DEVICE_OFF_REASON_2 = enum.auto()
+    INVERTER_DEVICE_STATE = enum.auto()
+    CHARGER_DEVICE_STATE = enum.auto()
     AC_OUT_VOLTAGE_SETPOINT = enum.auto()
     MPPT_TRACKERS = enum.auto()
     WARNING_REASON = enum.auto()
@@ -210,6 +216,13 @@ class TYPE(MockEnum):
     SHUTDOWN_LOW_VOLTAGE_SET = enum.auto()
     VOLTAGE_RANGE_MIN = enum.auto()
     VOLTAGE_RANGE_MAX = enum.auto()
+    UNKNOWN_2213 = enum.auto()
+    UNKNOWN_2214 = enum.auto()
+    UNKNOWN_2215 = enum.auto()
+    UNKNOWN_2216 = enum.auto()
+    UNKNOWN_2250 = enum.auto()
+    UNKNOWN_2251 = enum.auto()
+    UNKNOWN_D3A1 = enum.auto()
     MPPT_TRACKER_MODE_1 = enum.auto()
     PANEL_VOLTAGE_1 = enum.auto()
     PANEL_POWER_1 = enum.auto()
@@ -268,17 +281,17 @@ REG_DEFS = {
     TYPE.CAPABILITIES_BLE.name: REG_DEF("ANY", CLASS.BITMASK, 0x0150, ACCESS.CONSTANT),
     TYPE.DEVICE_MODE.name: REG_DEF("ANY", CLASS.ENUM, 0x0200, ACCESS.READ_WRITE),
     TYPE.DEVICE_STATE.name: REG_DEF("ANY", CLASS.ENUM, 0x0201, ACCESS.READ_ONLY),
-    TYPE.INVERTER_DEVICE_STATE.name: REG_DEF(
-        "INV", CLASS.ENUM, 0x0209, ACCESS.READ_ONLY
-    ),
-    TYPE.CHARGER_DEVICE_STATE.name: REG_DEF(
-        "CHG", CLASS.ENUM, 0x020A, ACCESS.READ_ONLY
-    ),
     TYPE.DEVICE_OFF_REASON.name: REG_DEF(
         "ANY", CLASS.BITMASK, 0x0205, ACCESS.READ_ONLY
     ),
     TYPE.DEVICE_OFF_REASON_2.name: REG_DEF(
         "ANY", CLASS.BITMASK, 0x0207, ACCESS.READ_ONLY
+    ),
+    TYPE.INVERTER_DEVICE_STATE.name: REG_DEF(
+        "INV", CLASS.ENUM, 0x0209, ACCESS.READ_ONLY
+    ),
+    TYPE.CHARGER_DEVICE_STATE.name: REG_DEF(
+        "CHG", CLASS.ENUM, 0x020A, ACCESS.READ_ONLY
     ),
     TYPE.AC_OUT_VOLTAGE_SETPOINT.name: REG_DEF(
         "INV", CLASS.NUMERIC, 0x0230, ACCESS.READ_WRITE
@@ -308,6 +321,27 @@ REG_DEFS = {
     ),
     TYPE.VOLTAGE_RANGE_MIN.name: REG_DEF("INV", CLASS.NUMERIC, 0x2211, ACCESS.CONSTANT),
     TYPE.VOLTAGE_RANGE_MAX.name: REG_DEF("INV", CLASS.NUMERIC, 0x2212, ACCESS.CONSTANT),
+    TYPE.UNKNOWN_2213.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2213, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_2214.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2214, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_2215.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2215, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_2216.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2216, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_2250.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2250, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_2251.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x2251, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_D3A1.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0xD3A1, ACCESS.READ_ONLY
+    ),
     TYPE.MPPT_TRACKER_MODE_1.name: REG_DEF(
         "MPPT_RS", CLASS.ENUM, 0xECC3, ACCESS.READ_ONLY
     ),
