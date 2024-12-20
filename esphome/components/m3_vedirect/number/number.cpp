@@ -99,7 +99,7 @@ void Number::parse_hex_default_(Register *hex_register, const RxHexFrame *hex_fr
 void Number::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame) {
   Number *number = static_cast<Number *>(hex_register);
   uint16_t raw_value = hex_frame->data_t<uint16_t>();
-  if (raw_value == 0xFFFF) {
+  if (raw_value == HEXFRAME::DATA_UNKNOWN<uint16_t>()) {
     if (!std::isnan(number->state)) {
       number->publish_state(NAN);
     }
@@ -115,9 +115,16 @@ void Number::parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_fra
 template<typename T> void Number::parse_hex_t_(Register *hex_register, const RxHexFrame *hex_frame) {
   static_assert(RxHexFrame::ALLOCATED_DATA_SIZE >= 4, "HexFrame storage might lead to access overflow");
   Number *number = static_cast<Number *>(hex_register);
-  float value = hex_frame->data_t<T>() * number->hex_scale_;
-  if (number->state != value) {
-    number->publish_state(value);
+  T raw_value = hex_frame->data_t<T>();
+  if (raw_value == HEXFRAME::DATA_UNKNOWN<T>()) {
+    if (!std::isnan(number->state)) {
+      number->publish_state(NAN);
+    }
+  } else {
+    float value = raw_value * number->hex_scale_;
+    if (number->state != value) {
+      number->publish_state(value);
+    }
   }
 }
 
