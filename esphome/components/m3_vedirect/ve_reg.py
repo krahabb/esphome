@@ -85,7 +85,7 @@ class ACCESS(MockEnum):
 
 class UNIT(MockEnum):
     NONE = enum.auto()
-    NOT_KNOWN = enum.auto()
+    UNKNOWN = enum.auto()
     A = enum.auto()
     V = enum.auto()
     VA = enum.auto()
@@ -201,12 +201,16 @@ class TYPE(MockEnum):
     CHARGER_DEVICE_STATE = enum.auto()
     AC_OUT_VOLTAGE_SETPOINT = enum.auto()
     MPPT_TRACKERS = enum.auto()
+    UNKNOWN_0305 = enum.auto()
+    UNKNOWN_0310 = enum.auto()
+    UNKNOWN_0311 = enum.auto()
     WARNING_REASON = enum.auto()
     ALARM_REASON = enum.auto()
     ALARM_LOW_VOLTAGE_SET = enum.auto()
     ALARM_LOW_VOLTAGE_CLEAR = enum.auto()
     RELAY_CONTROL = enum.auto()
     RELAY_MODE = enum.auto()
+    UNKNOWN_0FFC = enum.auto()
     TTG = enum.auto()
     SOC = enum.auto()
     SOLAR_ACTIVITY = enum.auto()
@@ -217,13 +221,16 @@ class TYPE(MockEnum):
     SHUTDOWN_LOW_VOLTAGE_SET = enum.auto()
     VOLTAGE_RANGE_MIN = enum.auto()
     VOLTAGE_RANGE_MAX = enum.auto()
-    UNKNOWN_2213 = enum.auto()
-    UNKNOWN_2214 = enum.auto()
-    UNKNOWN_2215 = enum.auto()
+    U_AC_OUT_VOLTAGE = enum.auto()
+    U_AC_OUT_CURRENT = enum.auto()
+    U_AC_OUT_APPARENT_POWER = enum.auto()
     UNKNOWN_2216 = enum.auto()
     UNKNOWN_2250 = enum.auto()
     UNKNOWN_2251 = enum.auto()
-    UNKNOWN_D3A1 = enum.auto()
+    U_AC_OUT_CURRENT_MA = enum.auto()
+    UNKNOWN_D5C8 = enum.auto()
+    UNKNOWN_D5CA = enum.auto()
+    UNKNOWN_D5CB = enum.auto()
     MPPT_TRACKER_MODE_1 = enum.auto()
     PANEL_VOLTAGE_1 = enum.auto()
     PANEL_POWER_1 = enum.auto()
@@ -298,6 +305,15 @@ REG_DEFS = {
         "INV", CLASS.NUMERIC, 0x0230, ACCESS.READ_WRITE
     ),
     TYPE.MPPT_TRACKERS.name: REG_DEF("MPPT_RS", CLASS.NUMERIC, 0x0244, ACCESS.CONSTANT),
+    TYPE.UNKNOWN_0305.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x0305, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_0310.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x0310, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_0311.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x0311, ACCESS.READ_ONLY
+    ),
     TYPE.WARNING_REASON.name: REG_DEF("ANY", CLASS.BITMASK, 0x031C, ACCESS.READ_ONLY),
     TYPE.ALARM_REASON.name: REG_DEF("ANY", CLASS.BITMASK, 0x031E, ACCESS.READ_ONLY),
     TYPE.ALARM_LOW_VOLTAGE_SET.name: REG_DEF(
@@ -308,6 +324,9 @@ REG_DEFS = {
     ),
     TYPE.RELAY_CONTROL.name: REG_DEF("ANY", CLASS.BOOLEAN, 0x034E, ACCESS.READ_WRITE),
     TYPE.RELAY_MODE.name: REG_DEF("ANY", CLASS.ENUM, 0x034F, ACCESS.READ_WRITE),
+    TYPE.UNKNOWN_0FFC.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0x0FFC, ACCESS.READ_ONLY
+    ),
     TYPE.TTG.name: REG_DEF("BMV", CLASS.NUMERIC, 0x0FFE, ACCESS.READ_ONLY),
     TYPE.SOC.name: REG_DEF("BMV", CLASS.NUMERIC, 0x0FFF, ACCESS.READ_ONLY),
     TYPE.SOLAR_ACTIVITY.name: REG_DEF("MPPT", CLASS.BOOLEAN, 0x2030, ACCESS.READ_ONLY),
@@ -322,13 +341,13 @@ REG_DEFS = {
     ),
     TYPE.VOLTAGE_RANGE_MIN.name: REG_DEF("INV", CLASS.NUMERIC, 0x2211, ACCESS.CONSTANT),
     TYPE.VOLTAGE_RANGE_MAX.name: REG_DEF("INV", CLASS.NUMERIC, 0x2212, ACCESS.CONSTANT),
-    TYPE.UNKNOWN_2213.name: REG_DEF(
+    TYPE.U_AC_OUT_VOLTAGE.name: REG_DEF(
         "MULTI_RS", CLASS.NUMERIC, 0x2213, ACCESS.READ_ONLY
     ),
-    TYPE.UNKNOWN_2214.name: REG_DEF(
+    TYPE.U_AC_OUT_CURRENT.name: REG_DEF(
         "MULTI_RS", CLASS.NUMERIC, 0x2214, ACCESS.READ_ONLY
     ),
-    TYPE.UNKNOWN_2215.name: REG_DEF(
+    TYPE.U_AC_OUT_APPARENT_POWER.name: REG_DEF(
         "MULTI_RS", CLASS.NUMERIC, 0x2215, ACCESS.READ_ONLY
     ),
     TYPE.UNKNOWN_2216.name: REG_DEF(
@@ -340,8 +359,17 @@ REG_DEFS = {
     TYPE.UNKNOWN_2251.name: REG_DEF(
         "MULTI_RS", CLASS.NUMERIC, 0x2251, ACCESS.READ_ONLY
     ),
-    TYPE.UNKNOWN_D3A1.name: REG_DEF(
+    TYPE.U_AC_OUT_CURRENT_MA.name: REG_DEF(
         "MULTI_RS", CLASS.NUMERIC, 0xD3A1, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_D5C8.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0xD5C8, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_D5CA.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0xD5CA, ACCESS.READ_ONLY
+    ),
+    TYPE.UNKNOWN_D5CB.name: REG_DEF(
+        "MULTI_RS", CLASS.NUMERIC, 0xD5CB, ACCESS.READ_ONLY
     ),
     TYPE.MPPT_TRACKER_MODE_1.name: REG_DEF(
         "MPPT_RS", CLASS.ENUM, 0xECC3, ACCESS.READ_ONLY
