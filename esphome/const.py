@@ -1,6 +1,6 @@
 """Constants used by esphome."""
 
-__version__ = "2024.12.0-dev"
+__version__ = "2025.2.0-dev"
 
 ALLOWED_NAME_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789-_"
 VALID_SUBSTITUTIONS_CHARACTERS = (
@@ -15,15 +15,6 @@ PLATFORM_LIBRETINY_OLDSTYLE = "libretiny"
 PLATFORM_RP2040 = "rp2040"
 PLATFORM_RTL87XX = "rtl87xx"
 
-TARGET_PLATFORMS = [
-    PLATFORM_BK72XX,
-    PLATFORM_ESP32,
-    PLATFORM_ESP8266,
-    PLATFORM_HOST,
-    PLATFORM_LIBRETINY_OLDSTYLE,
-    PLATFORM_RP2040,
-    PLATFORM_RTL87XX,
-]
 
 SOURCE_FILE_EXTENSIONS = {".cpp", ".hpp", ".h", ".c", ".tcc", ".ino"}
 HEADER_FILE_EXTENSIONS = {".h", ".hpp", ".tcc"}
@@ -131,7 +122,9 @@ CONF_CLIENT_CERTIFICATE = "client_certificate"
 CONF_CLIENT_CERTIFICATE_KEY = "client_certificate_key"
 CONF_CLIENT_ID = "client_id"
 CONF_CLK_PIN = "clk_pin"
+CONF_CLOCK_DIVIDER = "clock_divider"
 CONF_CLOCK_PIN = "clock_pin"
+CONF_CLOCK_RESOLUTION = "clock_resolution"
 CONF_CLOSE_ACTION = "close_action"
 CONF_CLOSE_DURATION = "close_duration"
 CONF_CLOSE_ENDSTOP = "close_endstop"
@@ -488,6 +481,7 @@ CONF_MEMORY_BLOCKS = "memory_blocks"
 CONF_MESSAGE = "message"
 CONF_METHANE = "methane"
 CONF_METHOD = "method"
+CONF_MIC_GAIN = "mic_gain"
 CONF_MICROPHONE = "microphone"
 CONF_MIN_BRIGHTNESS = "min_brightness"
 CONF_MIN_COOLING_OFF_TIME = "min_cooling_off_time"
@@ -739,6 +733,7 @@ CONF_RGB_ORDER = "rgb_order"
 CONF_RGBW = "rgbw"
 CONF_RISING_EDGE = "rising_edge"
 CONF_RMT_CHANNEL = "rmt_channel"
+CONF_RMT_SYMBOLS = "rmt_symbols"
 CONF_ROTATION = "rotation"
 CONF_ROW = "row"
 CONF_RS_PIN = "rs_pin"
@@ -864,6 +859,7 @@ CONF_TARGET_TEMPERATURE_LOW_COMMAND_TOPIC = "target_temperature_low_command_topi
 CONF_TARGET_TEMPERATURE_LOW_STATE_TOPIC = "target_temperature_low_state_topic"
 CONF_TARGET_TEMPERATURE_STATE_TOPIC = "target_temperature_state_topic"
 CONF_TEMPERATURE = "temperature"
+CONF_TEMPERATURE_COMPENSATION = "temperature_compensation"
 CONF_TEMPERATURE_OFFSET = "temperature_offset"
 CONF_TEMPERATURE_SOURCE = "temperature_source"
 CONF_TEMPERATURE_STEP = "temperature_step"
@@ -917,6 +913,7 @@ CONF_UPDATE_ON_BOOT = "update_on_boot"
 CONF_URL = "url"
 CONF_USE_ABBREVIATIONS = "use_abbreviations"
 CONF_USE_ADDRESS = "use_address"
+CONF_USE_DMA = "use_dma"
 CONF_USE_FAHRENHEIT = "use_fahrenheit"
 CONF_USERNAME = "username"
 CONF_UUID = "uuid"

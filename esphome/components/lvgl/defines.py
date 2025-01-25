@@ -168,6 +168,7 @@ LV_EVENT_MAP = {
     "READY": "READY",
     "CANCEL": "CANCEL",
     "ALL_EVENTS": "ALL",
+    "CHANGE": "VALUE_CHANGED",
 }
 
 LV_EVENT_TRIGGERS = tuple(f"on_{x.lower()}" for x in LV_EVENT_MAP)
@@ -214,7 +215,7 @@ LV_LONG_MODES = LvConstant(
 )
 
 STATES = (
-    "default",
+    # default state not included here
     "checked",
     "focused",
     "focus_key",
@@ -402,6 +403,7 @@ CONF_COLUMN = "column"
 CONF_DIGITS = "digits"
 CONF_DISP_BG_COLOR = "disp_bg_color"
 CONF_DISP_BG_IMAGE = "disp_bg_image"
+CONF_DISP_BG_OPA = "disp_bg_opa"
 CONF_BODY = "body"
 CONF_BUTTONS = "buttons"
 CONF_BYTE_ORDER = "byte_order"
