@@ -1,15 +1,15 @@
 import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome.components import web_server_base
 from esphome.components.web_server_base import CONF_WEB_SERVER_BASE_ID
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
+    PLATFORM_BK72XX,
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
-    PLATFORM_BK72XX,
     PLATFORM_RTL87XX,
 )
-from esphome.core import coroutine_with_priority, CORE
+from esphome.core import CORE, coroutine_with_priority
 
 AUTO_LOAD = ["web_server_base"]
 DEPENDENCIES = ["wifi"]
@@ -41,6 +41,7 @@ async def to_code(config):
 
     if CORE.using_arduino:
         if CORE.is_esp32:
+            cg.add_library("ESP32 Async UDP", None)
             cg.add_library("DNSServer", None)
             cg.add_library("WiFi", None)
         if CORE.is_esp8266:

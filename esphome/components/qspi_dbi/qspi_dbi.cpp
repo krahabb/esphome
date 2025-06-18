@@ -1,4 +1,4 @@
-#ifdef USE_ESP_IDF
+#if defined(USE_ESP_IDF) && defined(USE_ESP32_VARIANT_ESP32S3)
 #include "qspi_dbi.h"
 #include "esphome/core/log.h"
 
@@ -6,7 +6,7 @@ namespace esphome {
 namespace qspi_dbi {
 
 void QspiDbi::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up QSPI_DBI");
+  ESP_LOGCONFIG(TAG, "Running setup");
   this->spi_setup();
   if (this->enable_pin_ != nullptr) {
     this->enable_pin_->setup();

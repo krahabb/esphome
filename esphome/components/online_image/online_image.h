@@ -23,7 +23,7 @@ using t_http_codes = enum {
 enum ImageFormat {
   /** Automatically detect from MIME type. Not supported yet. */
   AUTO,
-  /** JPEG format. Not supported yet. */
+  /** JPEG format. */
   JPEG,
   /** PNG format. */
   PNG,
@@ -63,6 +63,13 @@ class OnlineImage : public PollingComponent,
     if (this->validate_url_(url)) {
       this->url_ = url;
     }
+    this->etag_ = "";
+    this->last_modified_ = "";
+  }
+
+  /** Add the request header */
+  template<typename V> void add_request_header(const std::string &header, V value) {
+    this->request_headers_.push_back(std::pair<std::string, TemplatableValue<std::string> >(header, value));
   }
 
   /**
@@ -79,7 +86,14 @@ class OnlineImage : public PollingComponent,
    */
   void release();
 
-  void add_on_finished_callback(std::function<void()> &&callback);
+  /**
+   * Resize the download buffer
+   *
+   * @param size The new size for the download buffer.
+   */
+  size_t resize_download_buffer(size_t size) { return this->download_buffer_.resize(size); }
+
+  void add_on_finished_callback(std::function<void(bool)> &&callback);
   void add_on_error_callback(std::function<void()> &&callback);
 
  protected:
@@ -92,9 +106,22 @@ class OnlineImage : public PollingComponent,
 
   int get_position_(int x, int y) const { return (x + y * this->buffer_width_) * this->get_bpp() / 8; }
 
-  ESPHOME_ALWAYS_INLINE bool auto_resize_() const { return this->fixed_width_ == 0 || this->fixed_height_ == 0; }
+  ESPHOME_ALWAYS_INLINE bool is_auto_resize_() const { return this->fixed_width_ == 0 || this->fixed_height_ == 0; }
 
-  bool resize_(int width, int height);
+  /**
+   * @brief Resize the image buffer to the requested dimensions.
+   *
+   * The buffer will be allocated if not existing.
+   * If the dimensions have been fixed in the yaml config, the buffer will be created
+   * with those dimensions and not resized, even on request.
+   * Otherwise, the old buffer will be deallocated and a new buffer with the requested
+   * allocated
+   *
+   * @param width
+   * @param height
+   * @return 0 if no memory could be allocated, the size of the new buffer otherwise.
+   */
+  size_t resize_(int width, int height);
 
   /**
    * @brief Draw a pixel into the buffer.
@@ -111,7 +138,7 @@ class OnlineImage : public PollingComponent,
 
   void end_connection_();
 
-  CallbackManager<void()> download_finished_callback_{};
+  CallbackManager<void(bool)> download_finished_callback_{};
   CallbackManager<void()> download_error_callback_{};
 
   std::shared_ptr<http_request::HttpContainer> downloader_{nullptr};
@@ -119,11 +146,19 @@ class OnlineImage : public PollingComponent,
 
   uint8_t *buffer_;
   DownloadBuffer download_buffer_;
+  /**
+   * This is the *initial* size of the download buffer, not the current size.
+   * The download buffer can be resized at runtime; the download_buffer_initial_size_
+   * will *not* change even if the download buffer has been resized.
+   */
+  size_t download_buffer_initial_size_;
 
   const ImageFormat format_;
   image::Image *placeholder_{nullptr};
 
   std::string url_{""};
+
+  std::vector<std::pair<std::string, TemplatableValue<std::string> > > request_headers_;
 
   /** width requested on configuration, or 0 if non specified. */
   const int fixed_width_;
@@ -147,6 +182,16 @@ class OnlineImage : public PollingComponent,
    * decoded images).
    */
   int buffer_height_;
+  /**
+   * The value of the ETag HTTP header provided in the last response.
+   */
+  std::string etag_ = "";
+  /**
+   * The value of the Last-Modified HTTP header provided in the last response.
+   */
+  std::string last_modified_ = "";
+
+  time_t start_time_;
 
   friend bool ImageDecoder::set_size(int width, int height);
   friend void ImageDecoder::draw(int x, int y, int w, int h, const Color &color);
@@ -174,10 +219,10 @@ template<typename... Ts> class OnlineImageReleaseAction : public Action<Ts...> {
   OnlineImage *parent_;
 };
 
-class DownloadFinishedTrigger : public Trigger<> {
+class DownloadFinishedTrigger : public Trigger<bool> {
  public:
   explicit DownloadFinishedTrigger(OnlineImage *parent) {
-    parent->add_on_finished_callback([this]() { this->trigger(); });
+    parent->add_on_finished_callback([this](bool cached) { this->trigger(cached); });
   }
 };
 

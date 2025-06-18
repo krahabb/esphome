@@ -7,7 +7,6 @@ from pathlib import Path
 import platform
 import re
 import tempfile
-from typing import Union
 from urllib.parse import urlparse
 
 _LOGGER = logging.getLogger(__name__)
@@ -200,6 +199,45 @@ def resolve_ip_address(host, port):
     return res
 
 
+def sort_ip_addresses(address_list: list[str]) -> list[str]:
+    """Takes a list of IP addresses in string form, e.g. from mDNS or MQTT,
+    and sorts them into the best order to actually try connecting to them.
+
+    This is roughly based on RFC6724 but a lot simpler: First we choose
+    IPv6 addresses, then Legacy IP addresses, and lowest priority is
+    link-local IPv6 addresses that don't have a link specified (which
+    are useless, but mDNS does provide them in that form). Addresses
+    which cannot be parsed are silently dropped.
+    """
+    import socket
+
+    # First "resolve" all the IP addresses to getaddrinfo() tuples of the form
+    # (family, type, proto, canonname, sockaddr)
+    res: list[
+        tuple[
+            int,
+            int,
+            int,
+            str | None,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ] = []
+    for addr in address_list:
+        # This should always work as these are supposed to be IP addresses
+        try:
+            res += socket.getaddrinfo(
+                addr, 0, proto=socket.IPPROTO_TCP, flags=socket.AI_NUMERICHOST
+            )
+        except OSError:
+            _LOGGER.info("Failed to parse IP address '%s'", addr)
+
+    # Now use that information to sort them.
+    res.sort(key=addr_preference_)
+
+    # Finally, turn the getaddrinfo() tuples back into plain hostnames.
+    return [socket.getnameinfo(r[4], socket.NI_NUMERICHOST)[0] for r in res]
+
+
 def get_bool_env(var, default=False):
     value = os.getenv(var, default)
     if isinstance(value, str):
@@ -243,7 +281,7 @@ def read_file(path):
         raise EsphomeError(f"Error reading file {path}: {err}") from err
 
 
-def _write_file(path: Union[Path, str], text: Union[str, bytes]):
+def _write_file(path: Path | str, text: str | bytes):
     """Atomically writes `text` to the given path.
 
     Automatically creates all parent directories.
@@ -276,7 +314,7 @@ def _write_file(path: Union[Path, str], text: Union[str, bytes]):
                 _LOGGER.error("Write file cleanup failed: %s", err)
 
 
-def write_file(path: Union[Path, str], text: str):
+def write_file(path: Path | str, text: str):
     try:
         _write_file(path, text)
     except OSError as err:
@@ -285,7 +323,7 @@ def write_file(path: Union[Path, str], text: str):
         raise EsphomeError(f"Could not write file at {path}") from err
 
 
-def write_file_if_changed(path: Union[Path, str], text: str) -> bool:
+def write_file_if_changed(path: Path | str, text: str) -> bool:
     """Write text to the given path, but not if the contents match already.
 
     Returns true if the file was changed.

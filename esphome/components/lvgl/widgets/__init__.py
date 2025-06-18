@@ -1,15 +1,14 @@
 import sys
-from typing import Any, Union
+from typing import Any
 
 from esphome import codegen as cg, config_validation as cv
 from esphome.config_validation import Invalid
-from esphome.const import CONF_GROUP, CONF_ID, CONF_STATE, CONF_TYPE
+from esphome.const import CONF_DEFAULT, CONF_GROUP, CONF_ID, CONF_STATE, CONF_TYPE
 from esphome.core import ID, TimePeriod
 from esphome.coroutine import FakeAwaitable
 from esphome.cpp_generator import CallExpression, MockObj
 
 from ..defines import (
-    CONF_DEFAULT,
     CONF_FLEX_ALIGN_CROSS,
     CONF_FLEX_ALIGN_MAIN,
     CONF_FLEX_ALIGN_TRACK,
@@ -263,7 +262,7 @@ async def wait_for_widgets():
     await FakeAwaitable(widgets_wait_generator())
 
 
-async def get_widgets(config: Union[dict, list], id: str = CONF_ID) -> list[Widget]:
+async def get_widgets(config: dict | list, id: str = CONF_ID) -> list[Widget]:
     if not config:
         return []
     if not isinstance(config, list):

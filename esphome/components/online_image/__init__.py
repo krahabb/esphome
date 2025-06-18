@@ -2,6 +2,7 @@ import logging
 
 from esphome import automation
 import esphome.codegen as cg
+from esphome.components.const import CONF_REQUEST_HEADERS
 from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestComponent
 from esphome.components.image import (
     CONF_INVERT_ALPHA,
@@ -24,6 +25,7 @@ from esphome.const import (
     CONF_TYPE,
     CONF_URL,
 )
+from esphome.core import Lambda
 
 AUTO_LOAD = ["image"]
 DEPENDENCIES = ["display", "http_request"]
@@ -60,23 +62,33 @@ class BMPFormat(Format):
         cg.add_define("USE_ONLINE_IMAGE_BMP_SUPPORT")
 
 
+class JPEGFormat(Format):
+    def __init__(self):
+        super().__init__("JPEG")
+
+    def actions(self):
+        cg.add_define("USE_ONLINE_IMAGE_JPEG_SUPPORT")
+        cg.add_library("JPEGDEC", None, "https://github.com/bitbank2/JPEGDEC#ca1e0f2")
+
+
 class PNGFormat(Format):
     def __init__(self):
         super().__init__("PNG")
 
     def actions(self):
         cg.add_define("USE_ONLINE_IMAGE_PNG_SUPPORT")
-        cg.add_library("pngle", "1.0.2")
+        cg.add_library("pngle", "1.1.0")
 
 
-# New formats can be added here.
 IMAGE_FORMATS = {
     x.image_type: x
     for x in (
         BMPFormat(),
+        JPEGFormat(),
         PNGFormat(),
     )
 }
+IMAGE_FORMATS.update({"JPG": IMAGE_FORMATS["JPEG"]})
 
 OnlineImage = online_image_ns.class_("OnlineImage", cg.PollingComponent, Image_)
 
@@ -114,9 +126,12 @@ ONLINE_IMAGE_SCHEMA = (
             cv.GenerateID(CONF_HTTP_REQUEST_ID): cv.use_id(HttpRequestComponent),
             # Online Image specific options
             cv.Required(CONF_URL): cv.url,
+            cv.Optional(CONF_REQUEST_HEADERS): cv.All(
+                cv.Schema({cv.string: cv.templatable(cv.string)})
+            ),
             cv.Required(CONF_FORMAT): cv.one_of(*IMAGE_FORMATS, upper=True),
             cv.Optional(CONF_PLACEHOLDER): cv.use_id(Image_),
-            cv.Optional(CONF_BUFFER_SIZE, default=2048): cv.int_range(256, 65536),
+            cv.Optional(CONF_BUFFER_SIZE, default=65536): cv.int_range(256, 65536),
             cv.Optional(CONF_ON_DOWNLOAD_FINISHED): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -197,13 +212,20 @@ async def to_code(config):
     await cg.register_component(var, config)
     await cg.register_parented(var, config[CONF_HTTP_REQUEST_ID])
 
+    for key, value in config.get(CONF_REQUEST_HEADERS, {}).items():
+        if isinstance(value, Lambda):
+            template_ = await cg.templatable(value, [], cg.std_string)
+            cg.add(var.add_request_header(key, template_))
+        else:
+            cg.add(var.add_request_header(key, value))
+
     if placeholder_id := config.get(CONF_PLACEHOLDER):
         placeholder = await cg.get_variable(placeholder_id)
         cg.add(var.set_placeholder(placeholder))
 
     for conf in config.get(CONF_ON_DOWNLOAD_FINISHED, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [], conf)
+        await automation.build_automation(trigger, [(bool, "cached")], conf)
 
     for conf in config.get(CONF_ON_ERROR, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

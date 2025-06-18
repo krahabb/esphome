@@ -36,10 +36,12 @@ from esphome.const import (
     CONF_PAYLOAD_AVAILABLE,
     CONF_PAYLOAD_NOT_AVAILABLE,
     CONF_PORT,
+    CONF_PUBLISH_NAN_AS_NONE,
     CONF_QOS,
     CONF_REBOOT_TIMEOUT,
     CONF_RETAIN,
     CONF_SHUTDOWN_MESSAGE,
+    CONF_SKIP_CERT_CN_CHECK,
     CONF_SSL_FINGERPRINTS,
     CONF_STATE_TOPIC,
     CONF_SUBSCRIBE_QOS,
@@ -49,7 +51,6 @@ from esphome.const import (
     CONF_USE_ABBREVIATIONS,
     CONF_USERNAME,
     CONF_WILL_MESSAGE,
-    CONF_PUBLISH_NAN_AS_NONE,
     PLATFORM_BK72XX,
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
@@ -67,7 +68,6 @@ def AUTO_LOAD():
 
 CONF_DISCOVER_IP = "discover_ip"
 CONF_IDF_SEND_ASYNC = "idf_send_async"
-CONF_SKIP_CERT_CN_CHECK = "skip_cert_cn_check"
 
 
 def validate_message_just_topic(value):
@@ -406,7 +406,7 @@ async def to_code(config):
     if CONF_SSL_FINGERPRINTS in config:
         for fingerprint in config[CONF_SSL_FINGERPRINTS]:
             arr = [
-                cg.RawExpression(f"0x{fingerprint[i:i + 2]}") for i in range(0, 40, 2)
+                cg.RawExpression(f"0x{fingerprint[i : i + 2]}") for i in range(0, 40, 2)
             ]
             cg.add(var.add_ssl_fingerprint(arr))
         cg.add_build_flag("-DASYNC_TCP_SSL_ENABLED=1")

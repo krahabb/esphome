@@ -1,5 +1,4 @@
 #pragma once
-
 #include "esphome/core/application.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
@@ -27,6 +26,11 @@ using SPIInterface = SPIClass *;
 using SPIInterface = spi_host_device_t;
 
 #endif  // USE_ESP_IDF
+
+#ifdef USE_ZEPHYR
+// TODO supprse clang-tidy. Remove after SPI driver for nrf52 is added.
+using SPIInterface = void *;
+#endif
 
 /**
  * Implementation of SPI Controller mode.
@@ -113,6 +117,8 @@ class NullPin : public GPIOPin {
   void setup() override {}
 
   void pin_mode(gpio::Flags flags) override {}
+
+  gpio::Flags get_flags() const override { return gpio::Flags::FLAG_NONE; }
 
   bool digital_read() override { return false; }
 
@@ -349,6 +355,12 @@ class SPIComponent : public Component {
 
   void setup() override;
   void dump_config() override;
+  size_t get_bus_width() const {
+    if (this->data_pins_.empty()) {
+      return 1;
+    }
+    return this->data_pins_.size();
+  }
 
  protected:
   GPIOPin *clk_pin_{nullptr};
@@ -367,6 +379,7 @@ class SPIComponent : public Component {
 };
 
 using QuadSPIComponent = SPIComponent;
+using OctalSPIComponent = SPIComponent;
 /**
  * Base class for SPIDevice, un-templated.
  */

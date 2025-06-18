@@ -147,10 +147,16 @@ def load_idedata(environment):
     # ensure temp directory exists before running pio, as it writes sdkconfig to it
     Path(temp_folder).mkdir(exist_ok=True)
 
-    stdout = subprocess.check_output(["pio", "run", "-t", "idedata", "-e", environment])
-    match = re.search(r'{\s*".*}', stdout.decode("utf-8"))
-    data = json.loads(match.group())
+    if "nrf" in environment:
+        from helpers_zephyr import load_idedata as zephyr_load_idedata
 
+        data = zephyr_load_idedata(environment, temp_folder, platformio_ini)
+    else:
+        stdout = subprocess.check_output(
+            ["pio", "run", "-t", "idedata", "-e", environment]
+        )
+        match = re.search(r'{\s*".*}', stdout.decode("utf-8"))
+        data = json.loads(match.group())
     temp_idedata.write_text(json.dumps(data, indent=2) + "\n")
     return data
 
@@ -188,3 +194,14 @@ def get_binary(name: str, version: str) -> str:
             """
         )
         raise
+
+
+def get_usable_cpu_count() -> int:
+    """Return the number of CPUs that can be used for processes.
+
+    On Python 3.13+ this is the number of CPUs that can be used for processes.
+    On older Python versions this is the number of CPUs.
+    """
+    return (
+        os.process_cpu_count() if hasattr(os, "process_cpu_count") else os.cpu_count()
+    )

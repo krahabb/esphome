@@ -35,8 +35,84 @@ using nextion_writer_t = std::function<void(Nextion &)>;
 
 static const std::string COMMAND_DELIMITER{static_cast<char>(255), static_cast<char>(255), static_cast<char>(255)};
 
+#ifdef USE_NEXTION_COMMAND_SPACING
+class NextionCommandPacer {
+ public:
+  /**
+   * @brief Creates command pacer with initial spacing
+   * @param initial_spacing Initial time between commands in milliseconds
+   */
+  explicit NextionCommandPacer(uint8_t initial_spacing = 0) : spacing_ms_(initial_spacing) {}
+
+  /**
+   * @brief Set the minimum time between commands
+   * @param spacing_ms Spacing in milliseconds
+   */
+  void set_spacing(uint8_t spacing_ms) { spacing_ms_ = spacing_ms; }
+
+  /**
+   * @brief Get current command spacing
+   * @return Current spacing in milliseconds
+   */
+  uint8_t get_spacing() const { return spacing_ms_; }
+
+  /**
+   * @brief Check if enough time has passed to send next command
+   * @return true if enough time has passed since last command
+   */
+  bool can_send() const { return (millis() - last_command_time_) >= spacing_ms_; }
+
+  /**
+   * @brief Mark a command as sent, updating the timing
+   */
+  void mark_sent() { last_command_time_ = millis(); }
+
+ private:
+  uint8_t spacing_ms_;
+  uint32_t last_command_time_{0};
+};
+#endif  // USE_NEXTION_COMMAND_SPACING
+
 class Nextion : public NextionBase, public PollingComponent, public uart::UARTDevice {
  public:
+#ifdef USE_NEXTION_MAX_COMMANDS_PER_LOOP
+  /**
+   * @brief Set the maximum number of commands to process in each loop iteration
+   * @param value Maximum number of commands (default: 20)
+   *
+   * Limiting the number of commands per loop helps prevent stack overflows
+   * when a large number of commands are queued at once, especially during boot.
+   */
+  inline void set_max_commands_per_loop(uint16_t value) { this->max_commands_per_loop_ = value; }
+
+  /**
+   * @brief Get the current maximum number of commands allowed per loop iteration
+   * @return Configured command limit per loop
+   */
+  inline uint16_t get_max_commands_per_loop() const { return this->max_commands_per_loop_; }
+#endif  // USE_NEXTION_MAX_COMMANDS_PER_LOOP
+#ifdef USE_NEXTION_MAX_QUEUE_SIZE
+  /**
+   * @brief Set the maximum allowed queue size
+   * @param size Max number of entries allowed in nextion_queue_
+   */
+  inline void set_max_queue_size(size_t size) { this->max_queue_size_ = size; }
+
+  /**
+   * @brief Get the maximum allowed queue size
+   * @return Current limit (0 = unlimited)
+   */
+  inline size_t get_max_queue_size() const { return this->max_queue_size_; }
+#endif  // USE_NEXTION_MAX_QUEUE_SIZE
+
+#ifdef USE_NEXTION_COMMAND_SPACING
+  /**
+   * @brief Set the command spacing for the display
+   * @param spacing_ms Time in milliseconds between commands
+   */
+  void set_command_spacing(uint32_t spacing_ms) { this->command_pacer_.set_spacing(spacing_ms); }
+#endif  // USE_NEXTION_COMMAND_SPACING
+
   /**
    * Set the text of a component to a static string.
    * @param component The component name.
@@ -1227,6 +1303,15 @@ class Nextion : public NextionBase, public PollingComponent, public uart::UARTDe
   bool is_connected() { return this->is_connected_; }
 
  protected:
+#ifdef USE_NEXTION_MAX_COMMANDS_PER_LOOP
+  uint16_t max_commands_per_loop_{1000};
+#endif  // USE_NEXTION_MAX_COMMANDS_PER_LOOP
+#ifdef USE_NEXTION_MAX_QUEUE_SIZE
+  size_t max_queue_size_{0};
+#endif  // USE_NEXTION_MAX_QUEUE_SIZE
+#ifdef USE_NEXTION_COMMAND_SPACING
+  NextionCommandPacer command_pacer_{0};
+#endif  // USE_NEXTION_COMMAND_SPACING
   std::deque<NextionQueue *> nextion_queue_;
   std::deque<NextionQueue *> waveform_queue_;
   uint16_t recv_ret_string_(std::string &response, uint32_t timeout, bool recv_flag);
@@ -1360,5 +1445,6 @@ class Nextion : public NextionBase, public PollingComponent, public uart::UARTDe
   uint32_t started_ms_ = 0;
   bool sent_setup_commands_ = false;
 };
+
 }  // namespace nextion
 }  // namespace esphome

@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
-#include <limits>
 
 #include "esphome/core/optional.h"
 
@@ -191,14 +192,14 @@ bool random_bytes(uint8_t *data, size_t len);
 constexpr uint16_t encode_uint16(uint8_t msb, uint8_t lsb) {
   return (static_cast<uint16_t>(msb) << 8) | (static_cast<uint16_t>(lsb));
 }
+/// Encode a 24-bit value given three bytes in most to least significant byte order.
+constexpr uint32_t encode_uint24(uint8_t byte1, uint8_t byte2, uint8_t byte3) {
+  return (static_cast<uint32_t>(byte1) << 16) | (static_cast<uint32_t>(byte2) << 8) | (static_cast<uint32_t>(byte3));
+}
 /// Encode a 32-bit value given four bytes in most to least significant byte order.
 constexpr uint32_t encode_uint32(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4) {
   return (static_cast<uint32_t>(byte1) << 24) | (static_cast<uint32_t>(byte2) << 16) |
          (static_cast<uint32_t>(byte3) << 8) | (static_cast<uint32_t>(byte4));
-}
-/// Encode a 24-bit value given three bytes in most to least significant byte order.
-constexpr uint32_t encode_uint24(uint8_t byte1, uint8_t byte2, uint8_t byte3) {
-  return ((static_cast<uint32_t>(byte1) << 16) | (static_cast<uint32_t>(byte2) << 8) | (static_cast<uint32_t>(byte3)));
 }
 
 /// Encode a value from its constituent bytes (from most to least significant) in an array with length sizeof(T).
@@ -437,7 +438,7 @@ template<typename T, enable_if_t<std::is_unsigned<T>::value, int> = 0> std::stri
 }
 
 /// Return values for parse_on_off().
-enum ParseOnOffState {
+enum ParseOnOffState : uint8_t {
   PARSE_NONE = 0,
   PARSE_ON,
   PARSE_OFF,
@@ -700,8 +701,10 @@ template<class T> class RAMAllocator {
   }
   template<class U> constexpr RAMAllocator(const RAMAllocator<U> &other) : flags_{other.flags_} {}
 
-  T *allocate(size_t n) {
-    size_t size = n * sizeof(T);
+  T *allocate(size_t n) { return this->allocate(n, sizeof(T)); }
+
+  T *allocate(size_t n, size_t manual_size) {
+    size_t size = n * manual_size;
     T *ptr = nullptr;
 #ifdef USE_ESP32
     if (this->flags_ & Flags::ALLOC_EXTERNAL) {
@@ -713,6 +716,25 @@ template<class T> class RAMAllocator {
 #else
     // Ignore ALLOC_EXTERNAL/ALLOC_INTERNAL flags if external allocation is not supported
     ptr = static_cast<T *>(malloc(size));  // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
+#endif
+    return ptr;
+  }
+
+  T *reallocate(T *p, size_t n) { return this->reallocate(p, n, sizeof(T)); }
+
+  T *reallocate(T *p, size_t n, size_t manual_size) {
+    size_t size = n * sizeof(T);
+    T *ptr = nullptr;
+#ifdef USE_ESP32
+    if (this->flags_ & Flags::ALLOC_EXTERNAL) {
+      ptr = static_cast<T *>(heap_caps_realloc(p, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    }
+    if (ptr == nullptr && this->flags_ & Flags::ALLOC_INTERNAL) {
+      ptr = static_cast<T *>(heap_caps_realloc(p, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    }
+#else
+    // Ignore ALLOC_EXTERNAL/ALLOC_INTERNAL flags if external allocation is not supported
+    ptr = static_cast<T *>(realloc(p, size));  // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
 #endif
     return ptr;
   }

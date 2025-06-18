@@ -38,6 +38,7 @@ number:
     widget: slider_id
     name: LVGL Slider
     update_on_release: true
+    restore_value: true
   - platform: lvgl
     widget: lv_arc
     id: lvgl_arc_number
@@ -62,7 +63,7 @@ binary_sensor:
     id: lvgl_pressbutton
     name: Pressbutton
     widget: spin_up
-    publish_initial_state: true
+    trigger_on_initial_state: true
   - platform: lvgl
     name: ButtonMatrix button
     widget: button_a
