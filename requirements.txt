@@ -18,7 +18,7 @@ zeroconf==0.147.0
 puremagic==1.29
 ruamel.yaml==0.18.14 # dashboard_import
 esphome-glyphsets==0.2.0
-pillow==10.4.0
+pillow==11.3.0
 cairosvg==2.8.2
 freetype-py==2.5.1
 
