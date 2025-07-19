@@ -11,7 +11,7 @@ This is a (personal) fork of the awesome [EspHome](https://github.com/esphome) p
 
 Over time, this repository is gaining more and more components and in order to give them better visibility I've decided to clone individual components in their own dedicated repos so you could have a clearer experience when using those. Right now I've 'extracted' these:
 - [esphome-victron-vedirect](https://github.com/krahabb/esphome-victron-vedirect): interface to Victron VEDirect communication
-- [esphome-victron-ble-ir](https://github.com/krahabb/esphome-victron-ble-ir): interface to Victron instant readout (over BLE) protocol  
+- [esphome-victron-ble-ir](https://github.com/krahabb/esphome-victron-ble-ir): interface to Victron instant readout (over BLE) protocol
 
 Those repositories are just published clones of the individual components while development keeps being hosted in this repository.
 

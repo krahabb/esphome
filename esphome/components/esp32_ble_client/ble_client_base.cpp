@@ -105,6 +105,7 @@ void BLEClientBase::dump_config() {
   }
 }
 
+#ifdef USE_ESP32_BLE_DEVICE
 bool BLEClientBase::parse_device(const espbt::ESPBTDevice &device) {
   if (!this->auto_connect_)
     return false;
@@ -122,6 +123,7 @@ bool BLEClientBase::parse_device(const espbt::ESPBTDevice &device) {
   this->remote_addr_type_ = device.get_address_type();
   return true;
 }
+#endif
 
 void BLEClientBase::connect() {
   ESP_LOGI(TAG, "[%d] [%s] 0x%02x Attempting BLE connection", this->connection_index_, this->address_str_.c_str(),
@@ -496,17 +498,17 @@ float BLEClientBase::parse_char_value(uint8_t *value, uint16_t length) {
       if (length > 2) {
         return (float) encode_uint16(value[1], value[2]);
       }
-      // fall through
+      [[fallthrough]];
     case 0x7:  // uint24.
       if (length > 3) {
         return (float) encode_uint24(value[1], value[2], value[3]);
       }
-      // fall through
+      [[fallthrough]];
     case 0x8:  // uint32.
       if (length > 4) {
         return (float) encode_uint32(value[1], value[2], value[3], value[4]);
       }
-      // fall through
+      [[fallthrough]];
     case 0xC:  // int8.
       return (float) ((int8_t) value[1]);
     case 0xD:  // int12.
@@ -514,12 +516,12 @@ float BLEClientBase::parse_char_value(uint8_t *value, uint16_t length) {
       if (length > 2) {
         return (float) ((int16_t) (value[1] << 8) + (int16_t) value[2]);
       }
-      // fall through
+      [[fallthrough]];
     case 0xF:  // int24.
       if (length > 3) {
         return (float) ((int32_t) (value[1] << 16) + (int32_t) (value[2] << 8) + (int32_t) (value[3]));
       }
-      // fall through
+      [[fallthrough]];
     case 0x10:  // int32.
       if (length > 4) {
         return (float) ((int32_t) (value[1] << 24) + (int32_t) (value[2] << 16) + (int32_t) (value[3] << 8) +

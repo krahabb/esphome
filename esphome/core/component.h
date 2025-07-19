@@ -171,6 +171,27 @@ class Component {
    */
   void enable_loop();
 
+  /** Thread and ISR-safe version of enable_loop() that can be called from any context.
+   *
+   * This method defers the actual enable via enable_pending_loops_ to the main loop,
+   * making it safe to call from ISR handlers, timer callbacks, other threads,
+   * or any interrupt context.
+   *
+   * @note The actual loop enabling will happen on the next main loop iteration.
+   * @note Only one pending enable request is tracked per component.
+   * @note There is no disable_loop_soon_any_context() on purpose - it would race
+   *       against enable calls and synchronization would get too complex
+   *       to provide a safe version that would work for each component.
+   *
+   *       Use disable_loop() from the main thread only.
+   *
+   *       If you need to disable the loop from ISR, carefully implement
+   *       it in the component itself, with an ISR safe approach, and call
+   *       disable_loop() in its next ::loop() iteration. Implementations
+   *       will need to carefully consider all possible race conditions.
+   */
+  void enable_loop_soon_any_context();
+
   bool is_failed() const;
 
   bool is_ready() const;
@@ -239,6 +260,22 @@ class Component {
    */
   void set_interval(const std::string &name, uint32_t interval, std::function<void()> &&f);  // NOLINT
 
+  /** Set an interval function with a const char* name.
+   *
+   * IMPORTANT: The provided name pointer must remain valid for the lifetime of the scheduler item.
+   * This means the name should be:
+   *   - A string literal (e.g., "update")
+   *   - A static const char* variable
+   *   - A pointer with lifetime >= the scheduled task
+   *
+   * For dynamic strings, use the std::string overload instead.
+   *
+   * @param name The identifier for this interval function (must have static lifetime)
+   * @param interval The interval in ms
+   * @param f The function to call
+   */
+  void set_interval(const char *name, uint32_t interval, std::function<void()> &&f);  // NOLINT
+
   void set_interval(uint32_t interval, std::function<void()> &&f);  // NOLINT
 
   /** Cancel an interval function.
@@ -247,6 +284,7 @@ class Component {
    * @return Whether an interval functions was deleted.
    */
   bool cancel_interval(const std::string &name);  // NOLINT
+  bool cancel_interval(const char *name);         // NOLINT
 
   /** Set an retry function with a unique name. Empty name means no cancelling possible.
    *
@@ -307,6 +345,22 @@ class Component {
    */
   void set_timeout(const std::string &name, uint32_t timeout, std::function<void()> &&f);  // NOLINT
 
+  /** Set a timeout function with a const char* name.
+   *
+   * IMPORTANT: The provided name pointer must remain valid for the lifetime of the scheduler item.
+   * This means the name should be:
+   *   - A string literal (e.g., "init")
+   *   - A static const char* variable
+   *   - A pointer with lifetime >= the timeout duration
+   *
+   * For dynamic strings, use the std::string overload instead.
+   *
+   * @param name The identifier for this timeout function (must have static lifetime)
+   * @param timeout The timeout in ms
+   * @param f The function to call
+   */
+  void set_timeout(const char *name, uint32_t timeout, std::function<void()> &&f);  // NOLINT
+
   void set_timeout(uint32_t timeout, std::function<void()> &&f);  // NOLINT
 
   /** Cancel a timeout function.
@@ -315,6 +369,7 @@ class Component {
    * @return Whether a timeout functions was deleted.
    */
   bool cancel_timeout(const std::string &name);  // NOLINT
+  bool cancel_timeout(const char *name);         // NOLINT
 
   /** Defer a callback to the next loop() call.
    *
@@ -325,22 +380,37 @@ class Component {
    */
   void defer(const std::string &name, std::function<void()> &&f);  // NOLINT
 
+  /** Defer a callback to the next loop() call with a const char* name.
+   *
+   * IMPORTANT: The provided name pointer must remain valid for the lifetime of the deferred task.
+   * This means the name should be:
+   *   - A string literal (e.g., "update")
+   *   - A static const char* variable
+   *   - A pointer with lifetime >= the deferred execution
+   *
+   * For dynamic strings, use the std::string overload instead.
+   *
+   * @param name The name of the defer function (must have static lifetime)
+   * @param f The callback
+   */
+  void defer(const char *name, std::function<void()> &&f);  // NOLINT
+
   /// Defer a callback to the next loop() call.
   void defer(std::function<void()> &&f);  // NOLINT
 
   /// Cancel a defer callback using the specified name, name must not be empty.
   bool cancel_defer(const std::string &name);  // NOLINT
 
+  // Ordered for optimal packing on 32-bit systems
+  const char *component_source_{nullptr};
+  uint16_t warn_if_blocking_over_{WARN_IF_BLOCKING_OVER_MS};  ///< Warn if blocked for this many ms (max 65.5s)
   /// State of this component - each bit has a purpose:
   /// Bits 0-1: Component state (0x00=CONSTRUCTION, 0x01=SETUP, 0x02=LOOP, 0x03=FAILED)
   /// Bit 2: STATUS_LED_WARNING
   /// Bit 3: STATUS_LED_ERROR
   /// Bits 4-7: Unused - reserved for future expansion (50% of the bits are free)
   uint8_t component_state_{0x00};
-  float setup_priority_override_{NAN};
-  const char *component_source_{nullptr};
-  uint16_t warn_if_blocking_over_{WARN_IF_BLOCKING_OVER_MS};  ///< Warn if blocked for this many ms (max 65.5s)
-  const char *error_message_{nullptr};
+  volatile bool pending_enable_loop_{false};  ///< ISR-safe flag for enable_loop_soon_any_context
 };
 
 /** This class simplifies creating components that periodically check a state.
@@ -401,5 +471,8 @@ class WarnIfComponentBlockingGuard {
   uint32_t started_;
   Component *component_;
 };
+
+// Function to clear setup priority overrides after all components are set up
+void clear_setup_priority_overrides();
 
 }  // namespace esphome
