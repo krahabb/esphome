@@ -1,20 +1,14 @@
-from esphome import automation
-import esphome.codegen as cg
+from esphome import automation, codegen as cg, config_validation as cv, const as ec
 from esphome.components import esp32_ble_tracker
-import esphome.config_validation as cv
-from esphome.const import (
-    CONF_BINDKEY,
-    CONF_ID,
-    CONF_MAC_ADDRESS,
-    CONF_ON_MESSAGE,
-    CONF_TRIGGER_ID,
-)
+from esphome.core import CORE
 from esphome.yaml_util import ESPHomeDumper
 
 CODEOWNERS = ["@krahabb"]
 DEPENDENCIES = ["esp32_ble_tracker"]
 AUTO_LOAD = ["binary_sensor", "sensor", "text_sensor"]
 MULTI_CONF = True
+
+ESPHOME_VERSION = cv.Version.parse(ec.__version__)
 
 CONF_VICTRON_BLE_IR_ID = "victron_ble_ir_id"
 CONF_AUTO_CREATE_ENTITIES = "auto_create_entities"
@@ -157,10 +151,7 @@ ESPHomeDumper.add_multi_representer(Array, ESPHomeDumper.represent_stringify)
 def bind_key_array(value):
     value = cv.bind_key(value)
     parts = [value[i : i + 2] for i in range(0, len(value), 2)]
-    parts_int = []
-    for part in parts:
-        parts_int.append(int(part, 16))
-    return Array(*parts_int)
+    return Array(*[int(part, 16) for part in parts])
 
 
 def bind_mac_address_or_shortened(value):
@@ -187,15 +178,15 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Manager),
-            cv.Required(CONF_MAC_ADDRESS): bind_mac_address_or_shortened,
-            cv.Required(CONF_BINDKEY): bind_key_array,
+            cv.Required(ec.CONF_MAC_ADDRESS): bind_mac_address_or_shortened,
+            cv.Required(ec.CONF_BINDKEY): bind_key_array,
             cv.Optional(CONF_AUTO_CREATE_ENTITIES): validate_auto_create_entities,
             cv.Optional(
                 CONF_LINK_CONNECTED_TIMEOUT, default="30s"
             ): cv.positive_time_period_seconds,
-            cv.Optional(CONF_ON_MESSAGE): automation.validate_automation(
+            cv.Optional(ec.CONF_ON_MESSAGE): automation.validate_automation(
                 {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(MessageTrigger),
+                    cv.GenerateID(ec.CONF_TRIGGER_ID): cv.declare_id(MessageTrigger),
                 }
             ),
         }
@@ -206,22 +197,30 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[ec.CONF_ID])
     await cg.register_component(var, config)
     await esp32_ble_tracker.register_ble_device(var, config)
 
-    cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
-    cg.add(var.set_bindkey(config[CONF_BINDKEY].as_array))
+    cg.add(var.set_address(config[ec.CONF_MAC_ADDRESS].as_hex))
+    cg.add(var.set_bindkey(config[ec.CONF_BINDKEY].as_array))
     if CONF_AUTO_CREATE_ENTITIES in config:
         cg.add(
             var.set_auto_create_entities(
                 VBIRecord_TYPE.enum(config[CONF_AUTO_CREATE_ENTITIES])
             )
         )
+        if cv.Version(2025, 8, 0) <= ESPHOME_VERSION:
+            # Add some reservation for core internal entity vectors if
+            # we need to dynamically setup entities
+            # BEWARE: we're skipping core api entry here
+            # CORE.register_platform_component(self.snake_name, None)
+            CORE.platform_counts["sensor"] += 20
+            CORE.platform_counts["text_sensor"] += 10
+
     cg.add(var.set_link_connected_timeout(config[CONF_LINK_CONNECTED_TIMEOUT]))
 
-    for conf in config.get(CONF_ON_MESSAGE, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+    for conf in config.get(ec.CONF_ON_MESSAGE, []):
+        trigger = cg.new_Pvariable(conf[ec.CONF_TRIGGER_ID], var)
         await automation.build_automation(
             trigger, [(VBIRecordConstPtr, "message")], conf
         )

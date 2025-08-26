@@ -2,7 +2,9 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
+#ifdef USE_BINARY_SENSOR
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 
 #include <array>
 #include <vector>
@@ -20,9 +22,15 @@
 namespace esphome {
 namespace m3_victron_ble_ir {
 
-class VBITextSensor;
-class VBISensor;
+#ifdef USE_BINARY_SENSOR
 class VBIBinarySensor;
+#endif
+#ifdef USE_SENSOR
+class VBISensor;
+#endif
+#ifdef USE_TEXT_SENSOR
+class VBITextSensor;
+#endif
 
 #define MANAGER_ENTITY(type, name) \
  protected: \
@@ -71,13 +79,17 @@ class Manager : public Component {
     this->auto_create_type_ = value;
   }
 
+#ifdef USE_BINARY_SENSOR
   MANAGER_ENTITY(binary_sensor::BinarySensorInitiallyOff, link_connected)
+#endif
   void set_link_connected_timeout(uint32_t timeout_seconds) { this->link_connected_timeout_ = timeout_seconds * 1000; }
 
   void register_entity(VBIEntity *entity) { this->entities_.push_back(entity); }
 
   VBIEntity *lookup_entity_type(VBIEntity::TYPE type);
+#ifdef USE_TEXT_SENSOR
   VBITextSensor *lookup_text_sensor_type(VBIEntity::TYPE type);
+#endif
 
  protected:
   uint64_t address_{};
@@ -100,8 +112,9 @@ class Manager : public Component {
   CallbackManager<void(const VBI_RECORD *)> on_message_callback_{};
 
   uint32_t link_connected_timeout_{};
+#ifdef USE_BINARY_SENSOR
   void timeout_link_connected_();
-
+#endif
 #ifdef DEBUG_VBIENTITY
   uint32_t time_loop_{};
 #endif

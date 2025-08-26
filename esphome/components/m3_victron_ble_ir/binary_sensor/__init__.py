@@ -1,7 +1,5 @@
-import esphome.codegen as cg
+from esphome import codegen as cg, config_validation as cv, const as ec
 from esphome.components import binary_sensor
-import esphome.config_validation as cv
-import esphome.const as ec
 
 from .. import (
     CONF_VICTRON_BLE_IR_ID,

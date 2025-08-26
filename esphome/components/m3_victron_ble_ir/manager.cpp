@@ -4,8 +4,12 @@
 #include "esphome/core/log.h"
 #include "esphome/components/api/api_server.h"
 
+#ifdef USE_SENSOR
 #include "sensor/sensor.h"
+#endif
+#ifdef USE_TEXT_SENSOR
 #include "text_sensor/text_sensor.h"
+#endif
 
 namespace esphome {
 namespace m3_victron_ble_ir {
@@ -213,10 +217,12 @@ bool Manager::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
     return false;
   }
 
+#ifdef USE_BINARY_SENSOR
   if (this->link_connected_) {
     this->link_connected_->publish_state(true);
     this->set_timeout("link_connected", this->link_connected_timeout_, [this]() { this->timeout_link_connected_(); });
   }
+#endif
 
   // Filter out duplicate messages
   if (victron_data->header.data_counter == this->record_.header.data_counter) {
@@ -274,6 +280,7 @@ VBIEntity *Manager::lookup_entity_type(VBIEntity::TYPE type) {
   return nullptr;
 }
 
+#ifdef USE_TEXT_SENSOR
 VBITextSensor *Manager::lookup_text_sensor_type(VBIEntity::TYPE type) {
   for (auto entity : this->entities_) {
     // When checking for existing entities we exclude (eventual) BinarySensors
@@ -284,6 +291,7 @@ VBITextSensor *Manager::lookup_text_sensor_type(VBIEntity::TYPE type) {
   }
   return nullptr;
 }
+#endif
 
 void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
   this->init_entities_ = false;
@@ -298,6 +306,7 @@ void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
     this->auto_create_(record_type);
   }
 
+#ifdef USE_TEXT_SENSOR
   auto &entities = this->entities_;
   // setup a temp vector for 2 stage initialization
   std::vector<VBIEntity *> conditional_entities;
@@ -333,6 +342,7 @@ void Manager::init_(VBI_RECORD::HEADER::TYPE record_type) {
                selector_entity->def.label, conditional_entity->def.label);
     }
   }
+#endif
 }
 
 void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
@@ -358,6 +368,7 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
       continue;
 
     switch (VBIEntity::DEFS[record_def.first].cls) {
+#ifdef USE_TEXT_SENSOR
       case VBIEntity::CLASS::ENUMERATION: {
         auto text_sensor = new VBITextSensor(this, record_def.first);
         App.register_text_sensor(text_sensor);
@@ -366,23 +377,41 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
             api::global_api_server->on_text_sensor_update(text_sensor, state);
           });
       } break;
+#endif
       default: {
+#ifdef USE_SENSOR
         auto sensor = new VBISensor(this, record_def.first);
         App.register_sensor(sensor);
         if (api_server)
           sensor->add_on_state_callback(
               [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
+#else
+#ifdef USE_TEXT_SENSOR
+        auto text_sensor = new VBITextSensor(this, record_def.first);
+        App.register_text_sensor(text_sensor);
+        if (api_server)
+          text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
+            api::global_api_server->on_text_sensor_update(text_sensor, state);
+          });
+#else
+        ESP_LOGE(TAG, "[auto_create_entities] no platform support for '%s' record field",
+                 VBIEntity::DEFS[record_def.first].label);
+#endif
+
+#endif
       }
     }
   }
 }
 
+#ifdef USE_BINARY_SENSOR
 void Manager::timeout_link_connected_() {
   for (auto entity : this->entities_) {
     entity->link_disconnected();
   }
   this->link_connected_->publish_state(false);
 }
+#endif
 
 }  // namespace m3_victron_ble_ir
 }  // namespace esphome
