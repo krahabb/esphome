@@ -1,0 +1,222 @@
+# Example configuration.yaml entry
+#
+# For more details about this component, please refer to the documentation
+# WARNING: not tested with ESP32 (see README notes)
+
+external_components:
+  # source: github://krahabb/esphome # development repo
+  source: github://krahabb/esphome-easun-6048
+
+uart:
+  - id: uart_bus
+    tx_pin:
+      number: GPIO15
+      mode: OUTPUT_OPEN_DRAIN
+    rx_pin: GPIO13
+    baud_rate: 9600
+    data_bits: 8
+    stop_bits: 1
+    parity: NONE
+
+m3_easun6048:
+  - id: easun6048_1
+    uart_id: uart_bus
+    serial_mode: slave  # Required: master or slave
+    update_interval: 5s  # Optional: used only in master mode, default is 1s
+    # In 'master' mode the component itself issues the polling commands
+    # In 'slave' mode the component just listens to the bus and decodes the frames (relying on the display board to issue the polling commands)
+    # According to my MPPT controller the display board issues polling requests every 600ms.
+    # These consist of 5 status requests - 1 config request (1 request every 600ms - total cycle time is 3.6s)
+
+binary_sensor:
+  - platform: m3_easun6048
+    easun6048_id: easun6048_1
+    link_connected:
+      name: "Link Connected"
+
+# Entities can be configured to be linked to either the 'status' or the 'config' frame
+# When linking to a specific frame, you specify the offset, size, and scale, of the data
+# field inside that frame in order to extract/set the value.
+# Position and semantics of the different fields can be found in
+# https://github.com/frankB415/easun6048_display_sniffer/tree/main?tab=readme-ov-file#protocol-itself
+
+number:
+  - platform: m3_easun6048
+    easun6048_id: easun6048_1
+    config_frame:
+      - name: "Equalization voltage"
+        offset: 3 # Required
+        scale: 0.1 # Optional, default is 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+        min: 9.0  # Optional: default is {90*scale},
+        max: 16.0 # Optional: default is {160*scale},
+        step: 0.1 # Optional: default is {scale}
+      - name: "Boost voltage"
+        offset: 4
+        scale: 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+      - name: "Float voltage"
+        offset: 5
+        scale: 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+      - name: "Boost recharge voltage"
+        offset: 6
+        scale: 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+      - name: "Load reconnect voltage"
+        offset: 7
+        scale: 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+      - name: "Load disconnect voltage"
+        offset: 8
+        scale: 0.1
+        unit_of_measurement: "V"
+        device_class: voltage
+        mode: BOX
+
+select:
+  - platform: m3_easun6048
+    easun6048_id: easun6048_1
+    config_frame:
+      - name: "Battery nominal voltage"
+        offset: 1 # Required
+        options: # Required: list of "{raw_value}:{display_value}" mappings
+          - "12:12V"
+          - "24:24V"
+          - "36:36V"
+          - "48:48V"
+          - "255:Auto"
+      - name: "Battery type"
+        offset: 2
+        options:
+          - "0:Gel"
+          - "1:Sealed"
+          - "2:Flooded"
+          - "3:User"
+          - "4:Li"
+      - name: "Load configuration"
+        offset: 9
+        options: # These are preliminary: I'm not sure about the exact meaning of all these values
+          - "0:All night"
+          - "1:1 hour"
+          - "2:2 hours"
+          - "3:3 hours"
+          - "4:4 hours"
+          - "5:5 hours"
+          - "6:6 hours"
+          - "7:7 hours"
+          - "8:8 hours"
+          - "9:9 hours"
+          - "10:10 hours"
+          - "11:11 hours"
+          - "12:12 hours"
+          - "13:13 hours"
+          - "14:14 hours"
+          - "15:Manual"
+          - "16:Day off/Night on"
+          - "17:Always on"
+          - "255:Disabled"
+
+sensor:
+  - platform: m3_easun6048
+    easun6048_id: easun6048_1
+    status_frame:
+      - name: "Offset 1"
+        # It looks like the highest bit carries the output state (on/off)
+        # other bits are changing too and they appear to be correlated with the charging phase
+        offset: 1 # Required
+        type: u8 # Optional: u8, u16, u32, i8, i16, i32 (default: u8)
+        accuracy_decimals: 0
+        unit_of_measurement: ""
+        state_class: measurement
+      - name: "Offset 2"
+        # More or less like offset 1: bits look like changing with varying charging phase/status
+        offset: 2
+        type: u8
+        accuracy_decimals: 0
+        unit_of_measurement: ""
+        state_class: measurement
+      - name: "Detected battery voltage"
+        offset: 3
+        type: u8
+        accuracy_decimals: 0
+        unit_of_measurement: "V"
+        device_class: voltage
+      - name: "Offset 4"
+        # No clue: always reporting 0 - This might be the highest part of a 16 bit alarm mask
+        # together with offset 5 which seems to be the lower part of that mask. If this is true,
+        # the bitmask might correspond to Annex Table 5 in MPPT MODBUS protocol documentation for
+        # Easun 6048 charger
+        offset: 4
+        type: u8
+        accuracy_decimals: 0
+        unit_of_measurement: ""
+        state_class: measurement
+      - name: "Error code"
+        # I'm pretty sure this carries 'alarms' from the controller.
+        # In my test I got a value of '2' when the battery voltage was too high.
+        offset: 5
+        type: u8
+        accuracy_decimals: 0
+        unit_of_measurement: ""
+      - name: "Battery Voltage"
+        offset: 6 # Required
+        type: u16
+        scale: 0.1 # Optional, default is 1.0
+        accuracy_decimals: 1
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+      - name: "PV Voltage" # This is very noisy and might need some filtering
+        offset: 8
+        type: u16
+        scale: 0.1
+        accuracy_decimals: 0
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+      - name: "Battery Current"
+        offset: 10
+        type: u16
+        scale: 0.1
+        accuracy_decimals: 1
+        unit_of_measurement: "A"
+        device_class: current
+        state_class: measurement
+      - name: "Temperature"
+        offset: 12
+        accuracy_decimals: 0
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: "PV Energy"
+        offset: 13
+        type: u16
+        accuracy_decimals: 0
+        unit_of_measurement: "Wh"
+        device_class: energy
+        state_class: total_increasing
+      - name: "SOC"
+        offset: 15
+        accuracy_decimals: 0
+        unit_of_measurement: "%"
+        device_class: battery
+        state_class: measurement
+
+text_sensor:
+  - platform: m3_easun6048
+    easun6048_id: easun6048_1
+    status_frame:
+      name: "Status Frame"
+    config_frame:
+      name: "Config Frame"
