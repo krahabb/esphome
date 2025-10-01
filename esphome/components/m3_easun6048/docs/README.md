@@ -11,14 +11,27 @@ since status and config data are continuosly polled by the display controller an
 As stated, in order to connect the ESP to the charge controller you have to open the case and 'intercept' the 4-wires cable connecting the main board to the display. Here you'll have:
 
 
-|MAIN BOARD||ESP||DISPLAY|
-|-|-|-|-|-|
-|GND[^1]| --------|GND|--------------------------- |GND|
-|TX|  --------|RX|--------------------------- |RX|
-|RX|  --------|TX|-----(10Kohm resistor)----- |TX|
-|3.3| --------|3.3|--------------------------- |3.3|
+<table>
+<tr>
+<td>
 
-[^1] I'm currently unable to provide a correct pin ordering/numbering for the 4-wire bus so you'd have to check it yourself. I'll post better infos when I'll be able to re-open the controller case.
+|PIN|MAIN BOARD||ESP||DISPLAY|
+|:-|:-:|:-:|:-:|:-:|:-:|
+|1 [^1]|GND| --------|GND|--------------------------- |GND|
+|2|RX|  --------|TX|----(10Kohm resistor)---- |TX|
+|3|TX|  --------|RX|--------------------------- |RX|
+|4|3.3| --------|3.3|--------------------------- |3.3|
+
+</td>
+<td>
+
+![Picture](/components/m3_easun6048/docs/m3_easun6048_pinout.webp)
+
+</td>
+</tr>
+</table>
+
+[^1] Due to my limited authoring capabilities and approximate workflow I'm currently unable to ensure this is the correct pin ordering/numbering for the 4-wire bus so you'd have to check it yourself.
 
 Signals are 3.3V so that you can just wire-in your ESP to the bus without any further logic. Be careful when connecting the TX line since you might have both the display board and your ESP UART driving the line with conflicting signals. A resistor at least (as indicated) is needed in order to prevent short-circuiting the two outputs together. Also, in order to allow the display board TX line to correctly drive the bus, you'd have to configure the ESP TX output as `OPEN DRAIN`.
 
