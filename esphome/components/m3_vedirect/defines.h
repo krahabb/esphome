@@ -22,6 +22,11 @@ class Register;
 // reply after which we consider the command unsuccesful
 #define VEDIRECT_COMMAND_TIMEOUT_MILLIS 1000
 
+// maximum number of pending requests (GET/SET/COMMAND) we can queue/track
+#ifndef VEDIRECT_REQUEST_QUEUE_SIZE
+#define VEDIRECT_REQUEST_QUEUE_SIZE 5
+#endif
+
 // Helpers for unordered_map with const char* key
 #if __cpp_constexpr >= 201304L
 #define _RELAXEDCONSTEXPR constexpr

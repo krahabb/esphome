@@ -24,8 +24,11 @@ Register *TextSensor::build_entity(Manager *manager, const char *name, const cha
 }
 
 void TextSensor::link_disconnected_() {
-  this->raw_value_ = BITMASK_DEF::VALUE_UNKNOWN;
-  this->publish_state("unknown");
+  if (this->has_state()) {
+    this->raw_value_ = BITMASK_DEF::VALUE_UNKNOWN;
+    this->publish_state("unknown");
+    this->set_has_state(false);
+  }
 }
 
 void TextSensor::init_reg_def_() {

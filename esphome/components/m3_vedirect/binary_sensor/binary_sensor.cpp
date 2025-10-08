@@ -29,6 +29,15 @@ Register *BinarySensor::build_entity(Manager *manager, const char *name, const c
   return entity;
 }
 
+void BinarySensor::link_disconnected_() {
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 7, 0)
+  // Assuming the StatefulEntityBase implementation was released here.
+  this->invalidate_state();
+#else
+  this->set_has_state(false);
+#endif
+}
+
 void BinarySensor::init_reg_def_() {
   switch (this->reg_def_->cls) {
     case REG_DEF::CLASS::BITMASK:

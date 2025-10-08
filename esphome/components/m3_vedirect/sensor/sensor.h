@@ -28,8 +28,8 @@ class Sensor final : public NumericRegister, public Register, public esphome::se
   float text_scale_{1.};
 
   void link_disconnected_() override;
-
   void init_reg_def_() override;
+
 #if defined(VEDIRECT_USE_HEXFRAME)
   static void parse_hex_default_(Register *hex_register, const RxHexFrame *hex_frame);
   static void parse_hex_kelvin_(Register *hex_register, const RxHexFrame *hex_frame);

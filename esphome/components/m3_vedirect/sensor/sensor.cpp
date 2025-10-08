@@ -37,7 +37,12 @@ Register *Sensor::build_entity(Manager *manager, const char *name, const char *o
   return entity;
 }
 
-void Sensor::link_disconnected_() { this->publish_state(NAN); }
+void Sensor::link_disconnected_() {
+  if (this->has_state()) {
+    this->publish_state(NAN);
+    this->set_has_state(false);
+  }
+}
 
 void Sensor::init_reg_def_() {
   auto reg_def = this->reg_def_;

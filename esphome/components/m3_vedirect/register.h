@@ -111,10 +111,27 @@ class Register {
 
 /// @brief Mixin style specialization for entities that can write configuration data to
 /// the VEDirect interface (Number, Select, Switch)
-class WritableRegister {
+class WritableRegister : public Register {
  public:
   Manager *const manager;
-  WritableRegister(Manager *manager) : manager(manager) {}
+
+ protected:
+#if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
+  WritableRegister(Manager *manager, parse_hex_func_t parse_hex_func = parse_hex_empty_,
+                   parse_text_func_t parse_text_func = parse_text_empty_)
+      : Register(parse_hex_func, parse_text_func), manager(manager) {}
+#elif defined(VEDIRECT_USE_HEXFRAME)
+  WritableRegister(Manager *manager, parse_hex_func_t parse_hex_func = parse_hex_empty_)
+      : Register(parse_hex_func), manager(manager) {}
+#elif defined(VEDIRECT_USE_TEXTFRAME)
+  // We don't really need WritableRegister for TEXTFRAME only entities but let's keep the symmetry
+  WritableRegister(Manager *manager, parse_text_func_t parse_text_func = parse_text_empty_)
+      : Register(parse_text_func), manager(manager) {}
+#endif
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+  void request_set_(uint32_t value, std::function<void(const HexFrame *, uint8_t)> &&callback);
+#endif
 };
 
 /// @brief Mixin style specialization for Number and Sensor entities.

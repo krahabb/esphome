@@ -6,14 +6,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Number final : public WritableRegister, public NumericRegister, public Register, public esphome::number::Number {
+class Number final : public WritableRegister, public NumericRegister, public esphome::number::Number {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_, parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_, parse_text_empty_) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Number(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : WritableRegister(manager), Register(parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_text_empty_) {}
 #endif
 
   static Register *build_entity(Manager *manager, const char *name, const char *object_id);
@@ -23,10 +23,9 @@ class Number final : public WritableRegister, public NumericRegister, public Reg
   void link_disconnected_() override;
   void init_reg_def_() override;
 
-// interface esphome::number::Number
+  // interface esphome::number::Number
 #if defined(VEDIRECT_USE_HEXFRAME)
   void control(float value) override;
-  static void request_callback_(void *callback_param, const RxHexFrame *hex_frame);
 #else
   void control(float value) override {}
 #endif

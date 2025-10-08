@@ -6,14 +6,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Select final : public WritableRegister, public Register, public esphome::select::Select {
+class Select final : public WritableRegister, public esphome::select::Select {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Select(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_, parse_text_default_) {}
+  Select(Manager *manager) : WritableRegister(manager, parse_hex_default_, parse_text_default_) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Select(Manager *manager) : WritableRegister(manager), Register(parse_hex_default_) {}
+  Select(Manager *manager) : WritableRegister(manager, parse_hex_default_) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Select(Manager *manager) : WritableRegister(manager), Register(parse_text_default_) {}
+  Select(Manager *manager) : WritableRegister(manager, parse_text_default_) {}
 #endif
 
   static Register *build_entity(Manager *manager, const char *name, const char *object_id);
@@ -30,7 +30,6 @@ class Select final : public WritableRegister, public Register, public esphome::s
 // interface esphome::select::Select
 #if defined(VEDIRECT_USE_HEXFRAME)
   void control(const std::string &value) override;
-  static void request_callback_(void *callback_param, const RxHexFrame *hex_frame);
 #else
   void control(const std::string &value) override {}
 #endif

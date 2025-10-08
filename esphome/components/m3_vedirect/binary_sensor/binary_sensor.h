@@ -25,6 +25,7 @@ class BinarySensor final : public Register, public esphome::binary_sensor::Binar
 
   uint32_t mask_{0xFFFFFFFF};
 
+  void link_disconnected_() override;
   void init_reg_def_() override;
   inline void parse_bitmask_(BITMASK_DEF::bitmask_t bitmask_value) override {
     this->publish_state(bitmask_value & this->mask_);

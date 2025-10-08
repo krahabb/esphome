@@ -1,4 +1,5 @@
 #include "register.h"
+#include "manager.h"
 
 namespace esphome {
 namespace m3_vedirect {
@@ -49,6 +50,13 @@ Register *Register::cascade_dispatcher_(Register *_register) {
   auto dispatcher = new RegisterDispatcher(this);
   return dispatcher->cascade_dispatcher_(_register);
 }
+
+#if defined(VEDIRECT_USE_HEXFRAME)
+void WritableRegister::request_set_(uint32_t value, std::function<void(const HexFrame *, uint8_t)> &&callback) {
+  this->manager->request_set(this->reg_def_->register_id, &value,
+                             HEXFRAME::DATA_TYPE_TO_SIZE[this->reg_def_->data_type], std::move(callback));
+}
+#endif
 
 const char *NumericRegister::UNIT_TO_DEVICE_CLASS[REG_DEF::UNIT::UNIT_COUNT] = {
     nullptr,  nullptr,   "current", "voltage",  "apparent_power", "power",       nullptr,
