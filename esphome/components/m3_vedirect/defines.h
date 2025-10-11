@@ -1,5 +1,6 @@
 #pragma once
 #include "ve_reg_def.h"
+#include "esphome/core/version.h"
 #include <stddef.h>
 #include <cstring>
 

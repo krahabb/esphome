@@ -33,7 +33,6 @@ const std::vector<Manager *> Manager::get_managers(const std::string &vedirect_i
 }
 
 void Manager::setup() {
-  Register::update_platforms();
   char *buf = new char[sizeof(TAG) + strlen(this->vedirect_id_)];
   sprintf(buf, TAG, this->vedirect_id_);
   this->logtag_ = buf;
@@ -114,54 +113,37 @@ void Manager::init_register(Register *reg, const char *label) {
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
+void Manager::init_entity(EntityBase *entity, const char *name) {
+  // TODO: maybe re-think all this naming since we're adding
+  // bits of memory fragmentation here and there..
+  const int name_len = strlen(name);
+  const int manager_name_len = this->vedirect_name_ ? strlen(this->vedirect_name_) : 0;
+  if (manager_name_len) {
+    char *entity_name = new char[manager_name_len + name_len + 2];
+    sprintf(entity_name, "%s.%s", this->vedirect_name_, name);
+    entity->set_name(entity_name);
+  } else {
+    entity->set_name(name);
+  }
+  char *entity_object_id = new char[strlen(this->vedirect_id_) + name_len + 2];
+  sprintf(entity_object_id, "%s_%s", this->vedirect_id_, name);
+  entity->set_object_id(entity_object_id);
+}
+
 Register *Manager::get_register(register_id_t register_id, bool auto_create) {
   auto entity_iter = this->hex_registers_.find(register_id);
   if (entity_iter == this->hex_registers_.end()) {
     if (auto_create) {
-      // @todo: limit the number of auto-created registers since the new EspHome core
-      // uses static pre-allocation for entities vectors and we have to manage this constraint
-      // without setting up too large preallocations.
       ESP_LOGD(this->logtag_, "Auto-Creating HEX register: %04X", (int) register_id);
-      Register *hex_register;
+      // if we have a predefined register definition use it to build the most appropriate entity
       auto reg_def = REG_DEF::find_register_id(register_id);
-      if (reg_def) {
-        switch (reg_def->cls) {
-          case REG_DEF::CLASS::NUMERIC:
-            if (reg_def->access == REG_DEF::ACCESS::READ_WRITE) {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::Number](this, reg_def->label, reg_def->label);
-            } else {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::Sensor](this, reg_def->label, reg_def->label);
-            }
-            break;
-          case REG_DEF::CLASS::BOOLEAN:
-            if (reg_def->access == REG_DEF::ACCESS::READ_WRITE) {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::Switch](this, reg_def->label, reg_def->label);
-            } else {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::BinarySensor](this, reg_def->label, reg_def->label);
-            }
-            break;
-          case REG_DEF::CLASS::ENUM:
-            if (reg_def->access == REG_DEF::ACCESS::READ_WRITE) {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::Select](this, reg_def->label, reg_def->label);
-            } else {
-              hex_register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, reg_def->label, reg_def->label);
-            }
-            break;
-          case REG_DEF::CLASS::BITMASK: {
-            hex_register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, reg_def->label, reg_def->label);
-          } break;
-          default:
-            hex_register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, reg_def->label, reg_def->label);
-        }
-      } else {
+      if (!reg_def) {
         // else build a raw text sensor
-        char *object_id = new char[7];
-        sprintf(object_id, "0x%04X", (int) register_id);
         char *name = new char[16];
-        sprintf(name, "Register %s", object_id);
-        hex_register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, name, object_id);
-        reg_def = new REG_DEF(register_id);
+        sprintf(name, "register_0x%04X", (int) register_id);
+        reg_def = new REG_DEF(register_id, name, REG_DEF::CLASS::VOID, REG_DEF::ACCESS::READ_ONLY);
       }
+      Register *hex_register = Register::build_entity_from_regdef(this, reg_def);
       this->init_register(hex_register, reg_def);
       return hex_register;
     } else {
@@ -459,14 +441,14 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
           if (reg_def) {
             _register = this->get_register(reg_def->register_id, true);
           } else {
-            _register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label, label);
+            _register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
           }
         } else {
           // We lack the definition for this TEXT RECORD so
           // we return a plain TextSensor entity.
           // We allocate a copy since the label param is 'volatile'
           label = strdup(text_record->name);
-          _register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label, label);
+          _register = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
         }
         // no need to check for cascading -> emplace straight
         this->text_registers_.emplace(label, _register);

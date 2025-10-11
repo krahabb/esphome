@@ -26,9 +26,14 @@ const uint8_t Sensor::SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT] = {
     2,  // S_0_25,
 };
 
-Register *Sensor::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *Sensor::build_entity(Manager *manager, const char *name) {
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
+  if (App.get_sensors().size() >= ESPHOME_ENTITY_SENSOR_COUNT) {
+    return Register::drop_platform(manager, Platform::Sensor);
+  }
+#endif
   auto entity = new Sensor(manager);
-  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  manager->init_entity(entity, name);
   App.register_sensor(entity);
 #ifdef USE_API
   if (api::global_api_server)

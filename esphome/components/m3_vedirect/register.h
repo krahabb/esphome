@@ -1,10 +1,9 @@
 #pragma once
 
-#include "esphome/core/entity_base.h"
-
 #include "defines.h"
 #include "ve_reg_frame.h"
 
+#include <functional>
 #include <vector>
 
 namespace esphome {
@@ -25,10 +24,10 @@ class Register {
   // through yaml generation, the generator will also add a registration
   // for the corresponding entity 'build_entity' function so that the Manager
   // will be able to instantiate the correct entity. By default, we setup a
-  // build function for a plain base 'Entity' object for every specialized type
+  // build function for a plain base 'Register' object for every specialized type
   // so that the Manager will always instantiate an object (which will have no
   // behavior other than working as a stub in this case).
-  typedef Register *(*build_entity_func_t)(Manager *manager, const char *name, const char *object_id);
+  typedef Register *(*build_entity_func_t)(Manager *manager, const char *name);
   enum Platform {
     BinarySensor,
     Number,
@@ -38,14 +37,39 @@ class Register {
     TextSensor,
     Platform_COUNT,
   };
-  static void register_platform(Platform platform, build_entity_func_t build_entity_func) {
-    BUILD_ENTITY_FUNC[platform] = build_entity_func;
-  }
 
-  // Called by Manager initializer (should just be called once but no harm if multiple invocations)
-  // This will 'fix' missing platforms registration by filling in with the most appropriate
-  // build_entity_func_t for the case.
-  static void update_platforms();
+ private:
+  /// @brief Maps a platform to a factory function for building an entity of that platform.
+  /// This is populated by yaml generated code when a platform is enabled
+  /// in the component configuration.
+  /// If a platform is not registered, the Manager will try to
+  /// substitute it with the most appropriate available platform
+  /// (see Register::update_platforms)
+  static build_entity_func_t BUILD_ENTITY_FUNC[Platform_COUNT];
+  /// @brief Maps a 'register definition' (through REG_DEF::CLASS and REG_DEF::ACCESS)
+  /// to the most appropriate Platform factory function.
+  static const Platform REGDEF_FACTORY_MAP[REG_DEF::CLASS::CLASS_COUNT][REG_DEF::ACCESS::ACCESS_COUNT];
+
+ public:
+  /// @brief Default build function for a plain Register object.
+  /// This (or a more specific platform version) is used to build a specific entity/register
+  /// when the corresponding platform is requested when dynamically creating entities (see
+  /// Manager::get_register).
+  static Register *build_entity(Manager *manager, const char *name);
+
+  /// @brief Builds an entity based off the provided register definition
+  /// using the most appropriate platform available.
+  /// This is used by the Manager when dynamically creating entities
+  /// based off the register definitions (REG_DEF::DEFS).
+  /// @param reg_def: the register definition to be used for building the entity
+  /// @return a new entity of the most appropriate platform or a plain Register.
+  static Register *build_entity_from_regdef(Manager *manager, const REG_DEF *reg_def) {
+    return BUILD_ENTITY_FUNC[REGDEF_FACTORY_MAP[reg_def->cls][reg_def->access]](manager, reg_def->label);
+  }
+  /// @brief Drops the platform 'build_entity' for the specified platform
+  /// and returns a plain Register object instead. This is used when a platform 'build_entity'
+  /// function detects we've run out of available space for entities registration.
+  static Register *drop_platform(Manager *manager, Platform platform);
 
   const REG_DEF *get_reg_def() const { return this->reg_def_; }
   register_id_t get_register_id() const {
@@ -63,12 +87,6 @@ class Register {
 #endif
 
  protected:
-  static build_entity_func_t BUILD_ENTITY_FUNC[Platform_COUNT];
-  static Register *build_entity(Manager *manager, const char *name, const char *object_id) { return new Register(); }
-  // Called by the actual platform implementation to setup its EntityBase properties
-  static void dynamic_init_entity_(EntityBase *entity, const char *name, const char *object_id,
-                                   const char *manager_name, const char *manager_id);
-
   const REG_DEF *reg_def_;
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
   Register(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)

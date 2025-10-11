@@ -15,9 +15,14 @@ namespace m3_vedirect {
 static const char *const TAG = "m3_vedirect.switch";
 #endif
 
-Register *Switch::build_entity(Manager *manager, const char *name, const char *object_id) {
+Register *Switch::build_entity(Manager *manager, const char *name) {
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
+  if (App.get_switches().size() >= ESPHOME_ENTITY_SWITCH_COUNT) {
+    return Register::drop_platform(manager, Platform::Switch);
+  }
+#endif
   auto entity = new Switch(manager);
-  Register::dynamic_init_entity_(entity, name, object_id, manager->get_vedirect_name(), manager->get_vedirect_id());
+  manager->init_entity(entity, name);
   App.register_switch(entity);
 #ifdef USE_API
   if (api::global_api_server)

@@ -166,8 +166,13 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
   // CONFIGURATION END
 
-  Register *get_register(register_id_t register_id, bool auto_create);
+  const char *get_logtag() const { return this->logtag_; }
   bool is_connected() const { return this->connected_; }
+  /// @brief Initialize an entity (Register) with the correct naming/id scheme
+  /// when dynamically created by the Manager.
+  void init_entity(EntityBase *entity, const char *name);
+
+  Register *get_register(register_id_t register_id, bool auto_create);
 
 #if defined(VEDIRECT_USE_HEXFRAME)
   // The VEDirect port looks like not buffering enough incoming requests so that they'll

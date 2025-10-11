@@ -16,7 +16,14 @@ class BinarySensor final : public Register, public esphome::binary_sensor::Binar
   BinarySensor(Manager *Manager) : Register(parse_text_default_) {}
 #endif
 
-  static Register *build_entity(Manager *manager, const char *name, const char *object_id);
+  /// @brief Factory method to build a TextSensor entity for a given Manager
+  /// This is installed (see Register::register_platform) by yaml generated code
+  ///  when setting up this platform.
+  /// @param manager the Manager instance to which this entity will be linked
+  /// @param name the name of the entity
+  /// @param object_id the object_id of the entity
+  /// @return the newly created TextSensor->Register entity
+  static Register *build_entity(Manager *manager, const char *name);
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 
