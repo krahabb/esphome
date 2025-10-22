@@ -14,14 +14,125 @@
 
 #include "defines.h"
 #include "ve_reg_frame.h"
+#include "register.h"
 
-#include <unordered_map>
 #include <string_view>
 #include <string>
+#include <cstring>
 #include <vector>
 
 namespace esphome {
 namespace m3_vedirect {
+
+// Optimized container(s) for our HEX/TEXT registers collections.
+struct hash_textlabel {
+  constexpr size_t operator()(const char *s) const {
+    // validated on the actual set of VEDirect TEXT labels.
+    // this looks like a good trade-off between speed, size, and collisions
+    unsigned char hash = *s;
+    while (auto _s = *++s) {
+      hash = (hash << 1) + _s;
+    }
+    return hash;
+  }
+};
+
+#if defined(VEDIRECT_CONTAINER_TINYMAP)
+#include "containers.h"
+
+struct hash_register_id {
+  constexpr size_t operator()(register_id_t id) const {
+    // This hash will be masked inside TinyMap to fit MAP_SIZE.
+    // The idea for this hash is to just use the low bits
+    // (which prove to be the most selective) of the register id
+    // up to the size of the map.
+    return id;
+  }
+};
+
+class HexRegistersMap : public TinyMap<VEDIRECT_HEXMAP_SIZE, register_id_t, Register *, Register, hash_register_id> {
+ public:
+  using base_type = TinyMap<VEDIRECT_HEXMAP_SIZE, register_id_t, Register *, Register, hash_register_id>;
+};
+
+struct compare_textlabel {
+  constexpr int operator()(const char *key_low, const char *key_high) const { return strcmp(key_high, key_low); }
+};
+
+class TextRegistersMap : public TinyMap<VEDIRECT_TEXTMAP_SIZE, const char *, Register *,
+                                        SimpleBucket<const char *, Register *>, hash_textlabel, compare_textlabel> {
+ public:
+  using base_type = TinyMap<VEDIRECT_TEXTMAP_SIZE, const char *, Register *, SimpleBucket<const char *, Register *>,
+                            hash_textlabel, compare_textlabel>;
+
+  Register *find(const char *key) const {
+    auto bucket = base_type::find(key);
+    return bucket ? bucket->bucket_value() : nullptr;
+  }
+};
+
+#else
+#include <unordered_map>
+
+struct hash_register_id {
+  constexpr size_t operator()(register_id_t id) const {
+    // This hash only returns [0, 256) values
+    return (id & 0x00FF) ^ ((id & 0x0F00) >> 4) ^ ((id & 0xF000) >> 12);
+  }
+};
+class HexRegistersMap : public std::unordered_map<register_id_t, Register *, hash_register_id> {
+ public:
+  using base_type = std::unordered_map<register_id_t, Register *, hash_register_id>;
+
+  HexRegistersMap() {
+    this->max_load_factor(100.0f);
+    this->rehash(VEDIRECT_HEXMAP_SIZE);
+  }
+
+  Register *find(register_id_t key) const {
+    auto it = base_type::find(key);
+    return (it == this->end()) ? nullptr : it->second;
+  }
+
+  void insert(register_id_t key, Register *value) {
+    auto result = this->emplace(key, value);
+    if (result.second) {
+      // register_id already present in our set so we must setup/update a RegisterDispatcher
+      auto &existing_pair = *result.first;
+      existing_pair.second = existing_pair.second->cascade_dispatcher_(value);
+    }
+  }
+};
+
+struct equal_textlabel {
+  constexpr bool operator()(const char *__x, const char *__y) const { return !strcmp(__x, __y); }
+};
+
+class TextRegistersMap : public std::unordered_map<const char *, Register *, hash_textlabel, equal_textlabel> {
+ public:
+  using base_type = std::unordered_map<const char *, Register *, hash_textlabel, equal_textlabel>;
+
+  TextRegistersMap() {
+    this->max_load_factor(100.0f);
+    this->rehash(VEDIRECT_TEXTMAP_SIZE);
+  }
+
+  Register *find(const char *key) const {
+    auto it = base_type::find(key);
+    return (it == this->end()) ? nullptr : it->second;
+  }
+
+  void insert(const char *key, Register *value) {
+    auto result = this->emplace(key, value);
+    if (!result.second) {
+      // label already present in our set so we must setup/update a RegisterDispatcher
+      auto &existing_pair = *result.first;
+      existing_pair.second = existing_pair.second->cascade_dispatcher_(value);
+    }
+  }
+};
+
+#endif  // defined(VEDIRECT_CONTAINER_TINYMAP)
 
 #define MANAGER_ENTITY_(type, name) \
  protected: \
@@ -53,11 +164,6 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   };
 
   typedef std::function<void(const HexFrame *, uint8_t)> request_callback_t;
-  // TODO: Substitute with sorted vector(s)
-  typedef std::unordered_map<register_id_t, Register *> hex_registers_t;
-#if defined(VEDIRECT_USE_TEXTFRAME)
-  typedef std::unordered_map<const char *, Register *, cstring_hash, cstring_eq> text_registers_t;
-#endif
 
   static const std::vector<Manager *> get_managers(const std::string &vedirect_id);
 
@@ -168,6 +274,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 
   const char *get_logtag() const { return this->logtag_; }
   bool is_connected() const { return this->connected_; }
+
   /// @brief Initialize an entity (Register) with the correct naming/id scheme
   /// when dynamically created by the Manager.
   void init_entity(EntityBase *entity, const char *name);
@@ -221,8 +328,11 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   bool is_request_pending() const { return this->requests_read_; }
   bool is_request_queue_full() const { return this->requests_read_ == this->requests_write_; }
 
+#if defined(VEDIRECT_CONTAINER_TINYMAP)
+  bool is_polling() const { return !this->polling_registers_it_.is_end(); }
+#else
   bool is_polling() const { return this->polling_registers_begin_; }
-
+#endif
 #endif  //  defined(VEDIRECT_USE_HEXFRAME)
 
  protected:
@@ -232,7 +342,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   const char *vedirect_id_{nullptr};
   const char *vedirect_name_{nullptr};
 
-  hex_registers_t hex_registers_;
+  HexRegistersMap hex_registers_;
 
   // component state
   bool connected_{false};
@@ -265,9 +375,13 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   void request_response_(Request *request, const HexFrame *response, Error error);
 
   /// @brief Polling context for HEX registers on connection
+#if defined(VEDIRECT_CONTAINER_TINYMAP)
+  HexRegistersMap::iterator polling_registers_it_;
+#else
   register_id_t *polling_registers_begin_{nullptr};
   register_id_t *polling_registers_end_{nullptr};
   register_id_t *polling_registers_it_{nullptr};
+#endif
   void poll_next_register_();
 
   void on_frame_hex_(const RxHexFrame &hexframe) override;
@@ -277,11 +391,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #if defined(VEDIRECT_USE_TEXTFRAME)
   bool auto_create_text_entities_{true};
 
-  // Map entities/registers by TEXT frame record names so that we can forward
-  // data while parsing.
-
-  text_registers_t text_registers_;
-  void emplace_text_register_(const char *label, Register *_register);
+  TextRegistersMap text_registers_;
 
   void on_frame_text_(TextRecord **text_records, uint8_t text_records_count) override;
   void on_frame_text_error_(FrameHandler::Error error) override;

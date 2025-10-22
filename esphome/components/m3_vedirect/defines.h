@@ -28,30 +28,17 @@ class Register;
 #define VEDIRECT_REQUEST_QUEUE_SIZE 5
 #endif
 
-// Helpers for unordered_map with const char* key
-#if __cpp_constexpr >= 201304L
-#define _RELAXEDCONSTEXPR constexpr
-#else
-#define _RELAXEDCONSTEXPR
+// number of pre-allocated buckets in HEX registers map (see HexRegisterMap)
+#ifndef VEDIRECT_HEXMAP_SIZE
+#define VEDIRECT_HEXMAP_SIZE 64
 #endif
-#define _HASH_SHIFT 16u
-#define _HASH_MUL 23456789u
 
-struct cstring_hash {
-  _RELAXEDCONSTEXPR size_t operator()(const char *s) const {
-    size_t h = 0;
-    for (; *s; ++s) {
-      h = h * _HASH_MUL + static_cast<unsigned char>(*s);
-      h ^= h >> _HASH_SHIFT;
-    }
-    return h *= _HASH_MUL;
-  }
-};
+// number of pre-allocated buckets in TEXT registers map (see TextRegisterMap)
+#ifndef VEDIRECT_TEXTMAP_SIZE
+#define VEDIRECT_TEXTMAP_SIZE 16
+#endif
 
-struct cstring_eq {
-  _RELAXEDCONSTEXPR
-  bool operator()(const char *__x, const char *__y) const { return !strcmp(__x, __y); }
-};
+#define VEDIRECT_CONTAINER_TINYMAP
 
 }  // namespace m3_vedirect
 }  // namespace esphome

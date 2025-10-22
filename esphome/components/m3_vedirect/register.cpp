@@ -65,14 +65,13 @@ const Register::Platform Register::REGDEF_FACTORY_MAP[REG_DEF::CLASS::CLASS_COUN
     {TextSensor, TextSensor, TextSensor},
 };
 
-Register *Register::build_entity(Manager *, const char *) { return new Register(); }
 Register *Register::drop_platform(Manager *manager, Platform platform) {
   ESP_LOGW(manager->get_logtag(), "Reached maximum entities count for {Platform:%d}. Dropping entity factory",
            platform);
   // We'll scan the whole set since a specific platform might have been installed
   // as a fallback for other platforms.
   build_entity_func_t drop_build_entity_func = BUILD_ENTITY_FUNC[platform];
-  for (int p = 0; p < Platform_COUNT; p++) {
+  for (int p = 0; p < Platform_COUNT; ++p) {
     if (BUILD_ENTITY_FUNC[p] == drop_build_entity_func) {
       BUILD_ENTITY_FUNC[p] = Register::build_entity;
     }

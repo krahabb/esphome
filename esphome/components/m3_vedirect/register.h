@@ -2,6 +2,7 @@
 
 #include "defines.h"
 #include "ve_reg_frame.h"
+#include "containers.h"
 
 #include <functional>
 #include <vector>
@@ -9,7 +10,8 @@
 namespace esphome {
 namespace m3_vedirect {
 
-class Register {
+/// @brief Base class for all VEDirect registers/entities.
+class Register : public ValueBucket<register_id_t, Register> {
  public:
   friend class Manager;
   friend class RegisterDispatcher;
@@ -40,11 +42,8 @@ class Register {
 
  private:
   /// @brief Maps a platform to a factory function for building an entity of that platform.
-  /// This is populated by yaml generated code when a platform is enabled
-  /// in the component configuration.
-  /// If a platform is not registered, the Manager will try to
+  /// If a platform is not registered, we will try to
   /// substitute it with the most appropriate available platform
-  /// (see Register::update_platforms)
   static build_entity_func_t BUILD_ENTITY_FUNC[Platform_COUNT];
   /// @brief Maps a 'register definition' (through REG_DEF::CLASS and REG_DEF::ACCESS)
   /// to the most appropriate Platform factory function.
@@ -55,7 +54,7 @@ class Register {
   /// This (or a more specific platform version) is used to build a specific entity/register
   /// when the corresponding platform is requested when dynamically creating entities (see
   /// Manager::get_register).
-  static Register *build_entity(Manager *manager, const char *name);
+  static Register *build_entity(Manager *manager, const char *name) { return new Register(); }
 
   /// @brief Builds an entity based off the provided register definition
   /// using the most appropriate platform available.
@@ -72,14 +71,18 @@ class Register {
   static Register *drop_platform(Manager *manager, Platform platform);
 
   const REG_DEF *get_reg_def() const { return this->reg_def_; }
-  register_id_t get_register_id() const {
-    return this->reg_def_ ? this->reg_def_->register_id : REG_DEF::REGISTER_UNDEFINED;
-  }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
   typedef FrameHandler::RxHexFrame RxHexFrame;
   typedef void (*parse_hex_func_t)(Register *hex_register, const RxHexFrame *hexframe);
-  inline void parse_hex(const RxHexFrame *hexframe) { this->parse_hex_(this, hexframe); }
+  inline void parse_hex(const RxHexFrame *hexframe) {
+    this->parse_hex_(this, hexframe);
+    // check if frame needs cascading
+    auto next = this->bucket_next();
+    if (next && (next->bucket_key() == this->bucket_key())) {
+      static_cast<Register *>(next)->parse_hex(hexframe);
+    }
+  }
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
   typedef void (*parse_text_func_t)(Register *hex_register, const char *text_value);
@@ -87,14 +90,15 @@ class Register {
 #endif
 
  protected:
-  const REG_DEF *reg_def_;
+  const REG_DEF *reg_def_{nullptr};
+
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
   Register(parse_hex_func_t parse_hex_func = parse_hex_empty_, parse_text_func_t parse_text_func = parse_text_empty_)
-      : reg_def_(nullptr), parse_hex_(parse_hex_func), parse_text_(parse_text_func) {}
+      : parse_hex_(parse_hex_func), parse_text_(parse_text_func) {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Register(parse_hex_func_t parse_hex_func = parse_hex_empty_) : reg_def_(nullptr), parse_hex_(parse_hex_func) {}
+  Register(parse_hex_func_t parse_hex_func = parse_hex_empty_) : parse_hex_(parse_hex_func) {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Register(parse_text_func_t parse_text_func = parse_text_empty_) : reg_def_(nullptr), parse_text_(parse_text_func) {}
+  Register(parse_text_func_t parse_text_func = parse_text_empty_) : parse_text_(parse_text_func) {}
 #endif
 
   // called by the Manager when VEDirect timeouts (we'll send 'unknown' to APIServer)
@@ -110,7 +114,7 @@ class Register {
   virtual void parse_enum_(ENUM_DEF::enum_t enum_value){};
   virtual void parse_string_(const char *string_value){};
 
-  // Called by the manager to setup a RegisterDispatcher in order to cascade 'parse_hex' calls
+  // Called by the manager to setup a RegisterDispatcher in order to cascade 'parse_hex/parse_text' calls
   // when this Register is being added to the registered registers. The base implementation will
   // setup a new RegisterDispatcher cascading this and the provided 'hex_register' while the
   // RegisterDispatcher will just add it to it's existing list
@@ -163,7 +167,10 @@ class NumericRegister {
 
 /// @brief This class provides on-demand frame dispatching to multiple registers with the same
 /// HEX address and/or TEXT label. This is installed in the Manager.hex_registers_ collection
-/// when needed so that it'll be able to dispatch frame data to multiple registers.
+/// when needed so that it'll be able to dispatch frame data to multiple registers with the same
+/// HEX address and/or TEXT label.
+/// TODO: maybe review this design to more efficiently fit it with our RegisterMap so that we
+/// could avoid allocating additional vectors for the registers list.
 class RegisterDispatcher final : public Register {
  public:
   friend class Register;
