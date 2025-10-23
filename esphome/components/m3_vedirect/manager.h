@@ -64,11 +64,6 @@ class TextRegistersMap : public TinyMap<VEDIRECT_TEXTMAP_SIZE, const char *, Reg
  public:
   using base_type = TinyMap<VEDIRECT_TEXTMAP_SIZE, const char *, Register *, SimpleBucket<const char *, Register *>,
                             hash_textlabel, compare_textlabel>;
-
-  Register *find(const char *key) const {
-    auto bucket = base_type::find(key);
-    return bucket ? bucket->bucket_value() : nullptr;
-  }
 };
 
 #else

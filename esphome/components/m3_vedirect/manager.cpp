@@ -449,9 +449,16 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
 
 _forward_to_register:
   if (hexframe.data_size() > 0) {
-    Register *hex_register = this->get_register(hexframe.register_id(), this->auto_create_hex_entities_);
-    if (hex_register)
-      hex_register->parse_hex(&hexframe);
+    Register *reg = this->get_register(hexframe.register_id(), this->auto_create_hex_entities_);
+    if (reg) {
+    __forward_next_hex:
+      reg->parse_hex(&hexframe);
+      // check if frame needs cascading
+      reg = reg->bucket_next();
+      if (reg && (reg->bucket_key() == hexframe.register_id())) {
+        goto __forward_next_hex;
+      }
+    }
   } else {
     ESP_LOGE(this->logtag_, "HEX FRAME: inconsistent size: %s", hexframe.encoded());
   }
@@ -494,14 +501,21 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
 
   for (uint8_t i = 0; i < text_records_count; ++i) {
     const TextRecord *text_record = text_records[i];
-    Register *reg = this->text_registers_.find(text_record->name);
-    if (reg) {
-      reg->parse_text(text_record->value);
+    TextRegistersMap::bucket_type *bucket = this->text_registers_.find(text_record->name);
+    if (bucket) {
+    __forward_next_text:
+      bucket->bucket_value()->parse_text(text_record->value);
+      // check if record needs cascading
+      bucket = bucket->bucket_next();
+      if (bucket && (strcmp(bucket->bucket_key(), text_record->name) == 0)) {
+        goto __forward_next_text;
+      }
       continue;
     }
 
     if (this->auto_create_text_entities_) {
       ESP_LOGD(this->logtag_, "Auto-Creating TEXT register: %s", text_record->name);
+      Register *reg;
       const char *label;
       auto text_def = TEXT_DEF::find_label(text_record->name);
       if (text_def) {

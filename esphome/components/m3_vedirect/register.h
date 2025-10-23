@@ -75,14 +75,7 @@ class Register : public ValueBucket<register_id_t, Register> {
 #if defined(VEDIRECT_USE_HEXFRAME)
   typedef FrameHandler::RxHexFrame RxHexFrame;
   typedef void (*parse_hex_func_t)(Register *hex_register, const RxHexFrame *hexframe);
-  inline void parse_hex(const RxHexFrame *hexframe) {
-    this->parse_hex_(this, hexframe);
-    // check if frame needs cascading
-    auto next = this->bucket_next();
-    if (next && (next->bucket_key() == this->bucket_key())) {
-      static_cast<Register *>(next)->parse_hex(hexframe);
-    }
-  }
+  inline void parse_hex(const RxHexFrame *hexframe) { this->parse_hex_(this, hexframe); }
 #endif
 #if defined(VEDIRECT_USE_TEXTFRAME)
   typedef void (*parse_text_func_t)(Register *hex_register, const char *text_value);
@@ -169,8 +162,7 @@ class NumericRegister {
 /// HEX address and/or TEXT label. This is installed in the Manager.hex_registers_ collection
 /// when needed so that it'll be able to dispatch frame data to multiple registers with the same
 /// HEX address and/or TEXT label.
-/// TODO: maybe review this design to more efficiently fit it with our RegisterMap so that we
-/// could avoid allocating additional vectors for the registers list.
+/// After implementing TinyMap container this code might not be needed anymore.
 class RegisterDispatcher final : public Register {
  public:
   friend class Register;
