@@ -9,14 +9,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-Register *Number::build_entity(Manager *manager, const char *name) {
+Register *Number::build_entity(Manager *manager, const REG_DEF *reg_def, const char *name) {
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
   if (App.get_numbers().size() >= ESPHOME_ENTITY_NUMBER_COUNT) {
     return Register::drop_platform(manager, Platform::Number);
   }
 #endif
   auto entity = new Number(manager);
-  manager->init_entity(entity, name);
+  manager->init_entity(entity, reg_def, name);
   App.register_number(entity);
 #ifdef USE_API
   entity->add_on_state_callback([entity](float state) { api::global_api_server->on_number_update(entity, state); });

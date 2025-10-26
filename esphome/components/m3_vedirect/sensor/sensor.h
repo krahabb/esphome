@@ -27,7 +27,7 @@ class Sensor final : public NumericRegister, public Register, public esphome::se
   /// @param name the name of the entity
   /// @param object_id the object_id of the entity
   /// @return the newly created TextSensor->Register entity
-  static Register *build_entity(Manager *manager, const char *name);
+  static Register *build_entity(Manager *manager, const REG_DEF *reg_def, const char *name);
 
  protected:
   friend class Manager;

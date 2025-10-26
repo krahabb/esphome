@@ -15,14 +15,14 @@ namespace m3_vedirect {
 static const char *const TAG = "m3_vedirect.select";
 #endif
 
-Register *Select::build_entity(Manager *manager, const char *name) {
+Register *Select::build_entity(Manager *manager, const REG_DEF *reg_def, const char *name) {
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
   if (App.get_selects().size() >= ESPHOME_ENTITY_SELECT_COUNT) {
     return Register::drop_platform(manager, Platform::Select);
   }
 #endif
   auto entity = new Select(manager);
-  manager->init_entity(entity, name);
+  manager->init_entity(entity, reg_def, name);
   App.register_select(entity);
 #ifdef USE_API
   entity->add_on_state_callback([entity](const std::string &state, size_t index) {

@@ -497,7 +497,8 @@ async def to_code(config: dict):
     """
     var = cg.new_Pvariable(config[ec.CONF_ID])
     cg.add(var.set_vedirect_id(str(var.base)))
-    cg.add(var.set_vedirect_name(config.get(ec.CONF_NAME, str(var.base))))
+    if ec.CONF_NAME in config:
+        cg.add(var.set_vedirect_name(config[ec.CONF_NAME]))
     for flavor in deflate_flavors(config[CONF_FLAVOR]):
         cg.add_build_flag(f"-DVEDIRECT_FLAVOR_{flavor}")
     if CONF_TEXTFRAME in config:

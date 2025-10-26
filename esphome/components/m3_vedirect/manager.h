@@ -161,6 +161,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   typedef std::function<void(const HexFrame *, uint8_t)> request_callback_t;
 
   static const std::vector<Manager *> get_managers(const std::string &vedirect_id);
+  static bool has_multi_manager() { return managers_.size() > 1; }
 
 // dedicated entities to manage component state/behavior
 #ifdef USE_BINARY_SENSOR
@@ -176,6 +177,8 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif
 
  public:
+  Manager() { managers_.push_back(this); }
+
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -272,7 +275,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 
   /// @brief Initialize an entity (Register) with the correct naming/id scheme
   /// when dynamically created by the Manager.
-  void init_entity(EntityBase *entity, const char *name);
+  void init_entity(EntityBase *entity, const REG_DEF *reg_def, const char *name);
 
 #if defined(VEDIRECT_USE_HEXFRAME)
   // The VEDirect port looks like not buffering enough incoming requests so that they'll
@@ -329,6 +332,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif  //  defined(VEDIRECT_USE_HEXFRAME)
 
  protected:
+  // TODO: use StaticVector and/or optimize memory/code usage when single manager only.
   static std::vector<Manager *> managers_;
   // component config
   const char *logtag_;

@@ -11,14 +11,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-Register *TextSensor::build_entity(Manager *manager, const char *name) {
+Register *TextSensor::build_entity(Manager *manager, const REG_DEF *reg_def, const char *name) {
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
   if (App.get_text_sensors().size() >= ESPHOME_ENTITY_TEXT_SENSOR_COUNT) {
     return Register::drop_platform(manager, Platform::TextSensor);
   }
 #endif
   auto entity = new TextSensor(manager);
-  manager->init_entity(entity, name);
+  manager->init_entity(entity, reg_def, name);
   App.register_text_sensor(entity);
 #ifdef USE_API
   entity->add_on_state_callback(

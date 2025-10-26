@@ -29,7 +29,7 @@ class Register : public ValueBucket<register_id_t, Register> {
   // build function for a plain base 'Register' object for every specialized type
   // so that the Manager will always instantiate an object (which will have no
   // behavior other than working as a stub in this case).
-  typedef Register *(*build_entity_func_t)(Manager *manager, const char *name);
+  typedef Register *(*build_entity_func_t)(Manager *manager, const REG_DEF *reg_def, const char *name);
   enum Platform {
     BinarySensor,
     Number,
@@ -62,7 +62,7 @@ class Register : public ValueBucket<register_id_t, Register> {
   /// This (or a more specific platform version) is used to build a specific entity/register
   /// when the corresponding platform is requested when dynamically creating entities (see
   /// Manager::get_register).
-  static Register *build_entity(Manager *manager, const char *name) { return new Register(); }
+  static Register *build_entity(Manager *manager, const REG_DEF *reg_def, const char *name) { return new Register(); }
 
   const REG_DEF *get_reg_def() const { return this->reg_def_; }
 

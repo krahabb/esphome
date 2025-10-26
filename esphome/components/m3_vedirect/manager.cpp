@@ -5,7 +5,8 @@
 namespace esphome {
 namespace m3_vedirect {
 
-static const char TAG[] = "m3_vedirect.%s";
+static const char TAG[] = "m3_vedirect";
+static const char FMT_JOIN_UNDERSCORE[] = "%s_%s";
 
 const char *FRAME_ERRORS[Manager::Error::_COUNT] = {"None",          "Checksum",       "Coding",          "Overflow",
 #if defined(VEDIRECT_USE_TEXTFRAME)
@@ -19,11 +20,11 @@ std::vector<Manager *> Manager::managers_;
 const std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
   if (vedirect_id.empty()) {
     return {managers_.front()};
-  } else if (vedirect_id == "*") {
+  } else if (vedirect_id[0] == '*') {
     return managers_;
   } else {
     for (auto manager : managers_) {
-      if (manager->vedirect_id_ == vedirect_id) {
+      if (strcmp(vedirect_id.c_str(), manager->vedirect_id_) == 0) {
         return {manager};
       }
     }
@@ -32,13 +33,16 @@ const std::vector<Manager *> Manager::get_managers(const std::string &vedirect_i
 }
 
 void Manager::setup() {
-  char *buf = new char[sizeof(TAG) + strlen(this->vedirect_id_)];
-  sprintf(buf, TAG, this->vedirect_id_);
-  this->logtag_ = buf;
+  if (this->has_multi_manager()) {
+    char *buf = new char[sizeof(TAG) + strlen(this->vedirect_id_) + 1];
+    sprintf(buf, FMT_JOIN_UNDERSCORE, TAG, this->vedirect_id_);
+    this->logtag_ = buf;
+  } else {
+    this->logtag_ = TAG;
+  }
 #if defined(VEDIRECT_USE_HEXFRAME)
   this->last_ping_tx_ = -this->ping_timeout_;
 #endif
-  Manager::managers_.push_back(this);
 }
 
 void Manager::loop() {
@@ -176,12 +180,33 @@ void Manager::init_register(Register *reg, const char *label) {
 }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
-void Manager::init_entity(EntityBase *entity, const char *name) {
-  const char *manager_name = this->vedirect_name_ ? this->vedirect_name_ : this->vedirect_id_;
-  char *entity_name = new char[strlen(manager_name) + strlen(name) + 2];
-  sprintf(entity_name, "%s_%s", manager_name, name);
-  entity->set_name(entity_name);
-  entity->set_object_id(entity_name);
+/// @brief Initialize an entity with a register definition-based name/id
+/// when dynamically created by the Manager.
+/// @param entity
+/// @param reg_def nullptr if no register definition is available (dynamic TEXT registers)
+/// @param name might be nullptr, in which case reg_def must be valid (dynamic HEX registers)
+void Manager::init_entity(EntityBase *entity, const REG_DEF *reg_def, const char *name) {
+  char reg_name_buf[7];
+  if (name == nullptr) {
+    // If no name provided, use the register_id as name and preset the temporary buffer.
+    // We'll then allocate as needed depending on whether we need to prefix with vedirect name/id.
+    sprintf(reg_name_buf, "0x%04X", (int) reg_def->register_id);
+  }
+  if (this->vedirect_name_ || this->has_multi_manager()) {
+    const char *manager_name = this->vedirect_name_ ? this->vedirect_name_ : this->vedirect_id_;
+    if (name == nullptr) {
+      name = reg_name_buf;
+    }
+    char *entity_name = new char[strlen(manager_name) + strlen(name) + 2];
+    sprintf(entity_name, FMT_JOIN_UNDERSCORE, manager_name, name);
+    name = entity_name;
+  } else {
+    if (name == nullptr) {
+      name = strdup(reg_name_buf);
+    }
+  }
+  entity->set_name(name);
+  entity->set_object_id(name);
 }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
@@ -450,9 +475,7 @@ _forward_to_register:
     auto reg_def = REG_DEF::find_register_id(hexframe.register_id());
     if (!reg_def) {
       // else build a raw text sensor
-      char *name = new char[16];
-      sprintf(name, "register_0x%04X", (int) hexframe.register_id());
-      reg_def = new REG_DEF(hexframe.register_id(), name, REG_DEF::CLASS::VOID, REG_DEF::ACCESS::READ_ONLY);
+      reg_def = new REG_DEF(hexframe.register_id(), nullptr, REG_DEF::CLASS::VOID, REG_DEF::ACCESS::READ_ONLY);
     }
     reg = Register::auto_create(this, reg_def);
     reg->parse_hex(&hexframe);
@@ -523,14 +546,14 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
             reg = Register::auto_create(this, reg_def);
           }
         } else {
-          reg = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
+          reg = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, nullptr, label);
         }
       } else {
         // We lack the definition for this TEXT RECORD so
         // we return a plain TextSensor entity.
         // We allocate a copy since the label param is 'volatile'
         label = strdup(text_record->name);
-        reg = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
+        reg = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, nullptr, label);
       }
       this->text_registers_.insert(label, reg);
       reg->parse_text(text_record->value);

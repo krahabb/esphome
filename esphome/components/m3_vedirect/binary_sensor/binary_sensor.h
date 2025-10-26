@@ -24,7 +24,7 @@ class BinarySensor final : public Register, public esphome::binary_sensor::Binar
   /// @param name the name of the entity
   /// @param object_id the object_id of the entity
   /// @return the newly created TextSensor->Register entity
-  static Register *build_entity(Manager *manager, const char *name);
+  static Register *build_entity(Manager *manager, const REG_DEF *reg_def, const char *name);
 
   void set_mask(uint32_t mask) { this->mask_ = mask; }
 

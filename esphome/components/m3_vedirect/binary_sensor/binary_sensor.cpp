@@ -11,14 +11,14 @@
 namespace esphome {
 namespace m3_vedirect {
 
-Register *BinarySensor::build_entity(Manager *manager, const char *name) {
+Register *BinarySensor::build_entity(Manager *manager, const REG_DEF *reg_def, const char *name) {
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 8, 0)
   if (App.get_binary_sensors().size() >= ESPHOME_ENTITY_BINARY_SENSOR_COUNT) {
     return Register::drop_platform(manager, Platform::BinarySensor);
   }
 #endif
   auto entity = new BinarySensor(manager);
-  manager->init_entity(entity, name);
+  manager->init_entity(entity, reg_def, name);
   App.register_binary_sensor(entity);
 #ifdef USE_API
   entity->add_on_state_callback([entity](bool state) {
