@@ -274,8 +274,6 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// when dynamically created by the Manager.
   void init_entity(EntityBase *entity, const char *name);
 
-  Register *get_register(register_id_t register_id, bool auto_create);
-
 #if defined(VEDIRECT_USE_HEXFRAME)
   // The VEDirect port looks like not buffering enough incoming requests so that they'll
   // be lost if we send too many requests too quickly. To mitigate this, we'll

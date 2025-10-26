@@ -65,6 +65,13 @@ const Register::Platform Register::REGDEF_FACTORY_MAP[REG_DEF::CLASS::CLASS_COUN
     {TextSensor, TextSensor, TextSensor},
 };
 
+Register *Register::auto_create(Manager *manager, const REG_DEF *reg_def) {
+  ESP_LOGD(manager->get_logtag(), "Auto-Creating HEX register: %04X", (int) reg_def->register_id);
+  Register *reg = BUILD_ENTITY_FUNC[REGDEF_FACTORY_MAP[reg_def->cls][reg_def->access]](manager, reg_def->label);
+  manager->init_register(reg, reg_def);
+  return reg;
+}
+
 Register *Register::drop_platform(Manager *manager, Platform platform) {
   ESP_LOGW(manager->get_logtag(), "Reached maximum entities count for {Platform:%d}. Dropping entity factory",
            platform);

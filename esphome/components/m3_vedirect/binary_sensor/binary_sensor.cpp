@@ -21,14 +21,13 @@ Register *BinarySensor::build_entity(Manager *manager, const char *name) {
   manager->init_entity(entity, name);
   App.register_binary_sensor(entity);
 #ifdef USE_API
-  if (api::global_api_server) {
+  entity->add_on_state_callback([entity](bool state) {
 #if ESPHOME_VERSION_CODE >= VERSION_CODE(2025, 7, 0)
-    entity->add_on_state_callback([entity](bool state) { api::global_api_server->on_binary_sensor_update(entity); });
+    api::global_api_server->on_binary_sensor_update(entity);
 #else
-    entity->add_on_state_callback(
-        [entity](bool state) { api::global_api_server->on_binary_sensor_update(entity, state); });
+    api::global_api_server->on_binary_sensor_update(entity, state);
 #endif
-  }
+  });
 #endif
   return entity;
 }

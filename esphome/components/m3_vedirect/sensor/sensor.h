@@ -13,11 +13,11 @@ class Sensor final : public NumericRegister, public Register, public esphome::se
   static const uint8_t SCALE_TO_DIGITS[REG_DEF::SCALE::SCALE_COUNT];
 
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Sensor(Manager *Manager) : Register(parse_hex_default_, parse_text_default_) {}
+  Sensor(Manager *Manager) : Register(parse_hex_default_, parse_text_default_), esphome::sensor::Sensor() {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Sensor(Manager *Manager) : Register(parse_hex_default_) {}
+  Sensor(Manager *Manager) : Register(parse_hex_default_), esphome::sensor::Sensor() {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Sensor(Manager *Manager) : Register(parse_text_default_) {}
+  Sensor(Manager *Manager) : Register(parse_text_default_), esphome::sensor::Sensor() {}
 #endif
 
   /// @brief Factory method to build a TextSensor entity for a given Manager

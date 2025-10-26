@@ -267,6 +267,14 @@ class TinyMap {
     ++this->size_;
   }
 
+  // statistics/debugging
+  bool bucket_empty(size_t bucket_index) const {
+    if (bucket_index < MAP_SIZE) {
+      return this->buckets_[bucket_index] == nullptr;
+    }
+    return true;
+  }
+
   std::string bucket_dump(size_t bucket_index) const {
     std::string result;
     if (bucket_index < MAP_SIZE) {
@@ -278,7 +286,6 @@ class TinyMap {
     return result;
   }
 
-  // statistics/debugging
   struct stats {
     size_t num_buckets{0};
     size_t num_elements{0};

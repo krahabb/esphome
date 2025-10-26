@@ -9,15 +9,16 @@ namespace m3_vedirect {
 class Switch final : public WritableRegister, public esphome::switch_::Switch {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : WritableRegister(manager, parse_hex_default_, parse_text_default_) {
+  Switch(Manager *manager)
+      : WritableRegister(manager, parse_hex_default_, parse_text_default_), esphome::switch_::Switch() {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Switch(Manager *manager) : WritableRegister(manager, parse_hex_default_) {
+  Switch(Manager *manager) : WritableRegister(manager, parse_hex_default_), esphome::switch_::Switch() {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Switch(Manager *manager) : WritableRegister(manager, parse_text_default_) {
+  Switch(Manager *manager) : WritableRegister(manager, parse_text_default_), esphome::switch_::Switch() {
     this->restore_mode = esphome::switch_::SwitchRestoreMode::SWITCH_RESTORE_DISABLED;
   }
 #endif

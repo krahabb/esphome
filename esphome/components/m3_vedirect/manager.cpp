@@ -73,6 +73,8 @@ void Manager::loop() {
 }
 
 void Manager::dump_config() {
+#if defined(VEDIRECT_CONTAINER_TINYMAP)
+
 #if defined(VEDIRECT_USE_TEXTFRAME)
   HexRegistersMap::stats stats;
   TextRegistersMap::stats text_stats;
@@ -100,6 +102,47 @@ void Manager::dump_config() {
                 stats.num_elements, stats.fill_factor, stats.load_average, stats.load_stddev);
 
 #endif
+
+#if defined(ESPHOME_LOG_HAS_VERBOSE)
+  std::string dump("HEXMAP:");
+  for (int i = 0; i < this->hex_registers_.map_size; ++i) {
+    if (this->hex_registers_.bucket_empty(i))
+      continue;
+    dump += "\n";
+    dump += this->hex_registers_.bucket_dump(i);
+    if (dump.length() > 400) {
+      ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
+      dump.clear();
+    }
+  }
+  if (dump.length()) {
+    ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
+    dump.clear();
+  }
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  dump = "TEXTMAP:";
+  for (int i = 0; i < this->text_registers_.map_size; ++i) {
+    if (this->text_registers_.bucket_empty(i))
+      continue;
+    dump += "\n";
+    dump += this->text_registers_.bucket_dump(i);
+    if (dump.length() > 400) {
+      ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
+      dump.clear();
+    }
+  }
+  if (dump.length()) {
+    ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
+    dump.clear();
+  }
+#endif  // defined(VEDIRECT_USE_TEXTFRAME)
+
+#endif  // defined(ESPHOME_LOG_HAS_VERBOSE)
+
+#else   // !defined(VEDIRECT_CONTAINER_TINYMAP)
+  ESP_LOGCONFIG(this->logtag_, "HEXMAP SIZE: %u buckets, %u elements, load factor: %.2f",
+                this->hex_registers_.bucket_count(), this->hex_registers_.size(), this->hex_registers_.load_factor());
+#endif  // !defined(VEDIRECT_CONTAINER_TINYMAP)
 }
 
 void Manager::init_register(Register *reg, const REG_DEF *reg_def) {
@@ -141,24 +184,6 @@ void Manager::init_entity(EntityBase *entity, const char *name) {
   entity->set_object_id(entity_name);
 }
 
-Register *Manager::get_register(register_id_t register_id, bool auto_create) {
-  Register *hex_register = this->hex_registers_.find(register_id);
-  if (!hex_register && auto_create) {
-    ESP_LOGD(this->logtag_, "Auto-Creating HEX register: %04X", (int) register_id);
-    // if we have a predefined register definition use it to build the most appropriate entity
-    auto reg_def = REG_DEF::find_register_id(register_id);
-    if (!reg_def) {
-      // else build a raw text sensor
-      char *name = new char[16];
-      sprintf(name, "register_0x%04X", (int) register_id);
-      reg_def = new REG_DEF(register_id, name, REG_DEF::CLASS::VOID, REG_DEF::ACCESS::READ_ONLY);
-    }
-    Register *hex_register = Register::build_entity_from_regdef(this, reg_def);
-    this->init_register(hex_register, reg_def);
-  }
-  return hex_register;
-}
-
 #if defined(VEDIRECT_USE_HEXFRAME)
 void Manager::send_hexframe(const HexFrame &hexframe) {
   this->write_array((const uint8_t *) hexframe.encoded(), hexframe.encoded_size());
@@ -176,60 +201,6 @@ void Manager::send_hexframe(const char *rawframe, bool addchecksum) {
 
 bool Manager::request(HEXFRAME::COMMAND command, register_id_t register_id, const void *data, size_t data_size,
                       request_callback_t &&callback) {
-// REMOVE ME LATER
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
-
-#if defined(VEDIRECT_USE_TEXTFRAME)
-  HexRegistersMap::stats stats;
-  TextRegistersMap::stats text_stats;
-  const char *map_name;
-  for (int i = 0; i < 2; ++i) {
-    switch (i) {
-      case 0:
-        stats = this->hex_registers_.get_stats();
-        map_name = "HEX";
-        break;
-      case 1:
-        text_stats = this->text_registers_.get_stats();
-        memcpy(&stats, &text_stats, sizeof(stats));
-        map_name = "TEXT";
-        break;
-    }
-    ESP_LOGD(this->logtag_,
-             "%s Registers Map stats: elements=%zu, fill_factor=%.2f, load_average=%.2f, load_stddev=%.2f", map_name,
-             stats.num_elements, stats.fill_factor, stats.load_average, stats.load_stddev);
-  }
-#else
-  auto stats = this->hex_registers_.get_stats();
-  ESP_LOGD(this->logtag_,
-           "HEX Registers Map stats: elements=%zu, fill_factor=%.2f, load_average=%.2f, load_stddev=%.2f",
-           stats.num_elements, stats.fill_factor, stats.load_average, stats.load_stddev);
-
-#endif
-
-  std::string dump;
-  for (int i = 0; i < this->hex_registers_.map_size; ++i) {
-    dump += this->hex_registers_.bucket_dump(i);
-    dump += "\n";
-    if ((dump.length() > 400) || (i == (this->hex_registers_.map_size - 1))) {
-      ESP_LOGD(this->logtag_, "HEXMAP: %s", dump.c_str());
-      dump.clear();
-    }
-  }
-#if defined(VEDIRECT_USE_TEXTFRAME)
-  for (int i = 0; i < this->text_registers_.map_size; ++i) {
-    dump += this->text_registers_.bucket_dump(i);
-    dump += "\n";
-    if ((dump.length() > 400) || (i == (this->text_registers_.map_size - 1))) {
-      ESP_LOGD(this->logtag_, "TEXTMAP: %s", dump.c_str());
-      dump.clear();
-    }
-  }
-#endif
-#else
-  ESP_LOGD(this->logtag_, "HEXMAP SIZE: %u buckets, %u elements, load factor: %.2f",
-           this->hex_registers_.bucket_count(), this->hex_registers_.size(), this->hex_registers_.load_factor());
-#endif
   if (this->is_request_queue_full()) {
     ESP_LOGW(this->logtag_, "HEX FRAME: queue full, dropping request (cmd '%01X' - reg '0x%04X')", command,
              register_id);
@@ -376,9 +347,20 @@ void Manager::request_response_(Request *request, const HexFrame *response, Erro
 
 void Manager::poll_next_register_() {
 #if defined(VEDIRECT_CONTAINER_TINYMAP)
-  this->request_get(this->polling_registers_it_->bucket_key(), [this](const HexFrame *, uint8_t) {
+  register_id_t register_id = this->polling_registers_it_->bucket_key();
+  while (register_id == REG_DEF::REGISTER_UNDEFINED) {
     if ((++this->polling_registers_it_).is_end()) {
       ESP_LOGD(this->logtag_, "Polling end");
+      return;
+    }
+    register_id = this->polling_registers_it_->bucket_key();
+  }
+  this->request_get(register_id, [this, register_id](const HexFrame *, uint8_t) {
+    while (register_id == this->polling_registers_it_->bucket_key()) {
+      if ((++this->polling_registers_it_).is_end()) {
+        ESP_LOGD(this->logtag_, "Polling end");
+        break;
+      }
     }
   });
 #else
@@ -448,19 +430,32 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
   }
 
 _forward_to_register:
-  if (hexframe.data_size() > 0) {
-    Register *reg = this->get_register(hexframe.register_id(), this->auto_create_hex_entities_);
-    if (reg) {
-    __forward_next_hex:
-      reg->parse_hex(&hexframe);
-      // check if frame needs cascading
-      reg = reg->bucket_next();
-      if (reg && (reg->bucket_key() == hexframe.register_id())) {
-        goto __forward_next_hex;
-      }
-    }
-  } else {
+  if (hexframe.data_size() <= 0) {
     ESP_LOGE(this->logtag_, "HEX FRAME: inconsistent size: %s", hexframe.encoded());
+    return;
+  }
+  Register *reg = this->hex_registers_.find(hexframe.register_id());
+  if (reg) {
+  __forward_next_hex:
+    reg->parse_hex(&hexframe);
+    // check if frame needs cascading
+    reg = reg->bucket_next();
+    if (reg && (reg->bucket_key() == hexframe.register_id())) {
+      goto __forward_next_hex;
+    }
+    return;
+  }
+  if (this->auto_create_hex_entities_) {
+    // if we have a predefined register definition use it to build the most appropriate entity
+    auto reg_def = REG_DEF::find_register_id(hexframe.register_id());
+    if (!reg_def) {
+      // else build a raw text sensor
+      char *name = new char[16];
+      sprintf(name, "register_0x%04X", (int) hexframe.register_id());
+      reg_def = new REG_DEF(hexframe.register_id(), name, REG_DEF::CLASS::VOID, REG_DEF::ACCESS::READ_ONLY);
+    }
+    reg = Register::auto_create(this, reg_def);
+    reg->parse_hex(&hexframe);
   }
 }
 
@@ -522,8 +517,14 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
         label = text_def->label;
         // check if we have an already defined matching hex register
         auto reg_def = REG_DEF::find_type(text_def->register_type);
-        reg = reg_def ? this->get_register(reg_def->register_id, true)
-                      : Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
+        if (reg_def) {
+          reg = this->hex_registers_.find(reg_def->register_id);
+          if (!reg) {
+            reg = Register::auto_create(this, reg_def);
+          }
+        } else {
+          reg = Register::BUILD_ENTITY_FUNC[Register::TextSensor](this, label);
+        }
       } else {
         // We lack the definition for this TEXT RECORD so
         // we return a plain TextSensor entity.

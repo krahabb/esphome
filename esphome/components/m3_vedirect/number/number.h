@@ -9,11 +9,11 @@ namespace m3_vedirect {
 class Number final : public WritableRegister, public NumericRegister, public esphome::number::Number {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_, parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_, parse_text_empty_) { this->state = NAN; }
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_hex_default_) { this->state = NAN; }
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  Number(Manager *manager) : WritableRegister(manager, parse_text_empty_) {}
+  Number(Manager *manager) : WritableRegister(manager, parse_text_empty_) { this->state = NAN; }
 #endif
 
   /// @brief Factory method to build a TextSensor entity for a given Manager

@@ -25,10 +25,9 @@ Register *Select::build_entity(Manager *manager, const char *name) {
   manager->init_entity(entity, name);
   App.register_select(entity);
 #ifdef USE_API
-  if (api::global_api_server)
-    entity->add_on_state_callback([entity](const std::string &state, size_t index) {
-      api::global_api_server->on_select_update(entity, state, index);
-    });
+  entity->add_on_state_callback([entity](const std::string &state, size_t index) {
+    api::global_api_server->on_select_update(entity, state, index);
+  });
 #endif
   return entity;
 }

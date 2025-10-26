@@ -9,11 +9,12 @@ namespace m3_vedirect {
 class BinarySensor final : public Register, public esphome::binary_sensor::BinarySensor {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  BinarySensor(Manager *Manager) : Register(parse_hex_default_, parse_text_default_) {}
+  BinarySensor(Manager *Manager)
+      : Register(parse_hex_default_, parse_text_default_), esphome::binary_sensor::BinarySensor() {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  BinarySensor(Manager *Manager) : Register(parse_hex_default_) {}
+  BinarySensor(Manager *Manager) : Register(parse_hex_default_), esphome::binary_sensor::BinarySensor() {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  BinarySensor(Manager *Manager) : Register(parse_text_default_) {}
+  BinarySensor(Manager *Manager) : Register(parse_text_default_), esphome::binary_sensor::BinarySensor() {}
 #endif
 
   /// @brief Factory method to build a TextSensor entity for a given Manager

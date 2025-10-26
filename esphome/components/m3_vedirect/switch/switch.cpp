@@ -25,8 +25,7 @@ Register *Switch::build_entity(Manager *manager, const char *name) {
   manager->init_entity(entity, name);
   App.register_switch(entity);
 #ifdef USE_API
-  if (api::global_api_server)
-    entity->add_on_state_callback([entity](bool state) { api::global_api_server->on_switch_update(entity, state); });
+  entity->add_on_state_callback([entity](bool state) { api::global_api_server->on_switch_update(entity, state); });
 #endif
   return entity;
 }

@@ -49,26 +49,20 @@ class Register : public ValueBucket<register_id_t, Register> {
   /// to the most appropriate Platform factory function.
   static const Platform REGDEF_FACTORY_MAP[REG_DEF::CLASS::CLASS_COUNT][REG_DEF::ACCESS::ACCESS_COUNT];
 
- public:
-  /// @brief Default build function for a plain Register object.
-  /// This (or a more specific platform version) is used to build a specific entity/register
-  /// when the corresponding platform is requested when dynamically creating entities (see
-  /// Manager::get_register).
-  static Register *build_entity(Manager *manager, const char *name) { return new Register(); }
-
   /// @brief Builds an entity based off the provided register definition
   /// using the most appropriate platform available.
   /// This is used by the Manager when dynamically creating entities
   /// based off the register definitions (REG_DEF::DEFS).
   /// @param reg_def: the register definition to be used for building the entity
   /// @return a new entity of the most appropriate platform or a plain Register.
-  static Register *build_entity_from_regdef(Manager *manager, const REG_DEF *reg_def) {
-    return BUILD_ENTITY_FUNC[REGDEF_FACTORY_MAP[reg_def->cls][reg_def->access]](manager, reg_def->label);
-  }
-  /// @brief Drops the platform 'build_entity' for the specified platform
-  /// and returns a plain Register object instead. This is used when a platform 'build_entity'
-  /// function detects we've run out of available space for entities registration.
-  static Register *drop_platform(Manager *manager, Platform platform);
+  static Register *auto_create(Manager *manager, const REG_DEF *reg_def);
+
+ public:
+  /// @brief Default build function for a plain Register object.
+  /// This (or a more specific platform version) is used to build a specific entity/register
+  /// when the corresponding platform is requested when dynamically creating entities (see
+  /// Manager::get_register).
+  static Register *build_entity(Manager *manager, const char *name) { return new Register(); }
 
   const REG_DEF *get_reg_def() const { return this->reg_def_; }
 
@@ -122,6 +116,11 @@ class Register : public ValueBucket<register_id_t, Register> {
   parse_text_func_t parse_text_;
   static void parse_text_empty_(Register *hex_register, const char *text_value) {}
 #endif
+
+  /// @brief Drops the platform 'build_entity' for the specified platform
+  /// and returns a plain Register object instead. This is used when a platform 'build_entity'
+  /// function detects we've run out of available space for entities registration.
+  static Register *drop_platform(Manager *manager, Platform platform);
 };
 
 /// @brief Mixin style specialization for entities that can write configuration data to

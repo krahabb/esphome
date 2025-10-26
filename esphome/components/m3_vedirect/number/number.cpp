@@ -19,8 +19,7 @@ Register *Number::build_entity(Manager *manager, const char *name) {
   manager->init_entity(entity, name);
   App.register_number(entity);
 #ifdef USE_API
-  if (api::global_api_server)
-    entity->add_on_state_callback([entity](float state) { api::global_api_server->on_number_update(entity, state); });
+  entity->add_on_state_callback([entity](float state) { api::global_api_server->on_number_update(entity, state); });
 #endif
   return entity;
 }

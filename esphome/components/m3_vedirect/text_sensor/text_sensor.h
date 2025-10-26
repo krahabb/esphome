@@ -9,11 +9,12 @@ namespace m3_vedirect {
 class TextSensor final : public Register, public esphome::text_sensor::TextSensor {
  public:
 #if defined(VEDIRECT_USE_HEXFRAME) && defined(VEDIRECT_USE_TEXTFRAME)
-  TextSensor(Manager *Manager) : Register(parse_hex_default_, parse_text_default_) {}
+  TextSensor(Manager *Manager)
+      : Register(parse_hex_default_, parse_text_default_), esphome::text_sensor::TextSensor() {}
 #elif defined(VEDIRECT_USE_HEXFRAME)
-  TextSensor(Manager *Manager) : Register(parse_hex_default_) {}
+  TextSensor(Manager *Manager) : Register(parse_hex_default_), esphome::text_sensor::TextSensor() {}
 #elif defined(VEDIRECT_USE_TEXTFRAME)
-  TextSensor(Manager *Manager) : Register(parse_text_default_) {}
+  TextSensor(Manager *Manager) : Register(parse_text_default_), esphome::text_sensor::TextSensor() {}
 #endif
 
   /// @brief Factory method to build a TextSensor entity for a given Manager
