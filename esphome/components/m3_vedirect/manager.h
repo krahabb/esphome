@@ -158,10 +158,18 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     _COUNT,
   };
 
-  typedef std::function<void(const HexFrame *, uint8_t)> request_callback_t;
+  class StaticIterator {
+   public:
+    explicit StaticIterator(const std::string &vedirect_id_key);
+    bool has_next() const { return this->current_ != nullptr; }
+    Manager *next();
 
-  static const std::vector<Manager *> get_managers(const std::string &vedirect_id);
-  static bool has_multi_manager() { return managers_.size() > 1; }
+   protected:
+    Manager *current_;
+    Manager *next_;
+  };
+
+  typedef std::function<void(const HexFrame *, uint8_t)> request_callback_t;
 
 // dedicated entities to manage component state/behavior
 #ifdef USE_BINARY_SENSOR
@@ -177,7 +185,7 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif
 
  public:
-  Manager() { managers_.push_back(this); }
+  Manager() : next_(Manager::list_) { Manager::list_ = this; }
 
   void setup() override;
   void loop() override;
@@ -221,8 +229,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     TEMPLATABLE_VALUE(std::string, data)
 
     void play(Ts... x) {
-      for (auto manager : Manager::get_managers(this->vedirect_id_.value(x...)))
-        manager->send_hexframe(this->data_.value(x...));
+      for (auto it = Manager::StaticIterator(this->vedirect_id_.value(x...)); it.has_next();) {
+        it.next()->send_hexframe(this->data_.value(x...));
+      }
     }
   };
   template<typename... Ts> class Action_send_command : public BaseAction<Ts...> {
@@ -233,27 +242,27 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
     TEMPLATABLE_VALUE(uint8_t, data_size)
 
     void play(Ts... x) {
-      for (auto manager : Manager::get_managers(this->vedirect_id_.value(x...))) {
+      for (auto it = Manager::StaticIterator(this->vedirect_id_.value(x...)); it.has_next();) {
         HEXFRAME::COMMAND command = (HEXFRAME::COMMAND) this->command_.value(x...);
         switch (command) {
           case HEXFRAME::COMMAND::Get:
-            manager->request_get(this->register_id_.value(x...));
+            it.next()->request_get(this->register_id_.value(x...));
             break;
           case HEXFRAME::COMMAND::Set:
             switch (this->data_size_.value(x...)) {
               case 1:
-                manager->request_set(this->register_id_.value(x...), (uint8_t) this->data_.value(x...));
+                it.next()->request_set(this->register_id_.value(x...), (uint8_t) this->data_.value(x...));
                 break;
               case 2:
-                manager->request_set(this->register_id_.value(x...), (uint16_t) this->data_.value(x...));
+                it.next()->request_set(this->register_id_.value(x...), (uint16_t) this->data_.value(x...));
                 break;
               default:
-                manager->request_set(this->register_id_.value(x...), (uint32_t) this->data_.value(x...));
+                it.next()->request_set(this->register_id_.value(x...), (uint32_t) this->data_.value(x...));
                 break;
             }
             break;
           default:
-            manager->request_command(command);
+            it.next()->request_command(command);
         }
       }
     }
@@ -276,6 +285,8 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
   /// @brief Initialize an entity (Register) with the correct naming/id scheme
   /// when dynamically created by the Manager.
   void init_entity(EntityBase *entity, const REG_DEF *reg_def, const char *name);
+
+  bool has_multi_manager() { return Manager::list_->next_ != nullptr; }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
   // The VEDirect port looks like not buffering enough incoming requests so that they'll
@@ -332,8 +343,9 @@ class Manager : public uart::UARTDevice, public Component, protected FrameHandle
 #endif  //  defined(VEDIRECT_USE_HEXFRAME)
 
  protected:
-  // TODO: use StaticVector and/or optimize memory/code usage when single manager only.
-  static std::vector<Manager *> managers_;
+  // Keeps a linked list of all Manager instances
+  static Manager *list_;
+  Manager *next_;
   // component config
   const char *logtag_;
   const char *vedirect_id_{nullptr};

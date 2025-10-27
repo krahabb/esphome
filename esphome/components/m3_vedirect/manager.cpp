@@ -15,21 +15,36 @@ const char *FRAME_ERRORS[Manager::Error::_COUNT] = {"None",          "Checksum",
                                                     "Timeout",       "Unexpected",     "Remote",          "Flags",
                                                     "Queue full"};
 
-std::vector<Manager *> Manager::managers_;
+Manager *Manager::list_ = nullptr;
 
-const std::vector<Manager *> Manager::get_managers(const std::string &vedirect_id) {
-  if (vedirect_id.empty()) {
-    return {managers_.front()};
-  } else if (vedirect_id[0] == '*') {
-    return managers_;
+Manager::StaticIterator::StaticIterator(const std::string &vedirect_id_key) {
+  if (vedirect_id_key.empty()) {
+    this->current_ = Manager::list_;
+    this->next_ = nullptr;
+  } else if (vedirect_id_key[0] == '*') {
+    this->current_ = Manager::list_;
+    this->next_ = (Manager::list_ != nullptr) ? Manager::list_->next_ : nullptr;
   } else {
-    for (auto manager : managers_) {
-      if (strcmp(vedirect_id.c_str(), manager->vedirect_id_) == 0) {
-        return {manager};
+    auto manager = Manager::list_;
+    for (; manager != nullptr; manager = manager->next_) {
+      if (strcmp(vedirect_id_key.c_str(), manager->get_vedirect_id()) == 0) {
+        break;
       }
     }
+    this->current_ = manager;
+    this->next_ = nullptr;
   }
-  return {};
+}
+
+Manager *Manager::StaticIterator::next() {
+  auto current = this->current_;
+  if (this->next_) {
+    this->current_ = this->next_;
+    this->next_ = this->current_->next_;
+  } else {
+    this->current_ = nullptr;
+  }
+  return current;
 }
 
 void Manager::setup() {
@@ -152,7 +167,9 @@ void Manager::dump_config() {
 void Manager::init_register(Register *reg, const REG_DEF *reg_def) {
   reg->reg_def_ = reg_def;
   reg->init_reg_def_();
-  this->hex_registers_.insert(reg_def->register_id, reg);
+  if (reg_def->register_id != REG_DEF::REGISTER_UNDEFINED) {
+    this->hex_registers_.insert(reg_def->register_id, reg);
+  }
 }
 
 void Manager::init_register(Register *reg, REG_DEF::TYPE register_type) {
@@ -327,6 +344,13 @@ void Manager::on_disconnected_() {
   for (auto it = this->hex_registers_.begin(); !it.is_end(); ++it) {
     it->link_disconnected_();
   }
+#if defined(VEDIRECT_USE_TEXTFRAME)
+  // This could be not necessary but some TEXT registers might not be mapped to HEX registers.
+  // At any rate link_disconnected_() is smart enough to avoid redundant updates.
+  for (auto it = this->text_registers_.begin(); !it.is_end(); ++it) {
+    it->bucket_value()->link_disconnected_();
+  }
+#endif
 #else
   for (const auto &pair : this->hex_registers_) {
     pair.second->link_disconnected_();
@@ -373,13 +397,6 @@ void Manager::request_response_(Request *request, const HexFrame *response, Erro
 void Manager::poll_next_register_() {
 #if defined(VEDIRECT_CONTAINER_TINYMAP)
   register_id_t register_id = this->polling_registers_it_->bucket_key();
-  while (register_id == REG_DEF::REGISTER_UNDEFINED) {
-    if ((++this->polling_registers_it_).is_end()) {
-      ESP_LOGD(this->logtag_, "Polling end");
-      return;
-    }
-    register_id = this->polling_registers_it_->bucket_key();
-  }
   this->request_get(register_id, [this, register_id](const HexFrame *, uint8_t) {
     while (register_id == this->polling_registers_it_->bucket_key()) {
       if ((++this->polling_registers_it_).is_end()) {
