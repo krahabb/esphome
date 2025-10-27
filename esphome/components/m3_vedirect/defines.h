@@ -38,7 +38,5 @@ class Register;
 #define VEDIRECT_TEXTMAP_SIZE 16
 #endif
 
-#define VEDIRECT_CONTAINER_TINYMAP
-
 }  // namespace m3_vedirect
 }  // namespace esphome

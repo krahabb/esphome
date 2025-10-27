@@ -92,8 +92,6 @@ void Manager::loop() {
 }
 
 void Manager::dump_config() {
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
-
 #if defined(VEDIRECT_USE_TEXTFRAME)
   HexRegistersMap::stats stats;
   TextRegistersMap::stats text_stats;
@@ -157,11 +155,6 @@ void Manager::dump_config() {
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
 #endif  // defined(ESPHOME_LOG_HAS_VERBOSE)
-
-#else   // !defined(VEDIRECT_CONTAINER_TINYMAP)
-  ESP_LOGCONFIG(this->logtag_, "HEXMAP SIZE: %u buckets, %u elements, load factor: %.2f",
-                this->hex_registers_.bucket_count(), this->hex_registers_.size(), this->hex_registers_.load_factor());
-#endif  // !defined(VEDIRECT_CONTAINER_TINYMAP)
 }
 
 void Manager::init_register(Register *reg, const REG_DEF *reg_def) {
@@ -282,17 +275,7 @@ void Manager::on_connected_() {
   auto polling_size = this->hex_registers_.size();
   if (polling_size) {
     ESP_LOGD(this->logtag_, "Polling begin (%d registers)", polling_size);
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
     this->polling_registers_it_ = this->hex_registers_.begin();
-#else
-    register_id_t *_polling_registers_end_;
-    this->polling_registers_it_ = this->polling_registers_begin_ = _polling_registers_end_ =
-        new register_id_t[polling_size];
-    for (const auto &pair : this->hex_registers_) {
-      *_polling_registers_end_++ = pair.first;
-    }
-    this->polling_registers_end_ = _polling_registers_end_;
-#endif
     if (!this->is_request_pending()) {
       this->poll_next_register_();
     }  // else let the transaction management advance the polling
@@ -313,12 +296,7 @@ void Manager::on_disconnected_() {
 #if defined(VEDIRECT_USE_HEXFRAME)
   if (this->is_polling()) {
     ESP_LOGD(this->logtag_, "Polling cancelled");
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
     this->polling_registers_it_ = this->hex_registers_.end();
-#else
-    delete[] this->polling_registers_begin_;
-    this->polling_registers_begin_ = this->polling_registers_end_ = nullptr;
-#endif
   }
   if (auto request = this->requests_read_) {
     ESP_LOGD(this->logtag_, "Cancelling pending requests");
@@ -340,7 +318,7 @@ void Manager::on_disconnected_() {
     link_connected->publish_state(false);
   }
 #endif
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
+
   for (auto it = this->hex_registers_.begin(); !it.is_end(); ++it) {
     it->link_disconnected_();
   }
@@ -349,11 +327,6 @@ void Manager::on_disconnected_() {
   // At any rate link_disconnected_() is smart enough to avoid redundant updates.
   for (auto it = this->text_registers_.begin(); !it.is_end(); ++it) {
     it->bucket_value()->link_disconnected_();
-  }
-#endif
-#else
-  for (const auto &pair : this->hex_registers_) {
-    pair.second->link_disconnected_();
   }
 #endif
 }
@@ -395,7 +368,7 @@ void Manager::request_response_(Request *request, const HexFrame *response, Erro
 }
 
 void Manager::poll_next_register_() {
-#if defined(VEDIRECT_CONTAINER_TINYMAP)
+  // TODO: skip already updated registers and/or TEXT registers
   register_id_t register_id = this->polling_registers_it_->bucket_key();
   this->request_get(register_id, [this, register_id](const HexFrame *, uint8_t) {
     while (register_id == this->polling_registers_it_->bucket_key()) {
@@ -405,16 +378,6 @@ void Manager::poll_next_register_() {
       }
     }
   });
-#else
-  // TODO: skip already updated registers
-  this->request_get(*this->polling_registers_it_++, [this](const HexFrame *, uint8_t) {
-    if (this->polling_registers_it_ == this->polling_registers_end_) {
-      ESP_LOGD(this->logtag_, "Polling end");
-      delete[] this->polling_registers_begin_;
-      this->polling_registers_begin_ = this->polling_registers_end_ = nullptr;
-    }
-  });
-#endif
 }
 
 void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
