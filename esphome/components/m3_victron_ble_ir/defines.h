@@ -1,4 +1,6 @@
 #pragma once
+#include "esphome/core/defines.h"
+#include "esphome/core/version.h"
 
 namespace esphome {
 namespace m3_victron_ble_ir {

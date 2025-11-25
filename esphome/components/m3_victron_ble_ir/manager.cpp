@@ -2,7 +2,6 @@
 #include "esphome/core/application.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
-#include "esphome/components/api/api_server.h"
 
 #ifdef USE_SENSOR
 #include "sensor/sensor.h"
@@ -355,11 +354,6 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
     return;
   }
 
-  api::APIServer *api_server = api::global_api_server;
-  if (api_server && (api_server->get_component_state() == COMPONENT_STATE_CONSTRUCTION))
-    // api_server eventually not initialized yet
-    api_server = nullptr;
-
   for (const auto &record_def : *record_defs) {
     // record_def.first -> VBIEntity::TYPE
     // record_def.second -> VBIEntity::RECORD_DEF
@@ -372,32 +366,20 @@ void Manager::auto_create_(VBI_RECORD::HEADER::TYPE record_type) {
       case VBIEntity::CLASS::ENUMERATION: {
         auto text_sensor = new VBITextSensor(this, record_def.first);
         App.register_text_sensor(text_sensor);
-        if (api_server)
-          text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
-            api::global_api_server->on_text_sensor_update(text_sensor, state);
-          });
       } break;
 #endif
       default: {
 #ifdef USE_SENSOR
         auto sensor = new VBISensor(this, record_def.first);
         App.register_sensor(sensor);
-        if (api_server)
-          sensor->add_on_state_callback(
-              [sensor](float state) { api::global_api_server->on_sensor_update(sensor, state); });
 #else
 #ifdef USE_TEXT_SENSOR
         auto text_sensor = new VBITextSensor(this, record_def.first);
         App.register_text_sensor(text_sensor);
-        if (api_server)
-          text_sensor->add_on_state_callback([text_sensor](const std::string &state) {
-            api::global_api_server->on_text_sensor_update(text_sensor, state);
-          });
 #else
         ESP_LOGE(TAG, "[auto_create_entities] no platform support for '%s' record field",
                  VBIEntity::DEFS[record_def.first].label);
 #endif
-
 #endif
       }
     }

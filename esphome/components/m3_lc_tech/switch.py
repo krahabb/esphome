@@ -10,9 +10,9 @@ lc_tech_ns = cg.esphome_ns.namespace("m3_lc_tech")
 LCTechRelay = lc_tech_ns.class_("LCTechRelay", switch.Switch, cg.PollingComponent)
 
 CONFIG_SCHEMA = (
-    switch.SWITCH_SCHEMA.extend(
+    switch.switch_schema(LCTechRelay)
+    .extend(
         {
-            cv.GenerateID(): cv.declare_id(LCTechRelay),
             cv.Required(CONF_CHANNEL): cv.int_range(1, 4),
         }
     )

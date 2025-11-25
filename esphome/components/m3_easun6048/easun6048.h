@@ -274,22 +274,14 @@ class Select : public select::Select, public Entity {
     if (new_value == this->current_value_)
       return;
 
-    this->set_has_state(true);
     this->current_value_ = new_value;
     auto pos = std::find(this->options_map_.begin(), this->options_map_.end(), new_value);
-    if (pos == this->options_map_.end()) {
-      ESP_LOGW(TAG, "Unknown option value %d for select %s", new_value, this->name_.c_str());
-      this->publish_state(STATE_UNKNOWN, -1);
-    } else {
-      int index = std::distance(this->options_map_.begin(), pos);
-      this->publish_state(this->traits.get_options()[index], index);
-    }
+    this->publish_state(std::distance(this->options_map_.begin(), pos));
   }
 
   void set_unavailable() override {
     this->set_has_state(false);
     this->current_value_ = -1;
-    this->publish_state(STATE_UNAVAILABLE, -1);
   }
 
   void control(const std::string &value) override {
@@ -305,13 +297,6 @@ class Select : public select::Select, public Entity {
     }
     this->current_value_ = -1;  // force next 'parse' to resend state
     this->component_->send_config(this->offset_, new_value);
-  }
-
-  // Override to provide index as well and 'fool' the base class
-  void publish_state(const std::string &state, int index) {
-    this->state = state;
-    ESP_LOGD(TAG, "'%s': Sending state %s (index %d)", this->name_.c_str(), state.c_str(), index);
-    this->state_callback_.call(state, index);
   }
 };
 #endif  // USE_SELECT
