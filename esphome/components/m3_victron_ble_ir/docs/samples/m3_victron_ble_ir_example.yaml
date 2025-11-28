@@ -1,6 +1,11 @@
+# Substitute with your platform configuration of choice
+<<: !include _m3_victron_ble_ir_platform_config.yaml
+
 external_components:
   # source: github://krahabb/esphome # development repo
   source: github://krahabb/esphome-victron-ble-ir
+
+api:
 
 # esp32_ble_tracker is needed to listen for BLE advertisements
 esp32_ble_tracker:
@@ -10,7 +15,7 @@ m3_victron_ble_ir:
     # recover from VictronConnect app
     mac_address: 0123456789ab
     # recover from VictronConnect app
-    bindkey: 0123456789abcdef
+    bindkey: 0123456789abcdef0123456789abcdef
     # Optional
     auto_create_entities: MULTI_RS
     # If set will automatically create all of the predefined entities for that device/record type.

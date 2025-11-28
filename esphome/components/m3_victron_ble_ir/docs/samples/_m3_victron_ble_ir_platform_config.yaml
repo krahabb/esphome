@@ -1,0 +1,26 @@
+substitutions:
+  platform: esp32
+  # platform: esp32-arduino
+  # platform: esp8266
+  platform_config:
+    esp32:
+      platform: esp32
+      config:
+        board: esp32-s3-devkitc-1
+        framework:
+          type: esp-idf
+    esp32-arduino:
+      platform: esp32
+      config:
+        board: esp32-s3-devkitc-1
+        framework:
+          type: arduino
+
+esphome:
+  name: m3-victron-ble-ir
+
+${platform_config[platform].platform}: ${platform_config[platform].config}
+
+wifi:
+  ssid: wifi_ssid
+  password: wifi_password
