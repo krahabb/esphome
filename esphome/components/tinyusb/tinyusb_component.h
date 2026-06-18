@@ -17,7 +17,7 @@ enum USBDStringDescriptor : uint8_t {
   SIZE = 6,
 };
 
-static const char *DEFAULT_USB_STR = "ESPHome";
+static const char *const DEFAULT_USB_STR = "ESPHome";
 
 class TinyUSB : public Component {
  public:
@@ -69,4 +69,4 @@ class TinyUSB : public Component {
 };
 
 }  // namespace esphome::tinyusb
-#endif
+#endif  // USE_ESP32_VARIANT_ESP32P4 || USE_ESP32_VARIANT_ESP32S2 || USE_ESP32_VARIANT_ESP32S3
