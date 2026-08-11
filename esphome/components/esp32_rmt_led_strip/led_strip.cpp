@@ -7,21 +7,23 @@
 #include "esphome/core/log.h"
 
 #include <esp_attr.h>
+#include <esp_clk_tree.h>
 
-namespace esphome {
-namespace esp32_rmt_led_strip {
+namespace esphome::esp32_rmt_led_strip {
 
 static const char *const TAG = "esp32_rmt_led_strip";
 
-#ifdef USE_ESP32_VARIANT_ESP32H2
-static const uint32_t RMT_CLK_FREQ = 32000000;
-static const uint8_t RMT_CLK_DIV = 1;
-#else
-static const uint32_t RMT_CLK_FREQ = 80000000;
-static const uint8_t RMT_CLK_DIV = 2;
-#endif
-
 static const size_t RMT_SYMBOLS_PER_BYTE = 8;
+
+// Query the RMT default clock source frequency. This varies by variant:
+// APB (80MHz) on ESP32/S2/S3/C3, PLL_F80M (80MHz) on C6/P4, XTAL (32MHz) on H2.
+// Worst-case reset time is WS2811 at 300µs = 24000 ticks at 80MHz, well within
+// the 15-bit rmt_symbol_word_t duration field max of 32767.
+static uint32_t rmt_resolution_hz() {
+  uint32_t freq;
+  esp_clk_tree_src_get_freq_hz((soc_module_clk_t) RMT_CLK_SRC_DEFAULT, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &freq);
+  return freq;
+}
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
 static size_t IRAM_ATTR HOT encoder_callback(const void *data, size_t size, size_t symbols_written, size_t symbols_free,
@@ -92,13 +94,11 @@ void ESP32RMTLEDStripLightOutput::setup() {
   rmt_tx_channel_config_t channel;
   memset(&channel, 0, sizeof(channel));
   channel.clk_src = RMT_CLK_SRC_DEFAULT;
-  channel.resolution_hz = RMT_CLK_FREQ / RMT_CLK_DIV;
+  channel.resolution_hz = rmt_resolution_hz();
   channel.gpio_num = gpio_num_t(this->pin_);
   channel.mem_block_symbols = this->rmt_symbols_;
   channel.trans_queue_depth = 1;
-  channel.flags.io_loop_back = 0;
-  channel.flags.io_od_mode = 0;
-  channel.flags.invert_out = 0;
+  channel.flags.invert_out = this->invert_out_;
   channel.flags.with_dma = this->use_dma_;
   channel.intr_priority = 0;
   if (rmt_new_tx_channel(&channel, &this->channel_) != ESP_OK) {
@@ -137,7 +137,7 @@ void ESP32RMTLEDStripLightOutput::setup() {
 
 void ESP32RMTLEDStripLightOutput::set_led_params(uint32_t bit0_high, uint32_t bit0_low, uint32_t bit1_high,
                                                  uint32_t bit1_low, uint32_t reset_time_high, uint32_t reset_time_low) {
-  float ratio = (float) RMT_CLK_FREQ / RMT_CLK_DIV / 1e09f;
+  float ratio = (float) rmt_resolution_hz() / 1e09f;
 
   // 0-bit
   this->params_.bit0.duration0 = (uint32_t) (ratio * bit0_high);
@@ -159,7 +159,8 @@ void ESP32RMTLEDStripLightOutput::set_led_params(uint32_t bit0_high, uint32_t bi
 void ESP32RMTLEDStripLightOutput::write_state(light::LightState *state) {
   // protect from refreshing too often
   uint32_t now = micros();
-  if (*this->max_refresh_rate_ != 0 && (now - this->last_refresh_) < *this->max_refresh_rate_) {
+  auto rate = this->max_refresh_rate_.value_or(0);
+  if (rate != 0 && (now - this->last_refresh_) < rate) {
     // try again next loop iteration, so that this change won't get lost
     this->schedule_show();
     return;
@@ -254,11 +255,11 @@ light::ESPColorView ESP32RMTLEDStripLightOutput::get_view_internal(int32_t index
       break;
   }
   uint8_t multiplier = this->is_rgbw_ || this->is_wrgb_ ? 4 : 3;
-  uint8_t white = this->is_wrgb_ ? 0 : 3;
+  uint8_t white = this->is_wrgb_ ? 0 : this->white_index_;
 
-  return {this->buf_ + (index * multiplier) + r + this->is_wrgb_,
-          this->buf_ + (index * multiplier) + g + this->is_wrgb_,
-          this->buf_ + (index * multiplier) + b + this->is_wrgb_,
+  return {this->buf_ + (index * multiplier) + r + (white <= r),
+          this->buf_ + (index * multiplier) + g + (white <= g),
+          this->buf_ + (index * multiplier) + b + (white <= b),
           this->is_rgbw_ || this->is_wrgb_ ? this->buf_ + (index * multiplier) + white : nullptr,
           &this->effect_data_[index],
           &this->correction_};
@@ -294,16 +295,26 @@ void ESP32RMTLEDStripLightOutput::dump_config() {
       rgb_order = "UNKNOWN";
       break;
   }
+  if (this->is_rgbw_ || this->is_wrgb_) {
+    char rgbw_order[5];
+    uint8_t white = this->is_wrgb_ ? 0 : this->white_index_;
+    uint8_t rgb_index = 0;
+    for (uint8_t i = 0; i < 4; i++) {
+      rgbw_order[i] = i == white ? 'W' : rgb_order[rgb_index++];
+    }
+    rgbw_order[4] = '\0';
+    ESP_LOGCONFIG(TAG, "  RGBW Order: %s", rgbw_order);
+  } else {
+    ESP_LOGCONFIG(TAG, "  RGB Order: %s", rgb_order);
+  }
   ESP_LOGCONFIG(TAG,
-                "  RGB Order: %s\n"
                 "  Max refresh rate: %" PRIu32 "\n"
                 "  Number of LEDs: %u",
-                rgb_order, *this->max_refresh_rate_, this->num_leds_);
+                this->max_refresh_rate_.value_or(0), this->num_leds_);
 }
 
 float ESP32RMTLEDStripLightOutput::get_setup_priority() const { return setup_priority::HARDWARE; }
 
-}  // namespace esp32_rmt_led_strip
-}  // namespace esphome
+}  // namespace esphome::esp32_rmt_led_strip
 
 #endif  // USE_ESP32

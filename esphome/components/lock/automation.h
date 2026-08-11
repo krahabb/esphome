@@ -6,7 +6,7 @@
 
 namespace esphome::lock {
 
-template<typename... Ts> class LockAction : public Action<Ts...> {
+template<typename... Ts> class LockAction final : public Action<Ts...> {
  public:
   explicit LockAction(Lock *a_lock) : lock_(a_lock) {}
 
@@ -16,7 +16,7 @@ template<typename... Ts> class LockAction : public Action<Ts...> {
   Lock *lock_;
 };
 
-template<typename... Ts> class UnlockAction : public Action<Ts...> {
+template<typename... Ts> class UnlockAction final : public Action<Ts...> {
  public:
   explicit UnlockAction(Lock *a_lock) : lock_(a_lock) {}
 
@@ -26,7 +26,7 @@ template<typename... Ts> class UnlockAction : public Action<Ts...> {
   Lock *lock_;
 };
 
-template<typename... Ts> class OpenAction : public Action<Ts...> {
+template<typename... Ts> class OpenAction final : public Action<Ts...> {
  public:
   explicit OpenAction(Lock *a_lock) : lock_(a_lock) {}
 
@@ -36,7 +36,7 @@ template<typename... Ts> class OpenAction : public Action<Ts...> {
   Lock *lock_;
 };
 
-template<typename... Ts> class LockCondition : public Condition<Ts...> {
+template<typename... Ts> class LockCondition final : public Condition<Ts...> {
  public:
   LockCondition(Lock *parent, bool state) : parent_(parent), state_(state) {}
   bool check(const Ts &...x) override {
@@ -49,26 +49,17 @@ template<typename... Ts> class LockCondition : public Condition<Ts...> {
   bool state_;
 };
 
-class LockLockTrigger : public Trigger<> {
- public:
-  LockLockTrigger(Lock *a_lock) {
-    a_lock->add_on_state_callback([this, a_lock]() {
-      if (a_lock->state == LockState::LOCK_STATE_LOCKED) {
-        this->trigger();
-      }
-    });
+/// Callback forwarder that triggers an Automation<> only when a specific lock state is entered.
+/// Pointer-sized (single Automation* field) to fit inline in Callback::ctx_.
+template<LockState State> struct LockStateForwarder {
+  Automation<> *automation;
+  void operator()(LockState state) const {
+    if (state == State)
+      this->automation->trigger();
   }
 };
 
-class LockUnlockTrigger : public Trigger<> {
- public:
-  LockUnlockTrigger(Lock *a_lock) {
-    a_lock->add_on_state_callback([this, a_lock]() {
-      if (a_lock->state == LockState::LOCK_STATE_UNLOCKED) {
-        this->trigger();
-      }
-    });
-  }
-};
+static_assert(sizeof(LockStateForwarder<LockState::LOCK_STATE_LOCKED>) <= sizeof(void *));
+static_assert(std::is_trivially_copyable_v<LockStateForwarder<LockState::LOCK_STATE_LOCKED>>);
 
 }  // namespace esphome::lock

@@ -1,15 +1,10 @@
 import esphome.codegen as cg
 from esphome.components import select
+from esphome.components.modbus.helpers import SENSOR_VALUE_TYPE, TYPE_REGISTER_MAP
 import esphome.config_validation as cv
 from esphome.const import CONF_ADDRESS, CONF_ID, CONF_LAMBDA, CONF_OPTIMISTIC
 
-from .. import (
-    SENSOR_VALUE_TYPE,
-    TYPE_REGISTER_MAP,
-    ModbusController,
-    SensorItem,
-    modbus_controller_ns,
-)
+from .. import ModbusController, SensorItem, modbus_controller_ns
 from ..const import (
     CONF_FORCE_NEW_RANGE,
     CONF_MODBUS_CONTROLLER_ID,
@@ -120,10 +115,7 @@ async def to_code(config):
             [
                 (ModbusSelect.operator("const_ptr"), "item"),
                 (cg.int64, "x"),
-                (
-                    cg.std_vector.template(cg.uint8).operator("const").operator("ref"),
-                    "data",
-                ),
+                (cg.std_span.template(cg.uint8.operator("const")), "data"),
             ],
             return_type=cg.optional.template(cg.std_string),
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, MutableMapping
 from contextlib import suppress
 import ipaddress
 import logging
@@ -7,10 +8,9 @@ import os
 from pathlib import Path
 import platform
 import re
-import shutil
-import tempfile
-from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+import stat
+import sys
+from typing import TYPE_CHECKING, TextIO
 
 from esphome.const import __version__ as ESPHOME_VERSION
 
@@ -35,6 +35,10 @@ IS_MACOS = platform.system() == "Darwin"
 IS_WINDOWS = platform.system() == "Windows"
 IS_LINUX = platform.system() == "Linux"
 
+# FNV-1 hash constants (must match C++ in esphome/core/helpers.h)
+FNV1_OFFSET_BASIS = 2166136261
+FNV1_PRIME = 16777619
+
 
 def ensure_unique_string(preferred_string, current_strings):
     test_string = preferred_string
@@ -49,8 +53,22 @@ def ensure_unique_string(preferred_string, current_strings):
     return test_string
 
 
+def _fnv1_hash(values: Iterable[int]) -> int:
+    """FNV-1 32-bit hash (multiply then XOR) over a sequence of integer values."""
+    hash_value = FNV1_OFFSET_BASIS
+    for value in values:
+        hash_value = (hash_value * FNV1_PRIME) & 0xFFFFFFFF
+        hash_value ^= value
+    return hash_value
+
+
+def fnv1_hash(string: str) -> int:
+    """FNV-1 32-bit hash function (multiply then XOR) over code points."""
+    return _fnv1_hash(map(ord, string))
+
+
 def fnv1a_32bit_hash(string: str) -> int:
-    """FNV-1a 32-bit hash function.
+    """FNV-1a 32-bit hash function (XOR then multiply).
 
     Note: This uses 32-bit hash instead of 64-bit for several reasons:
     1. ESPHome targets 32-bit microcontrollers with limited RAM (often <320KB)
@@ -63,11 +81,35 @@ def fnv1a_32bit_hash(string: str) -> int:
     a handful of area_ids and device_ids (typically <10 areas and <100
     devices), making collisions virtually impossible.
     """
-    hash_value = 2166136261
+    hash_value = FNV1_OFFSET_BASIS
     for char in string:
         hash_value ^= ord(char)
-        hash_value = (hash_value * 16777619) & 0xFFFFFFFF
+        hash_value = (hash_value * FNV1_PRIME) & 0xFFFFFFFF
     return hash_value
+
+
+def fnv1_hash_object_id(name: str) -> int:
+    """Compute FNV-1 hash of name with snake_case + sanitize transformations.
+
+    IMPORTANT: Must produce same result as C++ fnv1_hash_object_id() in helpers.h
+    with per_code_point set. This is the OLD entity hash; it computes preference
+    keys that existing devices already have stored (see
+    https://github.com/esphome/backlog/issues/85) and is also still used for live
+    keys derived from config IDs (see the motion component's calibration key).
+    Note: lower() here is Unicode aware while the C++ reconstruction is not; see
+    the known limitation note on the C++ function.
+    """
+    return fnv1_hash(sanitize(snake_case(name)))
+
+
+def fnv1_hash_name(name: str) -> int:
+    """Compute FNV-1 hash of the raw entity name (UTF-8 bytes, no transformations).
+
+    IMPORTANT: Must produce same result as C++ fnv1_hash_bytes() in helpers.h,
+    which hashes the name bytes as stored on the device.
+    Used for pre-computing entity keys at code generation time.
+    """
+    return _fnv1_hash(name.encode("utf-8"))
 
 
 def strip_accents(value: str) -> str:
@@ -96,6 +138,18 @@ def slugify(value: str) -> str:
     return "".join(c for c in value if c in ALLOWED_NAME_CHARS)
 
 
+def friendly_name_slugify(value: str) -> str:
+    """Convert a friendly name to a slug with dashes instead of underscores.
+
+    Used by device-builder (esphome/device-builder), which slugifies friendly
+    names into the YAML filename / device name during adoption + wizard flows.
+    Coordinate with the device-builder team before changing the
+    slugification rules — the mapping must stay stable so existing
+    on-disk filenames keep matching across releases.
+    """
+    return slugify(value).replace("_", "-")
+
+
 def indent_all_but_first_and_last(text, padding="  "):
     lines = text.splitlines(True)
     if len(lines) <= 2:
@@ -109,6 +163,21 @@ def indent_list(text, padding="  "):
 
 def indent(text, padding="  "):
     return "\n".join(indent_list(text, padding))
+
+
+def format_duration(seconds: float) -> str:
+    """Format a duration in seconds as a short string like "1d 2h" or "42s".
+
+    Uses the two largest non-zero units, with unit suffixes matching the YAML
+    time period shorthand (d, h, min, s).
+    """
+    remainder = max(0, int(seconds))
+    parts = []
+    for suffix, length in (("d", 86400), ("h", 3600), ("min", 60), ("s", 1)):
+        value, remainder = divmod(remainder, length)
+        if value:
+            parts.append(f"{value}{suffix}")
+    return " ".join(parts[:2]) if parts else "0s"
 
 
 # From https://stackoverflow.com/a/14945195/8924614
@@ -209,6 +278,9 @@ def resolve_ip_address(
         hosts = host
     else:
         if not is_ip_address(host):
+            # Deferred: upload/logs with an IP target never parse a URL.
+            from urllib.parse import urlparse
+
             url = urlparse(host)
             if url.scheme != "":
                 host = url.hostname
@@ -332,6 +404,45 @@ def is_ha_addon():
     return get_bool_env("ESPHOME_IS_HA_ADDON")
 
 
+def add_git_ceiling_directory(env: MutableMapping[str, str], directory: Path) -> None:
+    """Add ``directory`` to ``env``'s ``GIT_CEILING_DIRECTORIES`` list.
+
+    Git stops walking up the directory tree to find a repository once it reaches
+    a ceiling directory, so this caps the search at ``directory`` (the ESPHome
+    project root). Without it, an uninitialized or corrupt git repo in a parent
+    directory makes the ``git describe`` that build toolchains run for the app
+    version error out and fail the whole build.
+
+    ``GIT_CEILING_DIRECTORIES`` is an ``os.pathsep``-joined list of absolute
+    paths; any existing entries are preserved and duplicates are skipped.
+    """
+    ceiling = str(directory)
+    existing = env.get("GIT_CEILING_DIRECTORIES", "")
+    parts = existing.split(os.pathsep) if existing else []
+    if ceiling not in parts:
+        parts.append(ceiling)
+        env["GIT_CEILING_DIRECTORIES"] = os.pathsep.join(parts)
+
+
+def rmtree(path: Path | str) -> None:
+    """Remove a directory tree, handling read-only files on Windows.
+
+    On Windows, git pack files and other files may be marked read-only,
+    causing shutil.rmtree to fail. This handles that by removing the
+    read-only flag and retrying.
+    """
+
+    import shutil
+
+    def _onexc(func, path, exc):
+        if os.access(path, os.W_OK):
+            raise exc
+        Path(path).chmod(stat.S_IWUSR | stat.S_IRUSR)
+        func(path)
+
+    shutil.rmtree(path, onexc=_onexc)
+
+
 def walk_files(path: Path):
     for root, _, files in os.walk(path):
         for name in files:
@@ -360,6 +471,11 @@ def _write_file(
 
     Automatically creates all parent directories.
     """
+    # Deferred: a cache-hit upload/logs run never writes a file; keep the
+    # tempfile/shutil chain (bz2, lzma, random) off that path.
+    import shutil
+    import tempfile
+
     data = text
     if isinstance(text, str):
         data = text.encode()
@@ -402,6 +518,12 @@ def _write_file(
 
 
 def write_file(path: Path, text: str | bytes, private: bool = False) -> None:
+    """Atomically write text or bytes to path. Wraps OSError as EsphomeError.
+
+    Used by esphome-device-builder for in-place YAML rewrites; the
+    atomicity (sibling tempfile + shutil.move) and EsphomeError
+    wrapping are part of the public contract.
+    """
     try:
         _write_file(path, text, private=private)
     except OSError as err:
@@ -424,9 +546,15 @@ def write_file_if_changed(path: Path, text: str) -> bool:
     return True
 
 
-def copy_file_if_changed(src: Path, dst: Path) -> None:
+def copy_file_if_changed(src: Path, dst: Path) -> bool:
+    """Copy file from src to dst if contents differ.
+
+    Returns True if file was copied, False if files already matched.
+    """
+    import shutil
+
     if file_compare(src, dst):
-        return
+        return False
     dst.parent.mkdir(parents=True, exist_ok=True)
     try:
         shutil.copyfile(src, dst)
@@ -439,13 +567,14 @@ def copy_file_if_changed(src: Path, dst: Path) -> None:
             # -> delete file (it would be overwritten anyway), and try again
             # if that fails, use normal error handler
             with suppress(OSError):
-                os.unlink(dst)
+                Path(dst).unlink()
                 shutil.copyfile(src, dst)
-                return
+                return True
 
         from esphome.core import EsphomeError
 
         raise EsphomeError(f"Error copying file {src} to {dst}: {err}") from err
+    return True
 
 
 def list_starts_with(list_, sub):
@@ -454,8 +583,6 @@ def list_starts_with(list_, sub):
 
 def file_compare(path1: Path, path2: Path) -> bool:
     """Return True if the files path1 and path2 have the same contents."""
-    import stat
-
     try:
         stat1, stat2 = path1.stat(), path2.stat()
     except OSError:
@@ -529,7 +656,7 @@ def add_class_to_obj(value, cls):
         raise
 
 
-def snake_case(value):
+def snake_case(value: str) -> str:
     """Same behaviour as `helpers.cpp` method `str_snake_case`."""
     return value.replace(" ", "_").lower()
 
@@ -537,15 +664,57 @@ def snake_case(value):
 _DISALLOWED_CHARS = re.compile(r"[^a-zA-Z0-9-_]")
 
 
-def sanitize(value):
+def sanitize(value: str) -> str:
     """Same behaviour as `helpers.cpp` method `str_sanitize`."""
     return _DISALLOWED_CHARS.sub("_", value)
+
+
+class ProgressBar:
+    """A simple terminal progress bar for upload operations."""
+
+    def __init__(self, header: str, stream: TextIO | None = None) -> None:
+        # Local import to avoid a top-level cycle with esphome.core.
+        from esphome.core import CORE
+
+        self.header = header
+        self.stream = stream or sys.stderr
+        self.last_progress: int | None = None
+        # Enable when writing to an interactive TTY *or* when running under
+        # ``--dashboard``. The dashboard captures our stderr via
+        # ``stdout=PIPE, stderr=STDOUT`` and parses the ``\rUploading: NN%``
+        # frames to drive its own progress UI -- gating purely on ``isatty()``
+        # silently disables every dashboard-side flash-progress indicator.
+        is_tty = hasattr(self.stream, "isatty") and self.stream.isatty()
+        self.enabled = is_tty or CORE.dashboard
+
+    def update(self, progress: float) -> None:
+        if not self.enabled:
+            return
+        bar_length = 60
+        status = ""
+        if progress >= 1:
+            progress = 1
+            status = "Done...\r\n"
+        new_progress = int(progress * 100)
+        if new_progress == self.last_progress:
+            return
+        self.last_progress = new_progress
+        block = int(round(bar_length * progress))
+        text = f"\r{self.header}: [{'=' * block + ' ' * (bar_length - block)}] {new_progress}% {status}"
+        sys.stderr.write(text)
+        sys.stderr.flush()
+
+    def done(self) -> None:
+        if not self.enabled:
+            return
+        sys.stderr.write("\n")
+        sys.stderr.flush()
 
 
 def docs_url(path: str) -> str:
     """Return the URL to the documentation for a given path."""
     # Local import to avoid circular import
-    from esphome.config_validation import Version
+    from esphome.core import Version
 
     version = Version.parse(ESPHOME_VERSION)
     if version.is_beta:

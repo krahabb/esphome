@@ -7,10 +7,13 @@
 
 #include "esphome/core/automation.h"
 #include "esphome/components/ble_client/ble_client.h"
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace ble_client {
+// Maximum bytes to log in hex format for BLE writes (many logging buffers are 256 chars)
+static constexpr size_t BLE_WRITE_MAX_LOG_BYTES = 64;
+
+namespace esphome::ble_client {
 
 // placeholder class for static TAG .
 class Automation {
@@ -20,7 +23,7 @@ class Automation {
 };
 
 // implement on_connect automation.
-class BLEClientConnectTrigger : public Trigger<>, public BLEClientNode {
+class BLEClientConnectTrigger final : public Trigger<>, public BLEClientNode {
  public:
   explicit BLEClientConnectTrigger(BLEClient *parent) { parent->register_ble_node(this); }
   void loop() override {}
@@ -34,7 +37,7 @@ class BLEClientConnectTrigger : public Trigger<>, public BLEClientNode {
 };
 
 // on_disconnect automation
-class BLEClientDisconnectTrigger : public Trigger<>, public BLEClientNode {
+class BLEClientDisconnectTrigger final : public Trigger<>, public BLEClientNode {
  public:
   explicit BLEClientDisconnectTrigger(BLEClient *parent) { parent->register_ble_node(this); }
   void loop() override {}
@@ -58,7 +61,7 @@ class BLEClientDisconnectTrigger : public Trigger<>, public BLEClientNode {
   }
 };
 
-class BLEClientPasskeyRequestTrigger : public Trigger<>, public BLEClientNode {
+class BLEClientPasskeyRequestTrigger final : public Trigger<>, public BLEClientNode {
  public:
   explicit BLEClientPasskeyRequestTrigger(BLEClient *parent) { parent->register_ble_node(this); }
   void loop() override {}
@@ -68,7 +71,7 @@ class BLEClientPasskeyRequestTrigger : public Trigger<>, public BLEClientNode {
   }
 };
 
-class BLEClientPasskeyNotificationTrigger : public Trigger<uint32_t>, public BLEClientNode {
+class BLEClientPasskeyNotificationTrigger final : public Trigger<uint32_t>, public BLEClientNode {
  public:
   explicit BLEClientPasskeyNotificationTrigger(BLEClient *parent) { parent->register_ble_node(this); }
   void loop() override {}
@@ -79,7 +82,7 @@ class BLEClientPasskeyNotificationTrigger : public Trigger<uint32_t>, public BLE
   }
 };
 
-class BLEClientNumericComparisonRequestTrigger : public Trigger<uint32_t>, public BLEClientNode {
+class BLEClientNumericComparisonRequestTrigger final : public Trigger<uint32_t>, public BLEClientNode {
  public:
   explicit BLEClientNumericComparisonRequestTrigger(BLEClient *parent) { parent->register_ble_node(this); }
   void loop() override {}
@@ -91,7 +94,7 @@ class BLEClientNumericComparisonRequestTrigger : public Trigger<uint32_t>, publi
 };
 
 // implement the ble_client.ble_write action.
-template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, public BLEClientNode {
+template<typename... Ts> class BLEClientWriteAction final : public Action<Ts...>, public BLEClientNode {
  public:
   BLEClientWriteAction(BLEClient *ble_client) {
     ble_client->register_ble_node(this);
@@ -122,16 +125,19 @@ template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, publ
   void play_complex(const Ts &...x) override {
     this->num_running_++;
     this->var_ = std::make_tuple(x...);
-    std::vector<uint8_t> value;
+
+    bool result;
     if (this->len_ >= 0) {
-      // Static mode: copy from flash to vector
-      value.assign(this->value_.data, this->value_.data + this->len_);
+      // Static mode: write directly from flash pointer
+      result = this->write(this->value_.data, this->len_);
     } else {
-      // Template mode: call function
-      value = this->value_.func(x...);
+      // Template mode: call function and write the vector
+      std::vector<uint8_t> value = this->value_.func(x...);
+      result = this->write(value);
     }
+
     // on write failure, continue the automation chain rather than stopping so that e.g. disconnect can work.
-    if (!write(value))
+    if (!result)
       this->play_next_(x...);
   }
 
@@ -144,21 +150,26 @@ template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, publ
    * errors.
    */
   // initiate the write. Return true if all went well, will be followed by a WRITE_CHAR event.
-  bool write(const std::vector<uint8_t> &value) {
+  bool write(const uint8_t *data, size_t len) {
     if (this->node_state != espbt::ClientState::ESTABLISHED) {
       esph_log_w(Automation::TAG, "Cannot write to BLE characteristic - not connected");
       return false;
     }
-    esph_log_vv(Automation::TAG, "Will write %d bytes: %s", value.size(), format_hex_pretty(value).c_str());
-    esp_err_t err = esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
-                                             this->char_handle_, value.size(), const_cast<uint8_t *>(value.data()),
-                                             this->write_type_, ESP_GATT_AUTH_REQ_NONE);
+#if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERY_VERBOSE
+    char hex_buf[format_hex_pretty_size(BLE_WRITE_MAX_LOG_BYTES)];
+    esph_log_vv(Automation::TAG, "Will write %d bytes: %s", len, format_hex_pretty_to(hex_buf, data, len));
+#endif
+    esp_err_t err =
+        esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(), this->char_handle_, len,
+                                 const_cast<uint8_t *>(data), this->write_type_, ESP_GATT_AUTH_REQ_NONE);
     if (err != ESP_OK) {
       esph_log_e(Automation::TAG, "Error writing to characteristic: %s!", esp_err_to_name(err));
       return false;
     }
     return true;
   }
+
+  bool write(const std::vector<uint8_t> &value) { return this->write(value.data(), value.size()); }
 
   void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
                            esp_ble_gattc_cb_param_t *param) override {
@@ -175,8 +186,10 @@ template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, publ
       case ESP_GATTC_SEARCH_CMPL_EVT: {
         auto *chr = this->parent()->get_characteristic(this->service_uuid_, this->char_uuid_);
         if (chr == nullptr) {
+          char char_buf[esp32_ble::UUID_STR_LEN];
+          char service_buf[esp32_ble::UUID_STR_LEN];
           esph_log_w("ble_write_action", "Characteristic %s was not found in service %s",
-                     this->char_uuid_.to_string().c_str(), this->service_uuid_.to_string().c_str());
+                     this->char_uuid_.to_str(char_buf), this->service_uuid_.to_str(service_buf));
           break;
         }
         this->char_handle_ = chr->handle;
@@ -188,12 +201,14 @@ template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, publ
           this->write_type_ = ESP_GATT_WRITE_TYPE_NO_RSP;
           esph_log_d(Automation::TAG, "Write type: ESP_GATT_WRITE_TYPE_NO_RSP");
         } else {
-          esph_log_e(Automation::TAG, "Characteristic %s does not allow writing", this->char_uuid_.to_string().c_str());
+          char char_buf[esp32_ble::UUID_STR_LEN];
+          esph_log_e(Automation::TAG, "Characteristic %s does not allow writing", this->char_uuid_.to_str(char_buf));
           break;
         }
         this->node_state = espbt::ClientState::ESTABLISHED;
-        esph_log_d(Automation::TAG, "Found characteristic %s on device %s", this->char_uuid_.to_string().c_str(),
-                   ble_client_->address_str().c_str());
+        char char_buf[esp32_ble::UUID_STR_LEN];
+        esph_log_d(Automation::TAG, "Found characteristic %s on device %s", this->char_uuid_.to_str(char_buf),
+                   ble_client_->address_str());
         break;
       }
       default:
@@ -216,7 +231,7 @@ template<typename... Ts> class BLEClientWriteAction : public Action<Ts...>, publ
   esp_gatt_write_type_t write_type_{};
 };
 
-template<typename... Ts> class BLEClientPasskeyReplyAction : public Action<Ts...> {
+template<typename... Ts> class BLEClientPasskeyReplyAction final : public Action<Ts...> {
  public:
   BLEClientPasskeyReplyAction(BLEClient *ble_client) { parent_ = ble_client; }
 
@@ -253,7 +268,7 @@ template<typename... Ts> class BLEClientPasskeyReplyAction : public Action<Ts...
   } value_{.simple = 0};
 };
 
-template<typename... Ts> class BLEClientNumericComparisonReplyAction : public Action<Ts...> {
+template<typename... Ts> class BLEClientNumericComparisonReplyAction final : public Action<Ts...> {
  public:
   BLEClientNumericComparisonReplyAction(BLEClient *ble_client) { parent_ = ble_client; }
 
@@ -286,7 +301,7 @@ template<typename... Ts> class BLEClientNumericComparisonReplyAction : public Ac
   } value_{.simple = false};
 };
 
-template<typename... Ts> class BLEClientRemoveBondAction : public Action<Ts...> {
+template<typename... Ts> class BLEClientRemoveBondAction final : public Action<Ts...> {
  public:
   BLEClientRemoveBondAction(BLEClient *ble_client) { parent_ = ble_client; }
 
@@ -300,7 +315,7 @@ template<typename... Ts> class BLEClientRemoveBondAction : public Action<Ts...> 
   BLEClient *parent_{nullptr};
 };
 
-template<typename... Ts> class BLEClientConnectAction : public Action<Ts...>, public BLEClientNode {
+template<typename... Ts> class BLEClientConnectAction final : public Action<Ts...>, public BLEClientNode {
  public:
   BLEClientConnectAction(BLEClient *ble_client) {
     ble_client->register_ble_node(this);
@@ -349,7 +364,7 @@ template<typename... Ts> class BLEClientConnectAction : public Action<Ts...>, pu
   std::tuple<Ts...> var_{};
 };
 
-template<typename... Ts> class BLEClientDisconnectAction : public Action<Ts...>, public BLEClientNode {
+template<typename... Ts> class BLEClientDisconnectAction final : public Action<Ts...>, public BLEClientNode {
  public:
   BLEClientDisconnectAction(BLEClient *ble_client) {
     ble_client->register_ble_node(this);
@@ -386,7 +401,6 @@ template<typename... Ts> class BLEClientDisconnectAction : public Action<Ts...>,
   BLEClient *ble_client_;
   std::tuple<Ts...> var_{};
 };
-}  // namespace ble_client
-}  // namespace esphome
+}  // namespace esphome::ble_client
 
 #endif

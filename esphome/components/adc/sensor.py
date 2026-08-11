@@ -2,12 +2,16 @@ import logging
 
 import esphome.codegen as cg
 from esphome.components import sensor, voltage_sampler
-from esphome.components.esp32 import get_esp32_variant
+from esphome.components.esp32 import (
+    get_esp32_variant,
+    include_builtin_idf_component,
+    require_adc_oneshot_iram,
+)
 from esphome.components.nrf52.const import AIN_TO_GPIO, EXTRA_ADC
 from esphome.components.zephyr import (
     zephyr_add_overlay,
+    zephyr_add_overlay_builder,
     zephyr_add_prj_conf,
-    zephyr_add_user,
 )
 from esphome.config_helpers import filter_source_files_from_platform
 import esphome.config_validation as cv
@@ -24,6 +28,7 @@ from esphome.const import (
     PlatformFramework,
 )
 from esphome.core import CORE
+from esphome.types import ConfigType
 
 from . import (
     ATTENUATION_MODES,
@@ -65,6 +70,13 @@ def validate_config(config):
     return config
 
 
+def _require_adc_iram(config: ConfigType) -> ConfigType:
+    """Register ADC oneshot IRAM requirement during config validation."""
+    if CORE.is_esp32:
+        require_adc_oneshot_iram()
+    return config
+
+
 ADCSensor = adc_ns.class_(
     "ADCSensor", sensor.Sensor, cg.PollingComponent, voltage_sampler.VoltageSampler
 )
@@ -95,9 +107,22 @@ CONFIG_SCHEMA = cv.All(
     )
     .extend(cv.polling_component_schema("60s")),
     validate_config,
+    _require_adc_iram,
 )
 
 CONF_ADC_CHANNEL_ID = "adc_channel_id"
+
+
+def _overlay_io_channels():
+    channel_count = CORE.data[CONF_ADC_CHANNEL_ID]
+    entries = ", ".join(f"<&adc {channel_id}>" for channel_id in range(channel_count))
+    return f"""
+            / {{
+                zephyr,user {{
+                    io-channels = {entries};
+                }};
+            }};
+            """
 
 
 async def to_code(config):
@@ -118,6 +143,9 @@ async def to_code(config):
     cg.add(var.set_sampling_mode(config[CONF_SAMPLING_MODE]))
 
     if CORE.is_esp32:
+        # Re-enable ESP-IDF's ADC driver (excluded by default to save compile time)
+        include_builtin_idf_component("esp_adc")
+
         if attenuation := config.get(CONF_ATTENUATION):
             if attenuation == "auto":
                 cg.add(var.set_autorange(cg.global_ns.true))
@@ -157,25 +185,23 @@ async def to_code(config):
         if isinstance(pin_number, int):
             GPIO_TO_AIN = {v: k for k, v in AIN_TO_GPIO.items()}
             pin_number = GPIO_TO_AIN[pin_number]
-        zephyr_add_user("io-channels", f"<&adc {channel_id}>")
-        zephyr_add_overlay(
-            f"""
-&adc {{
-    #address-cells = <1>;
-    #size-cells = <0>;
+        zephyr_add_overlay_builder(_overlay_io_channels)
+        zephyr_add_overlay(f"""
+                &adc {{
+                    #address-cells = <1>;
+                    #size-cells = <0>;
 
-    channel@{channel_id} {{
-        reg = <{channel_id}>;
-        zephyr,gain = "{gain}";
-        zephyr,reference = "ADC_REF_INTERNAL";
-        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
-        zephyr,input-positive = <NRF_SAADC_{pin_number}>;
-        zephyr,resolution = <14>;
-        zephyr,oversampling = <8>;
-    }};
-}};
-"""
-        )
+                    channel@{channel_id} {{
+                        reg = <{channel_id}>;
+                        zephyr,gain = "{gain}";
+                        zephyr,reference = "ADC_REF_INTERNAL";
+                        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+                        zephyr,input-positive = <NRF_SAADC_{pin_number}>;
+                        zephyr,resolution = <14>;
+                        zephyr,oversampling = <8>;
+                    }};
+                }};
+            """)
 
 
 FILTER_SOURCE_FILES = filter_source_files_from_platform(
@@ -185,7 +211,7 @@ FILTER_SOURCE_FILES = filter_source_files_from_platform(
             PlatformFramework.ESP32_IDF,
         },
         "adc_sensor_esp8266.cpp": {PlatformFramework.ESP8266_ARDUINO},
-        "adc_sensor_rp2040.cpp": {PlatformFramework.RP2040_ARDUINO},
+        "adc_sensor_rp2.cpp": {PlatformFramework.RP2_ARDUINO},
         "adc_sensor_libretiny.cpp": {
             PlatformFramework.BK72XX_ARDUINO,
             PlatformFramework.RTL87XX_ARDUINO,

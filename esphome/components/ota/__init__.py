@@ -13,8 +13,19 @@ from esphome.const import (
 from esphome.core import CORE, coroutine_with_priority
 from esphome.coroutine import CoroPriority
 
+OTA_STATE_LISTENER_KEY = "ota_state_listener"
+
 CODEOWNERS = ["@esphome/core"]
-AUTO_LOAD = ["md5", "safe_mode"]
+
+
+def AUTO_LOAD() -> list[str]:
+    components = ["safe_mode"]
+    if not CORE.using_zephyr:
+        components.extend(["md5"])
+    if CORE.is_esp32:
+        components.extend(["watchdog"])
+    return components
+
 
 IS_PLATFORM_COMPONENT = True
 
@@ -86,11 +97,9 @@ BASE_OTA_SCHEMA = cv.Schema(
 @coroutine_with_priority(CoroPriority.OTA_UPDATES)
 async def to_code(config):
     cg.add_define("USE_OTA")
+    CORE.add_job(final_step)
 
-    if CORE.is_esp32 and CORE.using_arduino:
-        cg.add_library("Update", None)
-
-    if CORE.is_rp2040 and CORE.using_arduino:
+    if CORE.is_rp2 and CORE.using_arduino:
         cg.add_library("Updater", None)
 
 
@@ -122,19 +131,55 @@ async def ota_to_code(var, config):
         await automation.build_automation(trigger, [(cg.uint8, "x")], conf)
         use_state_callback = True
     if use_state_callback:
-        cg.add_define("USE_OTA_STATE_CALLBACK")
+        request_ota_state_listeners()
 
 
-FILTER_SOURCE_FILES = filter_source_files_from_platform(
+def request_ota_state_listeners() -> None:
+    """Request that OTA state listeners be compiled in.
+
+    Components that need to be notified about OTA state changes (start, progress,
+    complete, error) should call this function during their code generation.
+    This enables the add_state_listener() API on OTAComponent.
+    """
+    CORE.data[OTA_STATE_LISTENER_KEY] = True
+
+
+@coroutine_with_priority(CoroPriority.FINAL)
+async def final_step():
+    """Final code generation step to configure optional OTA features."""
+    if CORE.data.get(OTA_STATE_LISTENER_KEY, False):
+        cg.add_define("USE_OTA_STATE_LISTENER")
+
+
+_filter_backend_source_files = filter_source_files_from_platform(
     {
-        "ota_backend_arduino_esp32.cpp": {PlatformFramework.ESP32_ARDUINO},
-        "ota_backend_esp_idf.cpp": {PlatformFramework.ESP32_IDF},
-        "ota_backend_arduino_esp8266.cpp": {PlatformFramework.ESP8266_ARDUINO},
-        "ota_backend_arduino_rp2040.cpp": {PlatformFramework.RP2040_ARDUINO},
+        "ota_backend_esp_idf.cpp": {
+            PlatformFramework.ESP32_ARDUINO,
+            PlatformFramework.ESP32_IDF,
+        },
+        "ota_backend_esp8266.cpp": {PlatformFramework.ESP8266_ARDUINO},
+        "ota_backend_arduino_rp2.cpp": {PlatformFramework.RP2_ARDUINO},
         "ota_backend_arduino_libretiny.cpp": {
             PlatformFramework.BK72XX_ARDUINO,
             PlatformFramework.RTL87XX_ARDUINO,
             PlatformFramework.LN882X_ARDUINO,
         },
+        "ota_backend_host.cpp": {PlatformFramework.HOST_NATIVE},
     }
 )
+
+
+def FILTER_SOURCE_FILES() -> list[str]:
+    files = _filter_backend_source_files()
+    # ota_signature_esp_idf.cpp implements multi-key OTA signature verification,
+    # compiled only when the esp32 component enables it (external RSA signed
+    # OTA sets USE_OTA_SIGNED_VERIFICATION_MULTI_KEY). The define is set only on
+    # ESP32/IDF, so this also excludes the file on every other platform. Filter
+    # it out otherwise so the (otherwise fully #ifdef'd-out) file isn't opened
+    # and parsed on every build.
+    if not any(
+        define.name == "USE_OTA_SIGNED_VERIFICATION_MULTI_KEY"
+        for define in CORE.defines
+    ):
+        files.append("ota_signature_esp_idf.cpp")
+    return files
