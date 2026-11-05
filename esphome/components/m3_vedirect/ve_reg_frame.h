@@ -3,6 +3,8 @@
 #include <string>
 #include <cstring>  // need memcpy
 
+namespace esphome {
+namespace m3_vedirect {
 namespace m3_ve_reg {
 
 // VEDIRECT_USE_HEXFRAME and VEDIRECT_USE_TEXTFRAME can be used to enable/disable
@@ -21,14 +23,14 @@ namespace m3_ve_reg {
 // This is needed since our FrameHandler statically allocates the receiving HexFrame
 // buffer in order to optimize memory management and performance
 #ifndef VEDIRECT_HEXFRAME_MAX_SIZE
-#define VEDIRECT_HEXFRAME_MAX_SIZE 64
+static constexpr uint8_t VEDIRECT_HEXFRAME_MAX_SIZE = 64;
 #endif
 #endif  // defined(VEDIRECT_USE_HEXFRAME)
 
 #if defined(VEDIRECT_USE_TEXTFRAME)
-#define VEDIRECT_NAME_LEN 9
-#define VEDIRECT_VALUE_LEN 33
-#define VEDIRECT_RECORDS_COUNT 22
+static constexpr uint8_t VEDIRECT_NAME_LEN = 9;
+static constexpr uint8_t VEDIRECT_VALUE_LEN = 33;
+static constexpr uint8_t VEDIRECT_RECORDS_COUNT = 22;
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
 #if defined(VEDIRECT_USE_HEXFRAME)
@@ -88,13 +90,21 @@ struct HexFrame {
   // on frame type
   uint8_t command() const { return *this->begin(); }
   group_id_t group_id() const { return *(uint8_t *) (this->begin() + 1); }
-  register_id_t register_id() const { return *(uint16_t *) (this->begin() + 1); }
+  register_id_t register_id() const {
+    uint16_t id;
+    memcpy(&id, this->begin() + 1, sizeof(id));
+    return id;
+  }
   uint8_t flags() const { return *(this->begin() + 3); }
   const uint8_t *data_begin() const { return this->begin() + 4; }
   const uint8_t *data_end() const { return this->end(); }
   int data_size() const { return this->size() - 4; }
   // FRAGILE: unchecked cast to data type: be careful for buffer overflow
-  template<typename T> T data_t() const { return *(T *) this->data_begin(); }
+  template<typename T> T data_t() const {
+    T value;
+    memcpy(&value, this->data_begin(), sizeof(T));
+    return value;
+  }
   // size-checked cast to unsigned 32
   uint32_t safe_data_u32() const {
     switch (this->data_size()) {
@@ -420,3 +430,5 @@ class FrameHandler {
 };
 
 }  // namespace m3_ve_reg
+}  // namespace m3_vedirect
+}  // namespace esphome

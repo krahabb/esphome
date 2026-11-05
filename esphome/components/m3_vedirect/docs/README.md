@@ -19,6 +19,9 @@ The first document being the overall technical description and explaining what i
 Sadly enough, beside those few documents, Victron doesn't expose a very detailed 'implementation manual' for every device/family, especially the new ones (like the RS families of devices for instance) so, many times you'll have to infer or guess how to interface with these by looking at their most close counterparts for which documentation is available. As an example, I'm using this code and the knowledge from those docs to succesfully (at least partially) interface a Multi RS inverter which contains both MPPTs and INVERTERs features (plus many which are very specific and for which there's no official doc available).
 At any rate, for basic sensor readings and configuration those documents are enough since, even among different devices and classes, the configuration registers are pretty almost the same.
 
+## Warning
+This component was developed right before last year's EspHome core deep design changes and I was struggling to mantain support for updates. Recent PR from external contributors (Thanks to @olicooper and @divomen) should have fixed the majority of the compatibility issues.
+
 ## How to use
 In order to include the component in your EspHome project use the [instructions](https://esphome.io/components/external_components). Something in the lines:
 ```yaml
@@ -136,6 +139,8 @@ This table exposes the list of actually pre-defined registers to be used with th
 | AC_OUT_VOLTAGE                | 0x2200      | NUMERIC | READ_ONLY  | INV      |
 | AC_OUT_CURRENT                | 0x2201      | NUMERIC | READ_ONLY  | INV      |
 | AC_OUT_APPARENT_POWER         | 0x2205      | NUMERIC | READ_ONLY  | INV      |
+| AC_LOAD_SENSE_POWER_THRESHOLD | 0x2206      | NUMERIC | READ_WRITE | INV_PHNX |
+| AC_LOAD_SENSE_POWER_CLEAR     | 0x2207      | NUMERIC | READ_WRITE | INV_PHNX |
 | SHUTDOWN_LOW_VOLTAGE_SET      | 0x2210      | NUMERIC | READ_WRITE | INV      |
 | VOLTAGE_RANGE_MIN             | 0x2211      | NUMERIC | CONSTANT   | INV      |
 | VOLTAGE_RANGE_MAX             | 0x2212      | NUMERIC | CONSTANT   | INV      |
@@ -146,6 +151,16 @@ This table exposes the list of actually pre-defined registers to be used with th
 | TWO_WIRE_BMS_INPUT_STATE      | 0xD01F      | BITMASK | READ_ONLY  | MPPT_RS  |
 | REMOTE_INPUT_MODE_CONFIG      | 0xD0C0      | ENUM    | READ_WRITE | MPPT_RS  |
 | U_AC_OUT_CURRENT_MA           | 0xD3A1      | NUMERIC | READ_ONLY  | MULTI_RS |
+| INV_AC_OUT_FREQUENCY          | 0xEB03      | ENUM    | READ_WRITE | INV_PHNX |
+| INV_ECO_LOAD_DETECT_PERIODS   | 0xEB10      | NUMERIC | READ_WRITE | INV_PHNX |
+| INV_DC_CURRENT                | 0xEB4E      | NUMERIC | READ_ONLY  | INV_PHNX |
+| INV_NVM_COMMAND               | 0xEB99      | ENUM    | READ_WRITE | INV_PHNX |
+| INV_DYN_CUTOFF_VOLTAGE        | 0xEBB1      | NUMERIC | READ_ONLY  | INV_PHNX |
+| INV_DYN_CUTOFF_FACTOR5        | 0xEBB2      | NUMERIC | READ_WRITE | INV_PHNX |
+| INV_DYN_CUTOFF_FACTOR250      | 0xEBB3      | NUMERIC | READ_WRITE | INV_PHNX |
+| INV_DYN_CUTOFF_FACTOR2000     | 0xEBB5      | NUMERIC | READ_WRITE | INV_PHNX |
+| INV_DYN_CUTOFF_FACTOR         | 0xEBB7      | NUMERIC | READ_WRITE | INV_PHNX |
+| INV_DYN_CUTOFF_ENABLE         | 0xEBBA      | BOOLEAN | READ_WRITE | INV_PHNX |
 | MPPT_TRACKER_MODE_1           | 0xECC3      | ENUM    | READ_ONLY  | MPPT_RS  |
 | PANEL_VOLTAGE_1               | 0xECCB      | NUMERIC | READ_ONLY  | MPPT_RS  |
 | PANEL_POWER_1                 | 0xECCC      | NUMERIC | READ_ONLY  | MPPT_RS  |

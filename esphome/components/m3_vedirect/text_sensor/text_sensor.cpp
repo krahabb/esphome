@@ -20,8 +20,7 @@ Register *TextSensor::build_entity(Manager *manager, const REG_DEF *reg_def, con
   }
 #endif
   auto entity = new TextSensor(manager);
-  manager->init_entity(entity, reg_def, name);
-  App.register_text_sensor(entity);
+  VEDIRECT_REGISTER_ENTITY(manager, entity, reg_def, name, text_sensor);
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2025, 11, 0)
 // See https://github.com/esphome/esphome/pull/11772
 #if defined(USE_API)
@@ -104,7 +103,7 @@ void TextSensor::parse_enum_(ENUM_DEF::enum_t enum_value) {
 }
 
 void TextSensor::parse_string_(const char *string_value) {
-  if (strcmp(this->raw_state.c_str(), string_value)) {
+  if (strcmp(this->get_raw_state().c_str(), string_value)) {
     this->raw_value_ = BITMASK_DEF::VALUE_UNKNOWN;
     this->publish_state(std::string(string_value));
   }
@@ -144,17 +143,17 @@ void TextSensor::parse_hex_app_ver_(Register *hex_register, const RxHexFrame *he
   char buf[32];
   switch (sw_type) {
     case 0x40:  // release
-      sprintf(buf, "%hhu.%.2hhu", major, minor);
+      snprintf(buf, sizeof(buf), "%hhu.%.2hhu", major, minor);
       break;
     case 0xC0:  // beta
-      sprintf(buf, "%hhu.%.2hhu-beta", major, minor);
+      snprintf(buf, sizeof(buf), "%hhu.%.2hhu-beta", major, minor);
       break;
     case 0x80:  // tester
-      sprintf(buf, "%hhu.%.2hhu-tester", major, minor);
+      snprintf(buf, sizeof(buf), "%hhu.%.2hhu-tester", major, minor);
       break;
     // case 0x00:  // bootloader
     default:
-      sprintf(buf, "%hhu.%.2hhu-bootloader", major, minor);
+      snprintf(buf, sizeof(buf), "%hhu.%.2hhu-bootloader", major, minor);
       break;
   }
   static_cast<TextSensor *>(hex_register)->parse_string_(buf);

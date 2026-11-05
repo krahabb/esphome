@@ -1,5 +1,9 @@
 #pragma once
 
+namespace esphome {
+namespace m3_vedirect {
+namespace m3_ve_reg {
+
 // clang-format off
 
 #define ENUM_BAT_VOLTAGE_SETTING(ENUM) \
@@ -7,7 +11,7 @@
 
 // BAT_TYPE enum depends on the device type so we're just providing a 'defective' common definition
 #define ENUM_BAT_TYPE(ENUM) \
-  ENUM(user, 0xFF), 
+  ENUM(user, 0xFF),
 
 #define BITMASK_BLE_MODE(ENUM) \
   ENUM(enabled, 0x00),
@@ -68,6 +72,11 @@
   ENUM(starting_up, 0xF5), ENUM(repeated_absorption, 0xF6), ENUM(auto_equalize, 0xF7), \
   ENUM(battery_safe, 0xF8), ENUM(external_control, 0xFC), ENUM(unknown, 0xFF),
 
+#define ENUM_INV_AC_OUT_FREQUENCY(ENUM) ENUM(freq_60hz, 0), ENUM(freq_50hz, 1),
+
+#define ENUM_INV_NVM_COMMAND(ENUM) \
+  ENUM(none, 0), ENUM(save, 1), ENUM(revert, 2), ENUM(backup, 3), ENUM(defaults, 4),
+
 #define ENUM_MPPT_TRACKER_MODE(ENUM) \
   ENUM(off, 0x00), ENUM(v_i_limited, 0x01), ENUM(mppt, 0x02),
 
@@ -89,3 +98,6 @@
   ENUM(short_circuit, 0x0C), ENUM(bms_lockout, 0x0D),
 
 // clang-format on
+}  // namespace m3_ve_reg
+}  // namespace m3_vedirect
+}  // namespace esphome

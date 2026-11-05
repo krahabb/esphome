@@ -49,8 +49,9 @@ Manager *Manager::StaticIterator::next() {
 
 void Manager::setup() {
   if (this->has_multi_manager()) {
-    char *buf = new char[sizeof(TAG) + strlen(this->vedirect_id_) + 1];
-    sprintf(buf, FMT_JOIN_UNDERSCORE, TAG, this->vedirect_id_);
+    auto buf_size = sizeof(TAG) + strlen(this->vedirect_id_) + 1;
+    char *buf = new char[buf_size];
+    snprintf(buf, buf_size, FMT_JOIN_UNDERSCORE, TAG, this->vedirect_id_);
     this->logtag_ = buf;
   } else {
     this->logtag_ = TAG;
@@ -90,13 +91,17 @@ void Manager::loop() {
       this->request_response_(request, nullptr, Error::TIMEOUT);
     }
   }
+
+  if (this->polling_interval_ && this->connected_ && !this->is_polling() &&
+      ((millis_ - this->last_polling_) > this->polling_interval_)) {
+    this->start_polling_(false);
+  }
 #endif
 }
 
 void Manager::dump_config() {
 #if defined(VEDIRECT_USE_TEXTFRAME)
-  HexRegistersMap::stats stats;
-  TextRegistersMap::stats text_stats;
+  TinyMapBase::stats stats;
   const char *map_name;
   for (int i = 0; i < 2; ++i) {
     switch (i) {
@@ -105,8 +110,7 @@ void Manager::dump_config() {
         map_name = "HEX";
         break;
       case 1:
-        text_stats = this->text_registers_.get_stats();
-        memcpy(&stats, &text_stats, sizeof(stats));
+        stats = this->text_registers_.get_stats();
         map_name = "TEXT";
         break;
     }
@@ -123,36 +127,36 @@ void Manager::dump_config() {
 #endif
 
 #if defined(ESPHOME_LOG_HAS_VERBOSE)
-  std::string dump("HEXMAP:");
+  StaticStringBuffer<512> string_buffer;
+  string_buffer.add("HEXMAP:");
   for (int i = 0; i < this->hex_registers_.map_size; ++i) {
     if (this->hex_registers_.bucket_empty(i))
       continue;
-    dump += "\n";
-    dump += this->hex_registers_.bucket_dump(i);
-    if (dump.length() > 400) {
-      ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
-      dump.clear();
+    string_buffer.add("\n");
+    this->hex_registers_.bucket_dump_to(string_buffer, i);
+    if (string_buffer.length() > 400) {
+      ESP_LOGCONFIG(this->logtag_, "%s", string_buffer.c_str());
+      string_buffer.clear();
     }
   }
-  if (dump.length()) {
-    ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
-    dump.clear();
+  if (string_buffer.length()) {
+    ESP_LOGCONFIG(this->logtag_, "%s", string_buffer.c_str());
+    string_buffer.clear();
   }
 #if defined(VEDIRECT_USE_TEXTFRAME)
-  dump = "TEXTMAP:";
+  string_buffer.add("TEXTMAP:");
   for (int i = 0; i < this->text_registers_.map_size; ++i) {
     if (this->text_registers_.bucket_empty(i))
       continue;
-    dump += "\n";
-    dump += this->text_registers_.bucket_dump(i);
-    if (dump.length() > 400) {
-      ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
-      dump.clear();
+    string_buffer.add("\n");
+    this->text_registers_.bucket_dump_to(string_buffer, i);
+    if (string_buffer.length() > 400) {
+      ESP_LOGCONFIG(this->logtag_, "%s", string_buffer.c_str());
+      string_buffer.clear();
     }
   }
-  if (dump.length()) {
-    ESP_LOGCONFIG(this->logtag_, "%s", dump.c_str());
-    dump.clear();
+  if (string_buffer.length()) {
+    ESP_LOGCONFIG(this->logtag_, "%s", string_buffer.c_str());
   }
 #endif  // defined(VEDIRECT_USE_TEXTFRAME)
 
@@ -197,28 +201,38 @@ void Manager::init_register(Register *reg, const char *label) {
 /// @param entity
 /// @param reg_def nullptr if no register definition is available (dynamic TEXT registers)
 /// @param name might be nullptr, in which case reg_def must be valid (dynamic HEX registers)
-void Manager::init_entity(EntityBase *entity, const REG_DEF *reg_def, const char *name) {
+const char *Manager::build_entity_name(const REG_DEF *reg_def, const char *name) {
   char reg_name_buf[7];
   if (name == nullptr) {
     // If no name provided, use the register_id as name and preset the temporary buffer.
     // We'll then allocate as needed depending on whether we need to prefix with vedirect name/id.
-    sprintf(reg_name_buf, "0x%04X", (int) reg_def->register_id);
+    snprintf(reg_name_buf, sizeof(reg_name_buf), "0x%04X", (int) reg_def->register_id);
   }
   if (this->vedirect_name_ || this->has_multi_manager()) {
     const char *manager_name = this->vedirect_name_ ? this->vedirect_name_ : this->vedirect_id_;
     if (name == nullptr) {
       name = reg_name_buf;
     }
-    char *entity_name = new char[strlen(manager_name) + strlen(name) + 2];
-    sprintf(entity_name, FMT_JOIN_UNDERSCORE, manager_name, name);
+    auto entity_name_size = strlen(manager_name) + strlen(name) + 2;
+    char *entity_name = new char[entity_name_size];
+    snprintf(entity_name, entity_name_size, FMT_JOIN_UNDERSCORE, manager_name, name);
     name = entity_name;
   } else {
     if (name == nullptr) {
       name = strdup(reg_name_buf);
     }
   }
+  return name;
+}
+
+void Manager::init_entity(EntityBase *entity, const REG_DEF *reg_def, const char *name) {
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 3, 0)
+  name = this->build_entity_name(reg_def, name);
   entity->set_name(name);
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
   entity->set_object_id(name);
+#endif
+#endif
 }
 
 #if defined(VEDIRECT_USE_HEXFRAME)
@@ -274,14 +288,7 @@ void Manager::on_connected_() {
   ESP_LOGD(this->logtag_, "LINK: connected");
   this->connected_ = true;
 #if defined(VEDIRECT_USE_HEXFRAME)
-  auto polling_size = this->hex_registers_.size();
-  if (polling_size) {
-    ESP_LOGD(this->logtag_, "Polling begin (%d registers)", polling_size);
-    this->polling_registers_it_ = this->hex_registers_.begin();
-    if (!this->is_request_pending()) {
-      this->poll_next_register_();
-    }  // else let the transaction management advance the polling
-  }
+  this->start_polling_(true);
 #endif
 #ifdef USE_BINARY_SENSOR
   if (auto link_connected = this->link_connected_) {
@@ -369,15 +376,47 @@ void Manager::request_response_(Request *request, const HexFrame *response, Erro
   }
 }
 
+/// @brief Starts a polling cycle over all of the configured HEX registers.
+/// @param constants false to skip the pre-defined CONSTANT registers (periodic polling)
+void Manager::start_polling_(bool constants) {
+  this->last_polling_ = millis();
+  this->polling_constants_ = constants;
+  auto polling_size = this->hex_registers_.size();
+  if (polling_size) {
+    ESP_LOGD(this->logtag_, "Polling begin (%d registers)", polling_size);
+    this->polling_registers_it_ = this->hex_registers_.begin();
+    this->skip_polling_constants_();
+    if (this->is_polling() && !this->is_request_pending()) {
+      this->poll_next_register_();
+    }  // else let the transaction management advance the polling
+  }
+}
+
+void Manager::skip_polling_constants_() {
+  // Pre-defined CONSTANT registers (serial number, firmware version, ...) only need to be
+  // read once on connection. Custom registers are always polled since their definition
+  // defaults to CONSTANT access when not known.
+  if (this->polling_constants_)
+    return;
+  for (; !this->polling_registers_it_.is_end(); ++this->polling_registers_it_) {
+    auto reg_def = this->polling_registers_it_->get_reg_def();
+    if (!reg_def || (reg_def->access != REG_DEF::ACCESS::CONSTANT) || (reg_def < REG_DEF::DEFS) ||
+        (reg_def >= REG_DEF::DEFS + REG_DEF::TYPE::TYPE_COUNT))
+      break;
+  }
+}
+
 void Manager::poll_next_register_() {
   // TODO: skip already updated registers and/or TEXT registers
   register_id_t register_id = this->polling_registers_it_->bucket_key();
   this->request_get(register_id, [this, register_id](const HexFrame *, uint8_t) {
     while (register_id == this->polling_registers_it_->bucket_key()) {
-      if ((++this->polling_registers_it_).is_end()) {
-        ESP_LOGD(this->logtag_, "Polling end");
+      if ((++this->polling_registers_it_).is_end())
         break;
-      }
+    }
+    this->skip_polling_constants_();
+    if (this->polling_registers_it_.is_end()) {
+      ESP_LOGD(this->logtag_, "Polling end");
     }
   });
 }
@@ -403,7 +442,7 @@ void Manager::on_frame_hex_(const RxHexFrame &hexframe) {
     goto _forward_to_register;
   }
 
-  if (request = this->requests_read_) {
+  if ((request = this->requests_read_)) {
     switch (rx_command) {
       case HEXFRAME::COMMAND::Get:
       case HEXFRAME::COMMAND::Set:
@@ -493,7 +532,7 @@ void Manager::on_frame_text_(TextRecord **text_records, uint8_t text_records_cou
       textframe_value.append(text_record->value);
       textframe_value.append(",");
     }
-    if (rawtextframe->raw_state != textframe_value) {
+    if (rawtextframe->get_raw_state() != textframe_value) {
       rawtextframe->publish_state(textframe_value);
     }
   }
